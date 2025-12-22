@@ -1,0 +1,23 @@
+# Obsidian Skill Configuration
+# Copy to .claude/config/your-skill.yaml in your vault
+
+# Vault structure settings
+vault:
+  daily_notes_folder: "Daily Notes"
+  templates_folder: "Templates"
+  attachments_folder: "Attachments"
+
+# Frontmatter settings
+frontmatter:
+  required_fields:
+    - title
+    - created
+  date_format: "%Y-%m-%d"
+
+# Link settings
+links:
+  prefer_wikilinks: true
+  use_relative_paths: false
+
+# Skill-specific settings
+# Add your custom configuration below

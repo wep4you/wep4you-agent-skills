@@ -1,0 +1,7 @@
+# Default configuration for your-skill-name
+# Copy this file to your vault's .claude/config/ directory and customize
+
+# Example setting
+setting_name: default_value
+
+# Add your configuration options here

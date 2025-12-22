@@ -1,0 +1,135 @@
+# Vault Validator Configuration
+# Phase 6.11+ Compatible
+
+# Default mode (report, auto, interactive)
+default_mode: interactive
+
+# Paths to exclude from validation
+exclude_paths:
+  - +/                    # Inbox - inputs not yet processed to standards
+  - x/                    # System files (templates, scripts, attachments)
+  - .obsidian/            # Obsidian config
+  - .git/                 # Git directory
+  - .trash/               # Trash
+  - .DS_Store             # macOS files
+  - .beads/               # Beads issue tracking
+  - .claude/              # Claude Code configuration (not vault notes)
+
+# Special files that don't follow standard structure
+exclude_files:
+  - Home.md               # Root navigation file
+  - README.md             # Repository readme
+  - AGENTS.md             # Agent overview at vault root
+
+# Auto-fix settings (true = automatically fix, false = report only)
+auto_fix:
+  empty_types: true
+  daily_links: true
+  wikilink_quotes: true
+  invalid_created: true
+  title_properties: true
+  date_mismatches: true
+  folder_renames: false  # Requires manual confirmation
+
+# Require confirmation for these fixes (even in auto mode)
+require_confirmation:
+  - folder_renames
+  - type_changes_bulk  # More than 10 files
+
+# Type inference rules (location → type mapping)
+type_rules:
+  'Atlas/Maps/': map
+  'Atlas/Dots/': dot
+  'Atlas/Sources/': source
+  '+/copilot-conversations/': conversation
+  '+/': source
+  'Efforts/Projects/': project
+  'Efforts/Works/': work
+  'Efforts/Areas/': area
+  'Calendar/daily/': daily
+  'Calendar/weekly/': weekly
+  'Calendar/monthly/': monthly
+  'Calendar/yearly/': OKRs
+
+# Documented exceptions (patterns to ignore during validation)
+exceptions:
+  # Recipe inline properties
+  inline_properties:
+    - pattern: 'Zutat::'
+      locations:
+        - 'Atlas/Dots/Personal/Receipts/'
+      reason: 'Recipe ingredient tracking (documented exception)'
+
+  # Task plugin properties
+  task_properties:
+    - pattern: '\[date::'
+      reason: 'Obsidian Tasks plugin requirement'
+    - pattern: '\[allDay::'
+      reason: 'Obsidian Tasks plugin requirement'
+    - pattern: '\[completed::'
+      reason: 'Obsidian Tasks plugin requirement'
+    - pattern: '\[due::'
+      reason: 'Obsidian Tasks plugin requirement'
+
+  # Title in YAML code blocks (not frontmatter)
+  title_in_code:
+    - pattern: 'type: custom:battery-state-card'
+      reason: 'Home Assistant YAML configuration, not frontmatter'
+
+# Reporting configuration
+report:
+  format: markdown  # markdown, json, html
+  save_to: .claude/validation-reports/
+  include_timestamp: true
+  max_files_per_issue: 10  # Limit file lists in reports
+  verbose: false
+
+# Git integration
+git:
+  auto_commit: false  # Automatically commit fixes
+  commit_message_prefix: 'Vault validation: '
+  create_branch: false  # Create branch for fixes
+  branch_name_prefix: 'validation-'
+
+# Performance settings
+performance:
+  parallel_processing: false  # Process files in parallel
+  max_workers: 4
+  cache_file_reads: true
+  incremental_mode: false  # Only validate changed files
+
+# Validation thresholds (when to warn)
+thresholds:
+  max_issues_auto_fix: 100  # Don't auto-fix if more than this
+  critical_issue_count: 10  # Warn if critical issues exceed this
+
+# Custom validators (optional)
+custom_validators:
+  enabled: false
+  validators:
+    - name: network_device_properties
+      path_pattern: 'Atlas/Dots/Network/Devices/'
+      required_properties:
+        - Mac-Address
+        - IP-Address
+        - infra_type
+
+# Notifications (future feature)
+notifications:
+  enabled: false
+  on_completion: false
+  on_errors: true
+  webhook_url: null
+
+# Validation context awareness
+skip_code_blocks: true  # Don't validate example YAML in code blocks
+skip_frontmatter_examples: true  # Don't validate example frontmatter
+
+# Version tracking
+version: 1.0.2
+compatible_with_vault: "6.11+"
+last_updated: "2025-12-21"
+changelog:
+  - "1.0.2 (2025-12-21): Exclude +/, x/, .claude/, .beads/ - validate only Atlas/Calendar/Efforts"
+  - "1.0.1 (2025-11-03): Added exclude_files list, expanded exclude_paths"
+  - "1.0.0 (2025-11-02): Initial release"

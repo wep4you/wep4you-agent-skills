@@ -1,0 +1,28 @@
+# Minimal Vault Validator Configuration
+# Copy this to .claude/config/validator.yaml and customize
+
+version: 1.0.0
+
+# Paths to exclude from validation
+exclude_paths:
+  - .obsidian/
+  - .git/
+  - .trash/
+
+# Files to exclude
+exclude_files:
+  - Home.md
+  - README.md
+
+# Auto-fix settings
+auto_fix:
+  empty_types: true
+  daily_links: true
+  wikilink_quotes: true
+  title_properties: true
+
+# Type inference (folder prefix → note type)
+type_rules:
+  'Atlas/': dot
+  'Calendar/': daily
+  'Efforts/': project

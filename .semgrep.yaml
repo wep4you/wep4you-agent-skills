@@ -1,0 +1,163 @@
+rules:
+  # =============================================================================
+  # Security Rules for wep4you-agent-skills
+  # =============================================================================
+
+  # Dangerous imports that could indicate malicious code
+  # Note: subprocess is allowed in scripts/ for running uv commands
+  - id: dangerous-import-subprocess
+    pattern: import subprocess
+    paths:
+      exclude:
+        - scripts/*
+    message: "Subprocess import detected - review for command injection risks"
+    languages: [python]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-78: OS Command Injection"
+
+  - id: dangerous-import-os-system
+    pattern: os.system(...)
+    message: "os.system() is vulnerable to command injection - use subprocess with shell=False"
+    languages: [python]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-78: OS Command Injection"
+
+  - id: dangerous-eval
+    pattern: eval(...)
+    message: "eval() is dangerous - never use with untrusted input"
+    languages: [python]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-95: Eval Injection"
+
+  - id: dangerous-exec
+    pattern: exec(...)
+    message: "exec() is dangerous - never use with untrusted input"
+    languages: [python]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-95: Eval Injection"
+
+  # Pickle deserialization (can execute arbitrary code)
+  - id: dangerous-pickle-load
+    pattern: pickle.load(...)
+    message: "pickle.load() can execute arbitrary code - use safe alternatives like JSON"
+    languages: [python]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-502: Deserialization of Untrusted Data"
+
+  - id: dangerous-pickle-loads
+    pattern: pickle.loads(...)
+    message: "pickle.loads() can execute arbitrary code - use safe alternatives like JSON"
+    languages: [python]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-502: Deserialization of Untrusted Data"
+
+  # YAML unsafe loading
+  - id: unsafe-yaml-load
+    pattern: yaml.load(..., Loader=yaml.Loader)
+    message: "yaml.Loader is unsafe - use yaml.safe_load() instead"
+    languages: [python]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-502: Deserialization of Untrusted Data"
+
+  - id: unsafe-yaml-unsafe-load
+    pattern: yaml.unsafe_load(...)
+    message: "yaml.unsafe_load() can execute arbitrary code - use yaml.safe_load()"
+    languages: [python]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-502: Deserialization of Untrusted Data"
+
+  # Hardcoded secrets
+  - id: hardcoded-password
+    pattern-either:
+      - pattern: password = "..."
+      - pattern: passwd = "..."
+      - pattern: pwd = "..."
+    message: "Potential hardcoded password detected"
+    languages: [python]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-798: Hardcoded Credentials"
+
+  - id: hardcoded-api-key
+    pattern-either:
+      - pattern: api_key = "..."
+      - pattern: apikey = "..."
+      - pattern: API_KEY = "..."
+    message: "Potential hardcoded API key detected"
+    languages: [python]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-798: Hardcoded Credentials"
+
+  - id: hardcoded-secret
+    pattern-either:
+      - pattern: secret = "..."
+      - pattern: SECRET = "..."
+      - pattern: secret_key = "..."
+    message: "Potential hardcoded secret detected"
+    languages: [python]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-798: Hardcoded Credentials"
+
+  # Path traversal - INFO level since internal file operations are typically safe
+  - id: path-traversal-open
+    pattern: open($PATH, ...)
+    message: "Ensure file path is validated to prevent path traversal attacks"
+    languages: [python]
+    severity: INFO
+    metadata:
+      category: security
+      cwe: "CWE-22: Path Traversal"
+
+  # SQL Injection (if using databases)
+  - id: sql-injection-format
+    pattern: |
+      $CURSOR.execute(f"...", ...)
+    message: "Potential SQL injection - use parameterized queries"
+    languages: [python]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-89: SQL Injection"
+
+  # Requests without timeout
+  - id: requests-no-timeout
+    patterns:
+      - pattern: requests.get(...)
+      - pattern-not: requests.get(..., timeout=..., ...)
+    message: "HTTP request without timeout can hang indefinitely"
+    languages: [python]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-400: Resource Exhaustion"
+
+  # Shell injection via subprocess
+  - id: subprocess-shell-true
+    pattern: subprocess.$FUNC(..., shell=True, ...)
+    message: "subprocess with shell=True is vulnerable to injection - use shell=False with list args"
+    languages: [python]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-78: OS Command Injection"

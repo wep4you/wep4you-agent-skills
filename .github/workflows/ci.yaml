@@ -1,0 +1,172 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  # ===========================================================================
+  # Code Quality - Linting
+  # ===========================================================================
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        run: uv python install ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: uv sync --extra dev
+
+      - name: Run ruff linter
+        run: uv run ruff check .
+
+      - name: Run ruff formatter check
+        run: uv run ruff format --check .
+
+      - name: Validate uv.lock is in sync
+        run: uv lock --check
+
+  # ===========================================================================
+  # Security - Vulnerability Scanning
+  # ===========================================================================
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        run: uv python install ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: uv sync --all-extras
+
+      - name: Run bandit security linter
+        run: uv run bandit -r skills/ -ll --skip B101
+        continue-on-error: false
+
+      - name: Run pip-audit CVE scan
+        run: uv run pip-audit --strict --skip-editable || true
+
+      - name: Run safety vulnerability check
+        run: uv run safety check --full-report || echo "Safety check completed with findings"
+
+      - name: Run semgrep security scan
+        run: uv run semgrep scan --config .semgrep.yaml skills/ scripts/ --error --severity ERROR --severity WARNING
+
+  # ===========================================================================
+  # Tests - Unit & Integration
+  # ===========================================================================
+  test:
+    name: Test (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - name: Set up Python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: uv sync --python ${{ matrix.python-version }} --extra dev
+
+      - name: Run tests with coverage
+        run: uv run pytest --cov --cov-report=xml --cov-report=term --cov-fail-under=90
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        if: matrix.python-version == '3.12'
+        with:
+          file: ./coverage.xml
+          fail_ci_if_error: false
+
+  # ===========================================================================
+  # Type Checking
+  # ===========================================================================
+  typecheck:
+    name: Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        run: uv python install ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: uv sync --extra dev
+
+      - name: Run mypy
+        run: uv run mypy skills/ scripts/ --ignore-missing-imports
+
+  # ===========================================================================
+  # Skill Validation
+  # ===========================================================================
+  validate-skills:
+    name: Validate Skills
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        run: uv python install ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Validate SKILL.md files
+        run: uv run python scripts/validate_skills.py --verbose
+
+      - name: Validate marketplace.json
+        run: uv run python -c "import json; json.load(open('.claude-plugin/marketplace.json'))"
+
+      - name: Validate YAML configs
+        run: |
+          uv run python -c "import yaml; yaml.safe_load(open('skills/validate/config/default.yaml'))"
+          uv run python -c "import yaml; yaml.safe_load(open('skills/validate/config/minimal.yaml'))"
+
+  # ===========================================================================
+  # Final Check - All jobs must pass
+  # ===========================================================================
+  all-checks:
+    name: All Checks Passed
+    needs: [lint, security, test, typecheck, validate-skills]
+    runs-on: ubuntu-latest
+    steps:
+      - name: All checks passed
+        run: echo "All CI checks passed successfully!"
