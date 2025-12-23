@@ -1,7 +1,7 @@
 {
   "name": "obsidian",
-  "description": "Obsidian vault validation and PKM workflow tools. Validates frontmatter against standards and auto-fixes common issues.",
-  "version": "0.2.0",
+  "description": "Obsidian vault validation and PKM workflow tools. Includes configuration loader, settings management, and frontmatter validation.",
+  "version": "0.4.0",
   "author": {
     "name": "Peter Weiss",
     "url": "https://github.com/wep4you"
@@ -14,9 +14,14 @@
     "pkm",
     "vault-validation",
     "frontmatter",
-    "markdown"
+    "markdown",
+    "config"
   ],
   "skills": [
+    "./skills/config",
     "./skills/validate"
+  ],
+  "commands": [
+    "./commands/"
   ]
 }

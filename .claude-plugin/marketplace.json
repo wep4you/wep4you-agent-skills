@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "Skills marketplace for Obsidian and PKM workflows",
-    "version": "0.2.0",
+    "version": "0.4.0",
     "homepage": "https://github.com/wep4you",
     "repository": "https://github.com/wep4you/wep4you-agent-skills",
     "license": "MIT"
