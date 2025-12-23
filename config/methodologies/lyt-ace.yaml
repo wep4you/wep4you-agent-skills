@@ -1,0 +1,141 @@
+name: LYT-ACE
+description: Linking Your Thinking + ACE Framework
+author: Nick Milo
+version: "1.0"
+url: https://www.linkingyourthinking.com
+
+# Core folder structure
+folders:
+  - path: Atlas/
+    purpose: Maps and navigation - your home base
+    subfolders:
+      - Maps/
+      - Dots/
+      - Scopes/
+
+  - path: Calendar/
+    purpose: Time-based notes and temporal anchors
+    subfolders:
+      - Daily/
+      - Weekly/
+      - Monthly/
+      - Yearly/
+
+  - path: Efforts/
+    purpose: Active work and ongoing engagement
+    subfolders:
+      - Projects/
+      - Areas/
+
+  - path: Extras/
+    purpose: Reference material and resources
+    subfolders:
+      - Sources/
+      - Templates/
+      - Attachments/
+
+  - path: Spaces/
+    purpose: Domains of knowledge
+    description: Subject-specific spaces (e.g., Writing, Health, Learning)
+
+# Note types with their properties and templates
+note_types:
+  map:
+    folder: Atlas/Maps/
+    description: High-level navigation notes that link to related content
+    properties:
+      - type: map
+      - up: parent_map
+      - related: []
+      - tags: []
+    template: map.md
+
+  dot:
+    folder: Atlas/Dots/
+    description: Evergreen notes - atomic, concept-focused notes
+    properties:
+      - type: dot
+      - up: related_map
+      - tags: []
+      - created: YYYY-MM-DD
+    template: dot.md
+
+  scope:
+    folder: Atlas/Scopes/
+    description: Perspective notes that provide different views
+    properties:
+      - type: scope
+      - perspective: ""
+      - related: []
+    template: scope.md
+
+  daily:
+    folder: Calendar/Daily/
+    description: Daily notes for temporal anchoring
+    properties:
+      - type: daily
+      - date: YYYY-MM-DD
+      - day: weekday
+    template: daily.md
+    naming: YYYY-MM-DD
+
+  project:
+    folder: Efforts/Projects/
+    description: Active projects with clear outcomes
+    properties:
+      - type: project
+      - status: [active, on-hold, completed, archived]
+      - goal: ""
+      - deadline: YYYY-MM-DD
+      - related: []
+    template: project.md
+
+  area:
+    folder: Efforts/Areas/
+    description: Ongoing areas of responsibility
+    properties:
+      - type: area
+      - responsibility: ""
+      - standard: ""
+      - related: []
+    template: area.md
+
+  source:
+    folder: Extras/Sources/
+    description: Reference material from external sources
+    properties:
+      - type: source
+      - author: ""
+      - url: ""
+      - date_accessed: YYYY-MM-DD
+      - tags: []
+    template: source.md
+
+# Linking conventions
+linking:
+  style: wikilink
+  use_aliases: true
+  backlinks_enabled: true
+
+# Tags strategy
+tags:
+  use_nested: true
+  conventions:
+    - status/ (e.g., status/active, status/archived)
+    - type/ (e.g., type/map, type/dot)
+    - domain/ (e.g., domain/writing, domain/health)
+
+# Workflow principles
+workflow:
+  - Start in Atlas for navigation
+  - Use Daily notes as temporal anchors
+  - Create Dots for evergreen concepts
+  - Build Maps to connect Dots
+  - Active work lives in Efforts
+  - References go to Extras
+
+# ACE Framework integration
+ace_framework:
+  add: Calendar/Daily/
+  connect: Atlas/Maps/
+  express: Efforts/Projects/

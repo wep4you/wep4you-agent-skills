@@ -1,0 +1,242 @@
+name: Minimal
+description: Bottom-up, emergence-focused PKM with minimal structure
+author: Inspired by Kepano and emergent note-taking
+version: "1.0"
+url: https://stephanango.com/file-over-app
+
+# Core philosophy
+philosophy:
+  - Let structure emerge organically from your thinking
+  - Tags over folders
+  - Start simple, add complexity only when needed
+  - Future-proof with plain text and minimal dependencies
+  - Fast capture, minimal friction
+  - Bottom-up organization
+
+# Minimal folder structure
+folders:
+  - path: Inbox/
+    purpose: Quick capture area for new notes
+    description: Unprocessed notes and fleeting thoughts
+
+  - path: Archive/
+    purpose: Notes no longer actively used
+    description: Optional archive for old or inactive notes
+
+# Note types (deliberately simple)
+note_types:
+  note:
+    folder: root
+    description: Standard note - most notes should be this type
+    properties:
+      - created: YYYY-MM-DD
+      - tags: []
+    template: note.md
+    naming: descriptive-kebab-case.md
+
+  daily:
+    folder: root
+    description: Optional daily note for temporal anchoring
+    properties:
+      - type: daily
+      - date: YYYY-MM-DD
+    template: daily.md
+    naming: YYYY-MM-DD.md
+
+  inbox:
+    folder: Inbox/
+    description: Quick capture without overthinking
+    properties:
+      - created: YYYY-MM-DD HH:MM
+      - processed: false
+    template: inbox.md
+    naming: YYYYMMDD-quick-description.md
+
+# Organization principles
+organization:
+  primary: Tags and links (not folders)
+  folders: Use only when absolutely necessary
+  naming: Descriptive, human-readable filenames
+  structure: Emerges from usage, not pre-planned
+
+# Tagging strategy
+tags:
+  philosophy: Tags are primary organizational tool
+  style: flat or minimal hierarchy
+  conventions:
+    - Use tags liberally
+    - Create tags naturally as you write
+    - Don't overthink tag structure
+    - Tags emerge from use, not planning
+
+  common_patterns:
+    content_types:
+      - idea
+      - reference
+      - howto
+      - definition
+      - example
+
+    status:
+      - draft
+      - complete
+      - evergreen
+      - seedling
+
+    domains:
+      - Create naturally based on your interests
+      - No predefined list needed
+      - Examples: writing, coding, health, reading
+
+# Linking conventions
+linking:
+  style: wikilink
+  philosophy: Link freely and frequently
+  bidirectional: Rely on backlinks for navigation
+  context: Add context around links when helpful
+
+  patterns:
+    - Link terms on first use
+    - Create notes for concepts as needed
+    - Don't worry about "orphan" notes
+    - Let link structure emerge
+
+# Workflow (intentionally simple)
+workflow:
+  capture:
+    - Quick notes go to Inbox/
+    - Don't overthink location or structure
+    - Tag minimally if at all
+
+  process:
+    - Review Inbox/ when convenient (not daily required)
+    - Move valuable notes to root
+    - Add tags and links as you go
+    - Delete or archive unneeded items
+
+  create:
+    - Start writing immediately
+    - Add structure if/when needed
+    - Link to related notes
+    - Tag for findability
+
+  review:
+    - No strict review schedule
+    - Browse tags and backlinks naturally
+    - Refactor structure when pain points emerge
+    - Archive inactive notes occasionally
+
+# Search and discovery
+discovery:
+  methods:
+    - Search by content (full-text search)
+    - Browse by tags
+    - Follow backlinks
+    - Graph view for visual exploration
+    - Random note for serendipity
+
+  no_reliance_on:
+    - Complex folder structures
+    - Rigid categorization
+    - Pre-planned organization
+
+# Templates (minimal)
+templates:
+  default_note:
+    - Title as heading
+    - Optional tags
+    - Content
+    - Optional links section
+
+  daily_note:
+    - Date as heading
+    - Free-form content
+    - Optional sections if helpful
+
+# Best practices
+best_practices:
+  start_simple:
+    - Begin with just notes in root folder
+    - Add Inbox/ if you need capture area
+    - Add Archive/ if root gets cluttered
+
+  evolve_naturally:
+    - Don't create structure upfront
+    - Add organization when clear need emerges
+    - Refactor when friction appears
+
+  fast_capture:
+    - Remove barriers to creating notes
+    - Perfect is the enemy of done
+    - Edit and improve later
+
+  link_freely:
+    - Link generously
+    - Create target notes when needed
+    - Trust search and backlinks
+
+  trust_emergence:
+    - Structure reveals itself over time
+    - Your needs guide organization
+    - Bottom-up beats top-down
+
+# What to avoid
+avoid:
+  - Complex folder hierarchies
+  - Over-planning structure
+  - Excessive tagging schemes
+  - Rigid templates
+  - Perfectionism in capture
+  - Analysis paralysis
+
+# Optional additions (add only if needed)
+optional_features:
+  daily_notes:
+    when: If you want temporal anchoring
+    where: Root folder with YYYY-MM-DD.md naming
+
+  projects:
+    when: If managing active work
+    how: Create project notes, link related content, use tags
+
+  maps:
+    when: Topic gets complex
+    how: Create index/map note with links to related notes
+
+  metadata:
+    when: Specific search/filtering needs emerge
+    how: Add YAML frontmatter properties as needed
+
+# Migration-friendly
+portability:
+  - Plain markdown files
+  - Standard wikilinks
+  - Minimal metadata
+  - No proprietary formats
+  - Easy to move between tools
+
+# Scaling strategy
+scaling:
+  small_vault:
+    - Just notes in root
+    - Tags for organization
+    - Search for discovery
+
+  medium_vault:
+    - Add Inbox/ for capture
+    - Some structure notes for complex topics
+    - More consistent tagging
+
+  large_vault:
+    - Archive/ for old content
+    - Hub notes for major themes
+    - More metadata if helpful
+    - Still avoid deep folder hierarchies
+
+# Success metrics
+success_metrics:
+  - Low friction to create notes
+  - Easy to find what you need
+  - Structure supports thinking
+  - System feels sustainable
+  - Minimal maintenance burden

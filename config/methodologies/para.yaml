@@ -1,0 +1,147 @@
+name: PARA
+description: Projects, Areas, Resources, Archives - A productivity-focused organization system
+author: Tiago Forte
+version: "1.0"
+url: https://fortelabs.com/blog/para/
+
+# Core folder structure - The PARA Method
+folders:
+  - path: Projects/
+    purpose: Short-term efforts with specific goals and deadlines
+    description: A series of tasks linked to a goal with a deadline
+
+  - path: Areas/
+    purpose: Long-term responsibilities with standards to maintain
+    description: A sphere of activity with a standard to be maintained over time
+
+  - path: Resources/
+    purpose: Topics or themes of ongoing interest
+    description: A topic or theme of ongoing interest
+
+  - path: Archives/
+    purpose: Inactive items from the other three categories
+    description: Inactive items from Projects, Areas, or Resources
+
+# Note types aligned with PARA
+note_types:
+  project:
+    folder: Projects/
+    description: Active project with defined outcome and deadline
+    properties:
+      - type: project
+      - status: [active, on-hold, completed]
+      - goal: ""
+      - deadline: YYYY-MM-DD
+      - area: ""
+      - started: YYYY-MM-DD
+      - completed: YYYY-MM-DD
+      - tags: []
+    template: project.md
+    archive_when: completed or inactive
+
+  area:
+    folder: Areas/
+    description: Ongoing area of responsibility
+    properties:
+      - type: area
+      - responsibility: ""
+      - standard: ""
+      - related_projects: []
+      - tags: []
+    template: area.md
+
+  resource:
+    folder: Resources/
+    description: Reference material on a topic of interest
+    properties:
+      - type: resource
+      - topic: ""
+      - tags: []
+      - sources: []
+      - related: []
+    template: resource.md
+
+  archive:
+    folder: Archives/
+    description: Archived items from Projects, Areas, or Resources
+    properties:
+      - type: archive
+      - original_type: [project, area, resource]
+      - archived_date: YYYY-MM-DD
+      - archived_from: ""
+      - reason: ""
+    template: archive.md
+
+# Organizational principles
+principles:
+  - Projects have clear outcomes and deadlines
+  - Areas have standards to maintain but no end date
+  - Resources are references without active work
+  - Archives preserve completed or inactive items
+  - Move items between categories as their status changes
+
+# Movement rules
+movement_rules:
+  project_to_archive:
+    trigger: status equals completed or on-hold for 30+ days
+    action: Move to Archives/ with archived metadata
+
+  area_to_archive:
+    trigger: No longer an active responsibility
+    action: Move to Archives/ with archived metadata
+
+  resource_to_archive:
+    trigger: No longer relevant or accessed
+    action: Move to Archives/ with archived metadata
+
+  archive_to_active:
+    trigger: Becomes relevant again
+    action: Move back to original category and update status
+
+# Workflow
+workflow:
+  daily_review:
+    - Check Projects/ for tasks due today
+    - Update project status and progress
+    - Move completed projects to Archives/
+
+  weekly_review:
+    - Review all active Projects
+    - Check Areas for standard maintenance
+    - Archive completed or stale items
+    - Create new Projects from Areas if needed
+
+  monthly_review:
+    - Review all Areas for alignment
+    - Clean up Resources
+    - Archive inactive Resources
+    - Review Archives for items to purge
+
+# Linking conventions
+linking:
+  style: wikilink
+  project_to_area: Projects should link to their parent Area
+  area_to_project: Areas should link to active Projects
+  resource_to_project: Resources can be referenced by Projects
+
+# Tags strategy
+tags:
+  use_nested: true
+  conventions:
+    - status/ (e.g., status/active, status/completed)
+    - priority/ (e.g., priority/high, priority/low)
+    - context/ (e.g., context/work, context/personal)
+
+# Search and retrieval
+search:
+  by_status: Use status property to find active vs completed
+  by_deadline: Sort projects by deadline property
+  by_area: Filter projects by their parent area
+  by_archive_date: Find recently archived items
+
+# Integration with productivity systems
+integrations:
+  task_management: Projects contain actionable tasks
+  calendar: Project deadlines sync with calendar
+  note_taking: Resources store research and reference material
+  review_system: Weekly/monthly reviews maintain the system
