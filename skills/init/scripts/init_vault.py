@@ -360,7 +360,6 @@ def main() -> int:
     parser.add_argument(
         "--vault",
         type=Path,
-        required=True,
         help="Path to the vault (will be created if doesn't exist)",
     )
     parser.add_argument(
@@ -384,6 +383,10 @@ def main() -> int:
     if args.list:
         print_methodologies()
         return 0
+
+    # Vault is required if not listing
+    if not args.vault:
+        parser.error("the following arguments are required: --vault")
 
     try:
         init_vault(args.vault, args.methodology, args.dry_run)
