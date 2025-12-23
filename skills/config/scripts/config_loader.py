@@ -7,6 +7,19 @@
 Configuration Loader for Obsidian Vault
 Loads, saves, and merges YAML configuration files with vault-specific overrides
 
+IMPORTANT: This module is a UTILITY for YAML config file management.
+For validation rules and settings, use settings_loader.py instead:
+
+    from settings_loader import load_settings, get_validation_rules
+
+    # Load settings (source of truth for validation)
+    settings = load_settings(Path("/path/to/vault"))
+
+This config_loader is used for:
+- Loading/saving additional YAML config files
+- Merging configuration dictionaries
+- Providing fallback defaults when settings.yaml doesn't exist
+
 Usage:
     from config_loader import load_config, save_config, merge_configs
 
@@ -29,6 +42,8 @@ from typing import Any
 import yaml
 
 # Default configuration embedded in script
+# NOTE: This is a FALLBACK only. The primary source of truth is .claude/settings.yaml
+# Use settings_loader.load_settings() for validation and note type configuration.
 DEFAULT_CONFIG: dict[str, Any] = {
     "core_properties": [
         "type",
