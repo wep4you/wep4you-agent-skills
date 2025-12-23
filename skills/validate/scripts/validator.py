@@ -90,6 +90,7 @@ class VaultValidator:
         self.skipped_files = 0
 
         # Load type rules from settings or config
+        self.type_rules: dict[str, str]
         if self.settings:
             self.type_rules = self._build_type_rules_from_settings()
         else:
@@ -107,9 +108,7 @@ class VaultValidator:
                 "Calendar/monthly/": "monthly",
             }
             config_rules = self.config.get("type_rules")
-            self.type_rules: dict[str, str] = (
-                config_rules if isinstance(config_rules, dict) else type_rules_default
-            )
+            self.type_rules = config_rules if isinstance(config_rules, dict) else type_rules_default
 
     def _build_type_rules_from_settings(self) -> dict[str, str]:
         """Build type_rules dict from settings.yaml note_types."""

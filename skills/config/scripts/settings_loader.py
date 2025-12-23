@@ -433,9 +433,11 @@ def main() -> int:
                     print(f"   Current file: {settings_path}")
                     print(f"   New methodology: {COLOR_BOLD}{args.reset}{COLOR_RESET}")
                     print()
-                    confirm = input(
-                        f"{COLOR_YELLOW}Type 'yes' to confirm reset: {COLOR_RESET}"
-                    ).strip().lower()
+                    confirm = (
+                        input(f"{COLOR_YELLOW}Type 'yes' to confirm reset: {COLOR_RESET}")
+                        .strip()
+                        .lower()
+                    )
                     if confirm != "yes":
                         print(f"{COLOR_RED}❌ Reset cancelled.{COLOR_RESET}")
                         return 1

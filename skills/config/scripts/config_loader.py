@@ -263,8 +263,9 @@ def get_note_type_config(config: dict[str, Any], note_type: str) -> dict[str, An
     Returns:
         Note type configuration dictionary or None if not found
     """
-    note_types = config.get("note_types", {})
-    return note_types.get(note_type)
+    note_types: dict[str, Any] = config.get("note_types", {})
+    result: dict[str, Any] | None = note_types.get(note_type)
+    return result
 
 
 def infer_note_type(file_path: Path, config: dict[str, Any]) -> str | None:
@@ -278,14 +279,14 @@ def infer_note_type(file_path: Path, config: dict[str, Any]) -> str | None:
     Returns:
         Inferred note type or None if no match
     """
-    note_types = config.get("note_types", {})
+    note_types: dict[str, Any] = config.get("note_types", {})
     file_path_str = str(file_path)
 
-    for note_type, type_config in note_types.items():
+    for type_name, type_config in note_types.items():
         folder_hints = type_config.get("folder_hints", [])
         for hint in folder_hints:
             if hint in file_path_str:
-                return note_type
+                return str(type_name)
 
     return None
 
