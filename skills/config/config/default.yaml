@@ -7,6 +7,7 @@ core_properties:
   - up
   - created
   - daily
+  - tags
   - collection
   - related
 
@@ -22,6 +23,7 @@ note_types:
       - up
       - created
       - daily
+      - tags
       - collection
       - related
 
@@ -35,6 +37,7 @@ note_types:
       - up
       - created
       - daily
+      - tags
       - collection
       - related
 
@@ -48,6 +51,7 @@ note_types:
       - up
       - created
       - daily
+      - tags
       - collection
       - related
       - author
@@ -63,6 +67,7 @@ note_types:
       - up
       - created
       - daily
+      - tags
       - collection
       - related
       - status
@@ -78,6 +83,7 @@ note_types:
       - up
       - created
       - daily
+      - tags
       - collection
       - related
 
@@ -90,6 +96,7 @@ note_types:
       - up
       - created
       - daily
+      - tags
       - collection
       - related
 
@@ -103,6 +110,7 @@ note_types:
       - up
       - created
       - daily
+      - tags
       - collection
       - related
 
@@ -110,6 +118,7 @@ note_types:
 validation:
   require_core_properties: true
   allow_empty_properties:
+    - tags
     - collection
     - related
   strict_types: true

@@ -59,11 +59,11 @@ from pathlib import Path
 from config_loader import save_config
 
 custom_config = {
-    "core_properties": ["type", "up", "created"],
+    "core_properties": ["type", "up", "created", "daily", "tags", "collection", "related"],
     "note_types": {
         "custom": {
             "description": "Custom note type",
-            "properties": ["type", "up"]
+            "properties": ["type", "up", "created", "daily", "tags", "collection", "related"]
         }
     }
 }
@@ -175,13 +175,14 @@ The default configuration includes these note types:
 
 ## Core Properties
 
-All notes require these 6 properties (per vault standards):
+All notes require these 7 properties (per vault standards):
 
 ```yaml
 type: dot           # Note type
 up: "[[Parent]]"    # Parent note link (quoted)
 created: 2025-01-15 # Creation date (YYYY-MM-DD)
 daily: "[[2025-01-15]]"  # Daily note link (quoted)
+tags:               # Tags for categorization (can be empty)
 collection:         # Collection classification (can be empty)
 related:            # Related notes (can be empty)
 ```

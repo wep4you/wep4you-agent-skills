@@ -15,9 +15,10 @@ note_types:
       - up
       - created
       - daily
-    optional_properties:
+      - tags
       - collection
       - related
+    optional_properties:
       - description
     validation:
       allow_empty_up: false
@@ -37,9 +38,10 @@ note_types:
       - up
       - created
       - daily
-    optional_properties:
+      - tags
       - collection
       - related
+    optional_properties: []
     validation:
       allow_empty_up: false
       require_daily_link: true
@@ -58,13 +60,13 @@ note_types:
       - up
       - created
       - daily
+      - tags
+      - collection
+      - related
       - author
       - url
     optional_properties:
-      - collection
-      - related
       - published
-      - tags
     validation:
       allow_empty_up: false
       require_daily_link: true
@@ -83,9 +85,10 @@ note_types:
       - up
       - created
       - daily
-    optional_properties:
+      - tags
       - collection
       - related
+    optional_properties:
       - status
     validation:
       allow_empty_up: false
@@ -104,10 +107,11 @@ note_types:
       - up
       - created
       - daily
-      - status
-    optional_properties:
+      - tags
       - collection
       - related
+      - status
+    optional_properties:
       - deadline
       - priority
       - owner
@@ -135,9 +139,10 @@ note_types:
       - up
       - created
       - daily
-    optional_properties:
+      - tags
       - collection
       - related
+    optional_properties:
       - review_frequency
       - owner
     validation:
@@ -155,12 +160,13 @@ note_types:
       - "daily/"
     required_properties:
       - type
+      - up
       - created
       - daily
-    optional_properties:
-      - up
+      - tags
       - collection
       - related
+    optional_properties:
       - mood
       - weather
     validation:
@@ -205,6 +211,11 @@ property_types:
     allow_empty: true
 
   related:
+    data_type: "list"
+    required: true
+    allow_empty: true
+
+  tags:
     data_type: "list"
     required: true
     allow_empty: true

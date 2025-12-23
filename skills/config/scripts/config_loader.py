@@ -35,6 +35,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "up",
         "created",
         "daily",
+        "tags",
         "collection",
         "related",
     ],
@@ -42,12 +43,12 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "map": {
             "description": "Map of Content - Overview and navigation notes",
             "folder_hints": ["Atlas/Maps/", "Maps/"],
-            "properties": ["type", "up", "created", "daily", "collection", "related"],
+            "properties": ["type", "up", "created", "daily", "tags", "collection", "related"],
         },
         "dot": {
             "description": "Dot notes - Atomic concepts and ideas",
             "folder_hints": ["Atlas/Dots/", "Dots/"],
-            "properties": ["type", "up", "created", "daily", "collection", "related"],
+            "properties": ["type", "up", "created", "daily", "tags", "collection", "related"],
         },
         "source": {
             "description": "Source notes - External references and citations",
@@ -57,6 +58,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
                 "up",
                 "created",
                 "daily",
+                "tags",
                 "collection",
                 "related",
                 "author",
@@ -71,6 +73,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
                 "up",
                 "created",
                 "daily",
+                "tags",
                 "collection",
                 "related",
                 "status",
@@ -80,22 +83,22 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "area": {
             "description": "Area notes - Ongoing responsibilities",
             "folder_hints": ["Efforts/Areas/", "Areas/"],
-            "properties": ["type", "up", "created", "daily", "collection", "related"],
+            "properties": ["type", "up", "created", "daily", "tags", "collection", "related"],
         },
         "effort": {
             "description": "Effort notes - Work and tasks",
             "folder_hints": ["Efforts/"],
-            "properties": ["type", "up", "created", "daily", "collection", "related"],
+            "properties": ["type", "up", "created", "daily", "tags", "collection", "related"],
         },
         "daily": {
             "description": "Daily notes - Date-based journal entries",
             "folder_hints": ["Calendar/daily/", "daily/"],
-            "properties": ["type", "up", "created", "daily", "collection", "related"],
+            "properties": ["type", "up", "created", "daily", "tags", "collection", "related"],
         },
     },
     "validation": {
         "require_core_properties": True,
-        "allow_empty_properties": ["collection", "related"],
+        "allow_empty_properties": ["tags", "collection", "related"],
         "strict_types": True,
     },
     "auto_fix": {
