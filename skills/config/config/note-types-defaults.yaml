@@ -1,0 +1,232 @@
+# Note Types Defaults Configuration
+# Extended configuration for note types with validation rules and metadata
+
+note_types:
+  map:
+    description: "Map of Content - Overview and navigation notes"
+    aliases:
+      - "moc"
+      - "index"
+    folder_hints:
+      - "Atlas/Maps/"
+      - "Maps/"
+    required_properties:
+      - type
+      - up
+      - created
+      - daily
+    optional_properties:
+      - collection
+      - related
+      - description
+    validation:
+      allow_empty_up: false
+      require_daily_link: true
+    icon: "🗺️"
+
+  dot:
+    description: "Dot notes - Atomic concepts and ideas"
+    aliases:
+      - "atomic"
+      - "concept"
+    folder_hints:
+      - "Atlas/Dots/"
+      - "Dots/"
+    required_properties:
+      - type
+      - up
+      - created
+      - daily
+    optional_properties:
+      - collection
+      - related
+    validation:
+      allow_empty_up: false
+      require_daily_link: true
+    icon: "⚫"
+
+  source:
+    description: "Source notes - External references and citations"
+    aliases:
+      - "reference"
+      - "citation"
+    folder_hints:
+      - "Atlas/Sources/"
+      - "Sources/"
+    required_properties:
+      - type
+      - up
+      - created
+      - daily
+      - author
+      - url
+    optional_properties:
+      - collection
+      - related
+      - published
+      - tags
+    validation:
+      allow_empty_up: false
+      require_daily_link: true
+      require_author: true
+    icon: "📚"
+
+  effort:
+    description: "Effort notes - Work and tasks"
+    aliases:
+      - "work"
+      - "task"
+    folder_hints:
+      - "Efforts/"
+    required_properties:
+      - type
+      - up
+      - created
+      - daily
+    optional_properties:
+      - collection
+      - related
+      - status
+    validation:
+      allow_empty_up: false
+      require_daily_link: true
+    icon: "💪"
+
+  project:
+    description: "Project notes - Defined outcomes with deadlines"
+    aliases:
+      - "proj"
+    folder_hints:
+      - "Efforts/Projects/"
+      - "Projects/"
+    required_properties:
+      - type
+      - up
+      - created
+      - daily
+      - status
+    optional_properties:
+      - collection
+      - related
+      - deadline
+      - priority
+      - owner
+    validation:
+      allow_empty_up: false
+      require_daily_link: true
+      require_status: true
+      valid_statuses:
+        - "active"
+        - "planning"
+        - "on-hold"
+        - "completed"
+        - "cancelled"
+    icon: "🎯"
+
+  area:
+    description: "Area notes - Ongoing responsibilities"
+    aliases:
+      - "responsibility"
+    folder_hints:
+      - "Efforts/Areas/"
+      - "Areas/"
+    required_properties:
+      - type
+      - up
+      - created
+      - daily
+    optional_properties:
+      - collection
+      - related
+      - review_frequency
+      - owner
+    validation:
+      allow_empty_up: false
+      require_daily_link: true
+    icon: "🏠"
+
+  daily:
+    description: "Daily notes - Date-based journal entries"
+    aliases:
+      - "journal"
+      - "log"
+    folder_hints:
+      - "Calendar/daily/"
+      - "daily/"
+    required_properties:
+      - type
+      - created
+      - daily
+    optional_properties:
+      - up
+      - collection
+      - related
+      - mood
+      - weather
+    validation:
+      allow_empty_up: true
+      require_daily_link: true
+      require_date_match: true  # created must match filename
+    icon: "📅"
+
+# Global validation settings
+global_validation:
+  require_core_properties: true
+  strict_mode: true
+  allow_custom_types: false
+  max_properties: 20
+
+# Property type definitions
+property_types:
+  type:
+    data_type: "string"
+    required: true
+    allowed_values: ["map", "dot", "source", "effort", "project", "area", "daily"]
+
+  up:
+    data_type: "wikilink"
+    required: true
+    must_be_quoted: true
+
+  created:
+    data_type: "date"
+    required: true
+    format: "YYYY-MM-DD"
+
+  daily:
+    data_type: "wikilink"
+    required: true
+    must_be_quoted: true
+    format: "[[YYYY-MM-DD]]"
+
+  collection:
+    data_type: "string"
+    required: true
+    allow_empty: true
+
+  related:
+    data_type: "list"
+    required: true
+    allow_empty: true
+
+  author:
+    data_type: "string"
+    required_for: ["source"]
+
+  url:
+    data_type: "string"
+    required_for: ["source"]
+    validation: "url_format"
+
+  status:
+    data_type: "string"
+    required_for: ["project"]
+    allowed_values: ["active", "planning", "on-hold", "completed", "cancelled"]
+
+  deadline:
+    data_type: "date"
+    format: "YYYY-MM-DD"
+
+  priority:
+    data_type: "string"
+    allowed_values: ["low", "medium", "high", "critical"]

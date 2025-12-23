@@ -1,0 +1,137 @@
+# Default Configuration for Obsidian Vault
+# This file defines the standard configuration for vault validation and note management
+
+# Core properties required in all notes
+core_properties:
+  - type
+  - up
+  - created
+  - daily
+  - collection
+  - related
+
+# Note type definitions with folder hints and required properties
+note_types:
+  map:
+    description: "Map of Content - Overview and navigation notes"
+    folder_hints:
+      - "Atlas/Maps/"
+      - "Maps/"
+    properties:
+      - type
+      - up
+      - created
+      - daily
+      - collection
+      - related
+
+  dot:
+    description: "Dot notes - Atomic concepts and ideas"
+    folder_hints:
+      - "Atlas/Dots/"
+      - "Dots/"
+    properties:
+      - type
+      - up
+      - created
+      - daily
+      - collection
+      - related
+
+  source:
+    description: "Source notes - External references and citations"
+    folder_hints:
+      - "Atlas/Sources/"
+      - "Sources/"
+    properties:
+      - type
+      - up
+      - created
+      - daily
+      - collection
+      - related
+      - author
+      - url
+
+  project:
+    description: "Project notes - Defined outcomes with deadlines"
+    folder_hints:
+      - "Efforts/Projects/"
+      - "Projects/"
+    properties:
+      - type
+      - up
+      - created
+      - daily
+      - collection
+      - related
+      - status
+      - deadline
+
+  area:
+    description: "Area notes - Ongoing responsibilities"
+    folder_hints:
+      - "Efforts/Areas/"
+      - "Areas/"
+    properties:
+      - type
+      - up
+      - created
+      - daily
+      - collection
+      - related
+
+  effort:
+    description: "Effort notes - Work and tasks"
+    folder_hints:
+      - "Efforts/"
+    properties:
+      - type
+      - up
+      - created
+      - daily
+      - collection
+      - related
+
+  daily:
+    description: "Daily notes - Date-based journal entries"
+    folder_hints:
+      - "Calendar/daily/"
+      - "daily/"
+    properties:
+      - type
+      - up
+      - created
+      - daily
+      - collection
+      - related
+
+# Validation rules
+validation:
+  require_core_properties: true
+  allow_empty_properties:
+    - collection
+    - related
+  strict_types: true
+
+# Auto-fix toggles
+auto_fix:
+  empty_types: true
+  daily_links: true
+  wikilink_quotes: true
+  title_properties: true
+  missing_properties: true
+
+# Paths to exclude from validation
+exclude_paths:
+  - "+/"              # Inbox
+  - "x/"              # System files
+  - ".obsidian/"      # Obsidian settings
+  - ".claude/"        # Claude configuration
+  - ".git/"           # Git repository
+
+# Files to exclude from validation
+exclude_files:
+  - "Home.md"
+  - "README.md"
+  - "CHANGELOG.md"
