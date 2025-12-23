@@ -14,7 +14,21 @@ A Claude Code skills marketplace following the open [Agent Skills](https://agent
 
 | Skill | Description | Version |
 |-------|-------------|---------|
+| [config](skills/config/) | Configuration loader and settings management | 0.3.0 |
 | [validate](skills/validate/) | Validate and auto-fix frontmatter against standards (ACE/LYT/PARA) | 1.2.0 |
+
+### Slash Commands
+
+After installing the plugin, these commands are available:
+
+| Command | Description |
+|---------|-------------|
+| `/obsidian:config-show` | Show vault settings from `.claude/settings.yaml` |
+| `/obsidian:config-validate` | Validate settings.yaml structure |
+| `/obsidian:config-create` | Create default settings.yaml if missing |
+| `/obsidian:validate` | Validate vault frontmatter against standards |
+
+> **Note**: Slash commands use the format `/<plugin-name>:<command-name>`
 
 ## Quick Start
 

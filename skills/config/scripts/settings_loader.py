@@ -56,6 +56,7 @@ class NoteTypeConfig:
     optional_properties: list[str]
     validation: dict[str, Any]
     icon: str = ""
+    inherit_core: bool = True  # Whether this type inherits core_properties
 
 
 @dataclass
@@ -125,18 +126,40 @@ def load_settings(vault_path: Path, create_if_missing: bool = False) -> Settings
 
 def _parse_settings(raw: dict[str, Any]) -> Settings:
     """Parse raw YAML dict into Settings object."""
-    # Parse note types
+    core_properties = raw.get("core_properties", [])
+
+    # Parse note types with inheritance support
     note_types = {}
     for name, config in raw.get("note_types", {}).items():
         props = config.get("properties", {})
+        inherit_core = config.get("inherit_core", True)  # Default: inherit
+
+        # Compute required properties based on inheritance
+        if inherit_core:
+            # New format: core + additional_required
+            additional_required = props.get("additional_required", [])
+            # Backward compat: if "required" exists and no "additional_required", use required
+            explicit_required = props.get("required", [])
+
+            if explicit_required and not additional_required:
+                # Old format: required contains everything
+                required_properties = explicit_required
+            else:
+                # New format: core + additional
+                required_properties = list(core_properties) + additional_required
+        else:
+            # No inheritance: use explicit required list only
+            required_properties = props.get("required", [])
+
         note_types[name] = NoteTypeConfig(
             name=name,
             description=config.get("description", ""),
             folder_hints=config.get("folder_hints", []),
-            required_properties=props.get("required", []),
+            required_properties=required_properties,
             optional_properties=props.get("optional", []),
             validation=config.get("validation", {}),
             icon=config.get("icon", ""),
+            inherit_core=inherit_core,
         )
 
     # Parse validation rules
@@ -303,11 +326,17 @@ def validate_settings(settings: Settings) -> list[str]:
         if not config.required_properties:
             errors.append(f"Note type '{type_name}' has no required properties")
 
-        # Check that core properties are in required
-        for core_prop in settings.core_properties:
-            if core_prop not in config.required_properties:
-                # Allow some flexibility - warn instead of error
-                pass
+        # Validate inheritance
+        if config.inherit_core:
+            # When inheriting, required_properties should include all core properties
+            missing_core = [
+                p for p in settings.core_properties if p not in config.required_properties
+            ]
+            if missing_core:
+                errors.append(
+                    f"Note type '{type_name}' has inherit_core=True but "
+                    f"missing core properties: {missing_core}"
+                )
 
     return errors
 
@@ -317,30 +346,126 @@ def settings_exist(vault_path: Path) -> bool:
     return (vault_path / SETTINGS_FILE).exists()
 
 
+METHODOLOGIES = ["lyt-ace", "para", "zettelkasten", "minimal", "custom"]
+
+# ANSI color codes
+COLOR_YELLOW = "\033[93m"
+COLOR_RED = "\033[91m"
+COLOR_GREEN = "\033[92m"
+COLOR_RESET = "\033[0m"
+COLOR_BOLD = "\033[1m"
+
+
+def print_reset_help() -> None:
+    """Print help for --reset option with examples."""
+    print(f"{COLOR_BOLD}Available methodologies for --reset:{COLOR_RESET}\n")
+    methodology_descriptions = {
+        "lyt-ace": "Linking Your Thinking with ACE folder structure",
+        "para": "Projects, Areas, Resources, Archives",
+        "zettelkasten": "Zettelkasten/slip-box method",
+        "minimal": "Minimal starter configuration",
+        "custom": "Empty custom configuration",
+    }
+    for method in METHODOLOGIES:
+        desc = methodology_descriptions.get(method, "")
+        print(f"  {COLOR_GREEN}{method:<14}{COLOR_RESET} {desc}")
+
+    print(f"\n{COLOR_BOLD}Examples:{COLOR_RESET}\n")
+    print("  # Reset to PARA methodology (with confirmation)")
+    print(f"  {COLOR_YELLOW}--reset para{COLOR_RESET}\n")
+    print("  # Reset to Zettelkasten (skip confirmation)")
+    print(f"  {COLOR_YELLOW}--reset zettelkasten --yes{COLOR_RESET}\n")
+
+
 def main() -> int:
     """CLI entry point for testing settings loader."""
     import argparse
 
-    parser = argparse.ArgumentParser(description="Settings Loader for Obsidian Vault")
+    parser = argparse.ArgumentParser(
+        description="Settings Loader for Obsidian Vault",
+        epilog="Use --reset list to see available methodologies with examples.",
+    )
     parser.add_argument("--vault", type=Path, required=True, help="Path to vault")
     parser.add_argument("--create", action="store_true", help="Create default settings if missing")
     parser.add_argument("--validate", action="store_true", help="Validate settings structure")
     parser.add_argument("--show", action="store_true", help="Show loaded settings")
     parser.add_argument("--type", type=str, help="Show config for specific note type")
+    parser.add_argument(
+        "--reset",
+        metavar="METHODOLOGY",
+        help=f"Reset settings to methodology ({', '.join(METHODOLOGIES)}) or 'list' for help",
+    )
+    parser.add_argument(
+        "--yes", "-y", action="store_true", help="Skip confirmation prompt (use with --reset)"
+    )
 
     args = parser.parse_args()
 
     try:
+        # Handle reset operation
+        if args.reset:
+            # Show help if 'list' is specified
+            if args.reset == "list":
+                print_reset_help()
+                return 0
+
+            # Validate methodology choice
+            if args.reset not in METHODOLOGIES:
+                print(f"{COLOR_RED}❌ Invalid methodology: {args.reset}{COLOR_RESET}\n")
+                print_reset_help()
+                return 1
+
+            settings_path = args.vault / SETTINGS_FILE
+            if settings_path.exists():
+                if not args.yes:
+                    # Check if running interactively
+                    if not sys.stdin.isatty():
+                        warn = f"{COLOR_BOLD}{COLOR_YELLOW}⚠️  WARNING: "
+                        warn += f"Cannot confirm interactively.{COLOR_RESET}"
+                        print(warn)
+                        print(f"   Use {COLOR_BOLD}--yes{COLOR_RESET} flag to confirm reset.")
+                        print(f"   Example: --reset {args.reset} --yes")
+                        return 1
+
+                    warn = f"{COLOR_BOLD}{COLOR_YELLOW}⚠️  WARNING: "
+                    warn += f"This will overwrite your existing settings!{COLOR_RESET}"
+                    print(warn)
+                    print(f"   Current file: {settings_path}")
+                    print(f"   New methodology: {COLOR_BOLD}{args.reset}{COLOR_RESET}")
+                    print()
+                    confirm = input(
+                        f"{COLOR_YELLOW}Type 'yes' to confirm reset: {COLOR_RESET}"
+                    ).strip().lower()
+                    if confirm != "yes":
+                        print(f"{COLOR_RED}❌ Reset cancelled.{COLOR_RESET}")
+                        return 1
+                # Remove existing settings
+                settings_path.unlink()
+                print(f"{COLOR_GREEN}✅ Old settings removed.{COLOR_RESET}")
+
+            # Create new settings with specified methodology
+            new_path = create_default_settings(args.vault, methodology=args.reset)
+            print(f"{COLOR_GREEN}✅ Created new settings: {new_path}{COLOR_RESET}")
+            print(f"   Methodology: {COLOR_BOLD}{args.reset}{COLOR_RESET}")
+
+            # Load and show the new settings
+            settings = load_settings(args.vault)
+            print(f"\nVersion: {settings.version}")
+            print(f"Methodology: {settings.methodology}")
+            print(f"Core properties: {settings.core_properties}")
+            print(f"Note types: {list(settings.note_types.keys())}")
+            return 0
+
         settings = load_settings(args.vault, create_if_missing=args.create)
 
         if args.validate:
             errors = validate_settings(settings)
             if errors:
-                print("Settings validation errors:", file=sys.stderr)
+                print("❌ Settings validation failed:", file=sys.stderr)
                 for error in errors:
                     print(f"  - {error}", file=sys.stderr)
                 return 1
-            print("Settings are valid")
+            print("✅ Settings are valid")
 
         if args.type:
             note_type = get_note_type(settings, args.type)

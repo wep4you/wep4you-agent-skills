@@ -26,6 +26,26 @@ from typing import Any
 # PyYAML is always available via uv inline dependencies
 import yaml
 
+# Try to import settings_loader for integrated configuration
+SETTINGS_LOADER_AVAILABLE = False
+try:
+    # Add config scripts to path
+    _config_scripts = Path(__file__).parent.parent.parent / "config" / "scripts"
+    if str(_config_scripts) not in sys.path:
+        sys.path.insert(0, str(_config_scripts))
+    from settings_loader import (
+        Settings,
+        get_core_properties,
+        get_note_type,
+        infer_note_type_from_path,
+        load_settings,
+    )
+    from settings_loader import should_exclude as settings_should_exclude
+
+    SETTINGS_LOADER_AVAILABLE = True
+except ImportError:
+    Settings = None  # type: ignore[misc,assignment]
+
 
 class VaultValidator:
     """Main validator class with config support and code block detection"""
@@ -33,7 +53,21 @@ class VaultValidator:
     def __init__(self, vault_path: str, mode: str = "report", config_path: str | None = None):
         self.vault_path = Path(vault_path)
         self.mode = mode  # report, auto, interactive
+
+        # Try to load settings.yaml first (primary source of truth)
+        self.settings: Settings | None = None
+        if SETTINGS_LOADER_AVAILABLE:
+            try:
+                self.settings = load_settings(self.vault_path)
+                print(f"✅ Using settings.yaml (methodology: {self.settings.methodology})")
+            except FileNotFoundError:
+                pass  # Fall back to validator config
+            except Exception as e:
+                print(f"⚠️  Error loading settings.yaml: {e}")
+
+        # Fall back to validator.yaml if settings not loaded
         self.config = self.load_config(config_path)
+
         self.issues: dict[str, list[str]] = {
             "empty_types": [],
             "missing_properties": [],  # Files missing required frontmatter properties
@@ -46,29 +80,59 @@ class VaultValidator:
             "folder_underscores": [],
         }
 
-        # Required frontmatter properties (per vault-standards.md)
-        self.required_properties = ["type", "up", "created", "daily", "collection", "related"]
+        # Set required_properties from settings or fallback
+        if self.settings and SETTINGS_LOADER_AVAILABLE:
+            self.required_properties = get_core_properties(self.settings)
+        else:
+            self.required_properties = ["type", "up", "created", "daily", "collection", "related"]
+
         self.fixed_count = 0
         self.skipped_files = 0
 
-        # Load type rules from config or use defaults
-        type_rules_default: dict[str, str] = {
-            "Atlas/Maps/": "map",
-            "Atlas/Dots/": "dot",
-            "Atlas/Sources/": "source",
-            "+/copilot-conversations/": "conversation",
-            "+/": "source",
-            "Efforts/Projects/": "project",
-            "Efforts/Works/": "work",
-            "Efforts/Areas/": "area",
-            "Calendar/daily/": "daily",
-            "Calendar/weekly/": "weekly",
-            "Calendar/monthly/": "monthly",
-        }
-        config_rules = self.config.get("type_rules")
-        self.type_rules: dict[str, str] = (
-            config_rules if isinstance(config_rules, dict) else type_rules_default
-        )
+        # Load type rules from settings or config
+        if self.settings:
+            self.type_rules = self._build_type_rules_from_settings()
+        else:
+            type_rules_default: dict[str, str] = {
+                "Atlas/Maps/": "map",
+                "Atlas/Dots/": "dot",
+                "Atlas/Sources/": "source",
+                "+/copilot-conversations/": "conversation",
+                "+/": "source",
+                "Efforts/Projects/": "project",
+                "Efforts/Works/": "work",
+                "Efforts/Areas/": "area",
+                "Calendar/daily/": "daily",
+                "Calendar/weekly/": "weekly",
+                "Calendar/monthly/": "monthly",
+            }
+            config_rules = self.config.get("type_rules")
+            self.type_rules: dict[str, str] = (
+                config_rules if isinstance(config_rules, dict) else type_rules_default
+            )
+
+    def _build_type_rules_from_settings(self) -> dict[str, str]:
+        """Build type_rules dict from settings.yaml note_types."""
+        rules: dict[str, str] = {}
+        if not self.settings:
+            return rules
+
+        for type_name, config in self.settings.note_types.items():
+            for folder_hint in config.folder_hints:
+                rules[folder_hint] = type_name
+
+        return rules
+
+    def _get_required_properties_for_type(self, type_name: str | None) -> list[str]:
+        """Get required properties for a specific note type."""
+        if not type_name or not self.settings or not SETTINGS_LOADER_AVAILABLE:
+            return self.required_properties
+
+        note_type = get_note_type(self.settings, type_name)
+        if note_type:
+            return note_type.required_properties
+
+        return self.required_properties
 
     def load_config(self, config_path: str | None = None) -> dict[str, Any]:
         """Load configuration from YAML file"""
@@ -80,8 +144,7 @@ class VaultValidator:
             config_file = self.vault_path / ".claude/config/validator.yaml"
 
         if not config_file.exists():
-            print(f"ℹ️  Config file not found: {config_file}")
-            print("   Using default configuration\n")
+            # Silently use defaults - no config file is normal
             return self.get_default_config()
 
         try:
@@ -115,6 +178,11 @@ class VaultValidator:
 
     def should_exclude_file(self, file_path: Path) -> bool:
         """Check if file should be excluded from validation"""
+        # Use settings.yaml if available
+        if self.settings and SETTINGS_LOADER_AVAILABLE:
+            return settings_should_exclude(self.settings, file_path)
+
+        # Fall back to config-based exclusion
         relative_path = str(file_path.relative_to(self.vault_path))
 
         # Check exclude_paths
@@ -185,11 +253,15 @@ class VaultValidator:
                 self.issues["empty_types"].append(relative_path)
 
             # Check 1b: Missing required properties
+            # Get type-specific required properties if settings.yaml is available
+            inferred_type = self.infer_type(relative_path)
+            required_props = self._get_required_properties_for_type(inferred_type)
+
             # Skip Calendar daily notes (they have type: daily and don't need all properties)
             is_daily_note = bool(re.search(r"^type:\s*daily\s*$", frontmatter, re.MULTILINE))
             if not is_daily_note:
                 missing = []
-                for prop in self.required_properties:
+                for prop in required_props:
                     # Check if property exists (with or without value)
                     if not re.search(rf"^{prop}:", frontmatter, re.MULTILINE):
                         missing.append(prop)
@@ -234,6 +306,13 @@ class VaultValidator:
 
     def infer_type(self, file_path: str) -> str | None:
         """Infer note type from file location"""
+        # Use settings.yaml if available
+        if self.settings and SETTINGS_LOADER_AVAILABLE:
+            inferred = infer_note_type_from_path(self.settings, Path(file_path))
+            if inferred:
+                return inferred
+
+        # Fall back to type_rules
         for location_prefix, note_type in self.type_rules.items():
             if file_path.startswith(location_prefix):
                 return note_type

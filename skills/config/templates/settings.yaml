@@ -15,7 +15,7 @@ version: "1.0"
 methodology: "lyt-ace"
 
 # Core properties required in ALL notes (except inbox)
-# These properties must exist in every note's frontmatter
+# These properties are automatically inherited by all note types (unless inherit_core: false)
 core_properties:
   - type
   - up
@@ -26,21 +26,16 @@ core_properties:
   - related
 
 # Note type definitions
-# Each type specifies folder hints, required/optional properties, and validation rules
+# Each type automatically inherits core_properties (set inherit_core: false to override)
+# Use additional_required for properties beyond core, or required for full override
 note_types:
   map:
     description: "Map of Content - Overview and navigation notes"
     folder_hints:
       - "Atlas/Maps/"
+    # inherit_core: true  # default - inherits core_properties
     properties:
-      required:
-        - type
-        - up
-        - created
-        - daily
-        - tags
-        - collection
-        - related
+      additional_required: []  # no extra required properties
       optional:
         - description
     validation:
@@ -53,14 +48,7 @@ note_types:
     folder_hints:
       - "Atlas/Dots/"
     properties:
-      required:
-        - type
-        - up
-        - created
-        - daily
-        - tags
-        - collection
-        - related
+      additional_required: []
       optional: []
     validation:
       allow_empty_up: false
@@ -72,14 +60,7 @@ note_types:
     folder_hints:
       - "Atlas/Sources/"
     properties:
-      required:
-        - type
-        - up
-        - created
-        - daily
-        - tags
-        - collection
-        - related
+      additional_required:  # beyond core_properties
         - author
         - url
       optional:
@@ -95,14 +76,7 @@ note_types:
     folder_hints:
       - "Efforts/"
     properties:
-      required:
-        - type
-        - up
-        - created
-        - daily
-        - tags
-        - collection
-        - related
+      additional_required: []
       optional:
         - status
     validation:
@@ -115,14 +89,7 @@ note_types:
     folder_hints:
       - "Efforts/Projects/"
     properties:
-      required:
-        - type
-        - up
-        - created
-        - daily
-        - tags
-        - collection
-        - related
+      additional_required:
         - status
       optional:
         - deadline
@@ -145,14 +112,7 @@ note_types:
     folder_hints:
       - "Efforts/Areas/"
     properties:
-      required:
-        - type
-        - up
-        - created
-        - daily
-        - tags
-        - collection
-        - related
+      additional_required: []
       optional:
         - review_frequency
         - owner
@@ -166,14 +126,7 @@ note_types:
     folder_hints:
       - "Calendar/daily/"
     properties:
-      required:
-        - type
-        - up
-        - created
-        - daily
-        - tags
-        - collection
-        - related
+      additional_required: []
       optional:
         - mood
         - weather
