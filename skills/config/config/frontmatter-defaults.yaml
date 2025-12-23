@@ -1,0 +1,108 @@
+# Frontmatter Defaults Configuration
+# Defines default frontmatter templates for different note types
+
+# Default frontmatter for new notes (minimal template)
+default:
+  type: ""
+  up: ""
+  created: ""
+  daily: ""
+  tags:
+  collection: ""
+  related: ""
+
+# Map of Content frontmatter template
+map:
+  type: "map"
+  up: "[[Home]]"
+  created: ""
+  daily: ""
+  tags:
+  collection: ""
+  related: ""
+  description: ""
+
+# Dot note frontmatter template
+dot:
+  type: "dot"
+  up: ""
+  created: ""
+  daily: ""
+  tags:
+  collection: ""
+  related: ""
+
+# Source note frontmatter template
+source:
+  type: "source"
+  up: ""
+  created: ""
+  daily: ""
+  tags:
+  collection: ""
+  related: ""
+  author: ""
+  url: ""
+  published: ""
+
+# Project note frontmatter template
+project:
+  type: "project"
+  up: "[[Projects]]"
+  created: ""
+  daily: ""
+  tags:
+  collection: ""
+  related: ""
+  status: "active"
+  deadline: ""
+  priority: ""
+
+# Area note frontmatter template
+area:
+  type: "area"
+  up: "[[Areas]]"
+  created: ""
+  daily: ""
+  tags:
+  collection: ""
+  related: ""
+  review_frequency: "weekly"
+
+# Daily note frontmatter template
+daily:
+  type: "daily"
+  up: "[[Calendar]]"
+  created: ""
+  daily: ""
+  tags:
+  collection: ""
+  related: ""
+  mood: ""
+  weather: ""
+
+# Effort note frontmatter template
+effort:
+  type: "effort"
+  up: "[[Efforts]]"
+  created: ""
+  daily: ""
+  tags:
+  collection: ""
+  related: ""
+
+# Date format for created and daily fields
+date_format: "%Y-%m-%d"
+
+# Daily note link format
+daily_link_format: "[[{date}]]"  # e.g., [[2025-01-15]]
+
+# Default parent links by note type
+default_parents:
+  map: "[[Home]]"
+  dot: "[[Dots]]"
+  source: "[[Sources]]"
+  project: "[[Projects]]"
+  area: "[[Areas]]"
+  daily: "[[Calendar]]"
+  effort: "[[Efforts]]"
