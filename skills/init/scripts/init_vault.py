@@ -6,7 +6,7 @@
 """
 Obsidian Vault Initializer
 
-Creates a new Obsidian vault with a chosen PKM methodology and configuration files.
+Creates a new Obsidian vault with a chosen PKM methodology and settings.yaml configuration.
 
 Usage:
     # Interactive mode (prompts for methodology)
@@ -19,14 +19,16 @@ Usage:
     uv run init_vault.py --vault /path/to/vault --methodology para --dry-run
 """
 
+from __future__ import annotations
+
 import argparse
 import sys
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import yaml
 
-# Methodology definitions with folder structures and descriptions
+# Methodology definitions with folder structures, note types, and descriptions
 METHODOLOGIES: dict[str, dict[str, Any]] = {
     "lyt-ace": {
         "name": "LYT + ACE Framework",
@@ -35,17 +37,79 @@ METHODOLOGIES: dict[str, dict[str, Any]] = {
             "Atlas/Maps",
             "Atlas/Dots",
             "Atlas/Sources",
-            "Calendar/Daily",
+            "Calendar/daily",
             "Efforts/Projects",
             "Efforts/Areas",
+            "+",  # Inbox
+            "x/templates",  # System
         ],
-        "default_type_rules": {
-            "Atlas/Maps/": "map",
-            "Atlas/Dots/": "dot",
-            "Atlas/Sources/": "source",
-            "Calendar/Daily/": "daily",
-            "Efforts/Projects/": "project",
-            "Efforts/Areas/": "area",
+        "core_properties": ["type", "up", "created", "daily", "tags", "collection", "related"],
+        "note_types": {
+            "map": {
+                "description": "Map of Content - Overview and navigation notes",
+                "folder_hints": ["Atlas/Maps/"],
+                "properties": {"additional_required": [], "optional": ["description"]},
+                "validation": {"allow_empty_up": False, "require_daily_link": True},
+                "icon": "map",
+            },
+            "dot": {
+                "description": "Dot notes - Atomic concepts and ideas",
+                "folder_hints": ["Atlas/Dots/"],
+                "properties": {"additional_required": [], "optional": []},
+                "validation": {"allow_empty_up": False, "require_daily_link": True},
+                "icon": "circle",
+            },
+            "source": {
+                "description": "Source notes - External references and citations",
+                "folder_hints": ["Atlas/Sources/"],
+                "properties": {"additional_required": ["author", "url"], "optional": ["published"]},
+                "validation": {"allow_empty_up": False, "require_daily_link": True},
+                "icon": "book",
+            },
+            "project": {
+                "description": "Project notes - Defined outcomes with deadlines",
+                "folder_hints": ["Efforts/Projects/"],
+                "properties": {
+                    "additional_required": ["status"],
+                    "optional": ["deadline", "priority"],
+                },
+                "validation": {
+                    "allow_empty_up": False,
+                    "require_daily_link": True,
+                    "require_status": True,
+                },
+                "icon": "target",
+            },
+            "area": {
+                "description": "Area notes - Ongoing responsibilities",
+                "folder_hints": ["Efforts/Areas/"],
+                "properties": {"additional_required": [], "optional": ["review_frequency"]},
+                "validation": {"allow_empty_up": False, "require_daily_link": True},
+                "icon": "home",
+            },
+            "daily": {
+                "description": "Daily notes - Date-based journal entries",
+                "folder_hints": ["Calendar/daily/"],
+                "properties": {"additional_required": [], "optional": ["mood", "weather"]},
+                "validation": {"allow_empty_up": True, "require_daily_link": True},
+                "icon": "calendar",
+            },
+        },
+        "folder_structure": {
+            "inbox": "+/",
+            "system": "x/",
+            "templates": "x/templates/",
+            "maps": "Atlas/Maps/",
+            "knowledge": ["Atlas/Dots/", "Atlas/Sources/"],
+            "efforts": ["Efforts/Projects/", "Efforts/Areas/"],
+            "calendar": "Calendar/daily/",
+        },
+        "up_links": {
+            "Atlas/Dots/": "[[Atlas/Maps/Dots]]",
+            "Atlas/Sources/": "[[Atlas/Maps/Sources]]",
+            "Efforts/Projects/": "[[Atlas/Maps/Projects]]",
+            "Efforts/Areas/": "[[Atlas/Maps/Areas]]",
+            "Calendar/daily/": "[[Atlas/Maps/Calendar]]",
         },
     },
     "para": {
@@ -56,12 +120,54 @@ METHODOLOGIES: dict[str, dict[str, Any]] = {
             "Areas",
             "Resources",
             "Archives",
+            "+",  # Inbox
         ],
-        "default_type_rules": {
-            "Projects/": "project",
-            "Areas/": "area",
-            "Resources/": "resource",
-            "Archives/": "archive",
+        "core_properties": ["type", "up", "created", "tags"],
+        "note_types": {
+            "project": {
+                "description": "Active projects with defined outcomes",
+                "folder_hints": ["Projects/"],
+                "properties": {
+                    "additional_required": ["status"],
+                    "optional": ["deadline", "priority"],
+                },
+                "validation": {"allow_empty_up": False},
+                "icon": "target",
+            },
+            "area": {
+                "description": "Areas of responsibility",
+                "folder_hints": ["Areas/"],
+                "properties": {"additional_required": [], "optional": ["review_frequency"]},
+                "validation": {"allow_empty_up": False},
+                "icon": "home",
+            },
+            "resource": {
+                "description": "Reference materials and resources",
+                "folder_hints": ["Resources/"],
+                "properties": {"additional_required": [], "optional": ["source"]},
+                "validation": {"allow_empty_up": True},
+                "icon": "book",
+            },
+            "archive": {
+                "description": "Completed or inactive items",
+                "folder_hints": ["Archives/"],
+                "properties": {"additional_required": [], "optional": ["archived_date"]},
+                "validation": {"allow_empty_up": True},
+                "icon": "archive",
+            },
+        },
+        "folder_structure": {
+            "inbox": "+/",
+            "projects": "Projects/",
+            "areas": "Areas/",
+            "resources": "Resources/",
+            "archives": "Archives/",
+        },
+        "up_links": {
+            "Projects/": "[[Projects]]",
+            "Areas/": "[[Areas]]",
+            "Resources/": "[[Resources]]",
+            "Archives/": "[[Archives]]",
         },
     },
     "zettelkasten": {
@@ -72,12 +178,49 @@ METHODOLOGIES: dict[str, dict[str, Any]] = {
             "Literature",
             "Fleeting",
             "References",
+            "+",  # Inbox
         ],
-        "default_type_rules": {
-            "Permanent/": "permanent",
-            "Literature/": "literature",
-            "Fleeting/": "fleeting",
-            "References/": "reference",
+        "core_properties": ["type", "up", "created", "tags", "related"],
+        "note_types": {
+            "permanent": {
+                "description": "Permanent notes - Your own ideas and insights",
+                "folder_hints": ["Permanent/"],
+                "properties": {"additional_required": [], "optional": []},
+                "validation": {"allow_empty_up": False},
+                "icon": "file-text",
+            },
+            "literature": {
+                "description": "Literature notes - Notes from reading",
+                "folder_hints": ["Literature/"],
+                "properties": {"additional_required": ["source"], "optional": ["author", "page"]},
+                "validation": {"allow_empty_up": True},
+                "icon": "book-open",
+            },
+            "fleeting": {
+                "description": "Fleeting notes - Quick captures to process",
+                "folder_hints": ["Fleeting/"],
+                "properties": {"additional_required": [], "optional": []},
+                "validation": {"allow_empty_up": True},
+                "icon": "zap",
+            },
+            "reference": {
+                "description": "Reference notes - External sources",
+                "folder_hints": ["References/"],
+                "properties": {"additional_required": ["url"], "optional": ["author"]},
+                "validation": {"allow_empty_up": True},
+                "icon": "link",
+            },
+        },
+        "folder_structure": {
+            "inbox": "+/",
+            "permanent": "Permanent/",
+            "literature": "Literature/",
+            "fleeting": "Fleeting/",
+            "references": "References/",
+        },
+        "up_links": {
+            "Permanent/": "[[Index]]",
+            "Literature/": "[[Literature Index]]",
         },
     },
     "minimal": {
@@ -86,11 +229,31 @@ METHODOLOGIES: dict[str, dict[str, Any]] = {
         "folders": [
             "Notes",
             "Daily",
+            "+",  # Inbox
         ],
-        "default_type_rules": {
-            "Notes/": "note",
-            "Daily/": "daily",
+        "core_properties": ["type", "created", "tags"],
+        "note_types": {
+            "note": {
+                "description": "General notes",
+                "folder_hints": ["Notes/"],
+                "properties": {"additional_required": [], "optional": []},
+                "validation": {"allow_empty_up": True},
+                "icon": "file",
+            },
+            "daily": {
+                "description": "Daily journal entries",
+                "folder_hints": ["Daily/"],
+                "properties": {"additional_required": [], "optional": ["mood"]},
+                "validation": {"allow_empty_up": True},
+                "icon": "calendar",
+            },
         },
+        "folder_structure": {
+            "inbox": "+/",
+            "notes": "Notes/",
+            "daily": "Daily/",
+        },
+        "up_links": {},
     },
 }
 
@@ -138,122 +301,107 @@ def create_folder_structure(vault_path: Path, methodology: str, dry_run: bool = 
             print(f"  [DRY RUN] Would create: {folder_path}")
         else:
             folder_path.mkdir(parents=True, exist_ok=True)
-            print(f"  Created: {folder_path}")
+            print(f"  ✓ Created: {folder_path}")
 
     # Create system folders
-    system_folders = [".obsidian", ".claude/config"]
+    system_folders = [".obsidian", ".claude", ".claude/logs"]
     for folder in system_folders:
         folder_path = vault_path / folder
         if dry_run:
             print(f"  [DRY RUN] Would create: {folder_path}")
         else:
             folder_path.mkdir(parents=True, exist_ok=True)
-            print(f"  Created: {folder_path}")
+            print(f"  ✓ Created: {folder_path}")
 
 
-def create_config_files(vault_path: Path, methodology: str, dry_run: bool = False) -> None:
-    """Create configuration files for the vault.
+def build_settings_yaml(methodology: str) -> dict[str, Any]:
+    """Build settings.yaml content for a methodology.
+
+    Args:
+        methodology: Methodology key
+
+    Returns:
+        Dictionary representing the settings.yaml content
+    """
+    method_config = METHODOLOGIES[methodology]
+
+    settings: dict[str, Any] = {
+        "version": "1.0",
+        "methodology": methodology,
+        "core_properties": method_config["core_properties"],
+        "note_types": method_config["note_types"],
+        "validation": {
+            "require_core_properties": True,
+            "allow_empty_properties": ["tags", "collection", "related"],
+            "strict_types": True,
+            "check_templates": True,
+            "check_up_links": True,
+            "check_inbox_no_frontmatter": True,
+        },
+        "folder_structure": method_config.get("folder_structure", {}),
+        "up_links": method_config.get("up_links", {}),
+        "exclude": {
+            "paths": ["+/", "x/", ".obsidian/", ".claude/", ".git/"],
+            "files": ["Home.md", "README.md"],
+        },
+        "formats": {
+            "date": "YYYY-MM-DD",
+            "daily_link": "[[{date}]]",
+            "wikilink_quoted": True,
+        },
+        "logging": {
+            "enabled": True,
+            "format": "jsonl",
+            "directory": ".claude/logs/",
+            "retention_days": 30,
+        },
+    }
+
+    return settings
+
+
+def create_settings_yaml(vault_path: Path, methodology: str, dry_run: bool = False) -> None:
+    """Create settings.yaml for the vault.
+
+    This is the PRIMARY source of truth for all vault configuration.
 
     Args:
         vault_path: Path to the vault root
         methodology: Methodology key
         dry_run: If True, only print what would be created
     """
-    method_config = METHODOLOGIES[methodology]
-    config_dir = vault_path / ".claude" / "config"
+    settings = build_settings_yaml(methodology)
+    settings_path = vault_path / ".claude" / "settings.yaml"
 
-    # 1. Create validator.yaml
-    validator_config = {
-        "exclude_paths": [
-            "+/",  # Inbox
-            "x/",  # System files
-            ".obsidian/",
-            ".claude/",
-        ],
-        "exclude_files": [
-            "Home.md",
-            "README.md",
-        ],
-        "type_rules": method_config["default_type_rules"],
-        "auto_fix": {
-            "empty_types": True,
-            "daily_links": True,
-            "wikilink_quotes": True,
-            "title_properties": True,
-        },
-    }
+    # Build YAML with header comments
+    header = """# .claude/settings.yaml - Obsidian Vault Settings
+# This is the PRIMARY source of truth for all validation and configuration.
+# Generated by init-skill. Manual editing supported.
+#
+# IMPORTANT: All skills read from this file. Changes here affect:
+# - Validation rules
+# - Note type definitions
+# - Folder structure expectations
+# - Template generation
 
-    # 2. Create frontmatter.yaml (property definitions)
-    frontmatter_config = {
-        "properties": {
-            "type": {
-                "description": "Note type classification",
-                "type": "text",
-                "required": True,
-            },
-            "up": {
-                "description": "Parent note link",
-                "type": "wikilink",
-                "required": True,
-            },
-            "created": {
-                "description": "Creation date",
-                "type": "date",
-                "required": True,
-            },
-            "daily": {
-                "description": "Daily note link",
-                "type": "wikilink",
-                "required": True,
-            },
-            "collection": {
-                "description": "Collection classification",
-                "type": "text",
-                "required": False,
-            },
-            "related": {
-                "description": "Related notes",
-                "type": "multitext",
-                "required": False,
-            },
-        },
-    }
+"""
 
-    # 3. Create note-types.yaml (note type definitions)
-    # Extract unique note types from type_rules
-    note_types = set(method_config["default_type_rules"].values())
-    note_types_config = {
-        "note_types": {
-            note_type: {
-                "description": f"{note_type.capitalize()} note",
-                "template": None,  # Can be customized later
-            }
-            for note_type in sorted(note_types)
-        },
-    }
+    yaml_content = yaml.dump(
+        settings, default_flow_style=False, sort_keys=False, allow_unicode=True
+    )
 
-    # Write config files
-    configs = {
-        "validator.yaml": validator_config,
-        "frontmatter.yaml": frontmatter_config,
-        "note-types.yaml": note_types_config,
-    }
+    print("\nCreating settings.yaml (primary configuration)...")
 
-    print("\nCreating configuration files...")
-
-    # Ensure config directory exists
-    if not dry_run:
-        config_dir.mkdir(parents=True, exist_ok=True)
-
-    for filename, config_data in configs.items():
-        config_path = config_dir / filename
-        if dry_run:
-            print(f"  [DRY RUN] Would create: {config_path}")
-            print("  [DRY RUN] Content preview:")
-            print(yaml.dump(config_data, indent=2, default_flow_style=False))
-        else:
-            config_path.write_text(yaml.dump(config_data, indent=2, default_flow_style=False))
-            print(f"  Created: {config_path}")
+    if dry_run:
+        print(f"  [DRY RUN] Would create: {settings_path}")
+        print("  [DRY RUN] Content preview:")
+        print(header)
+        print(yaml_content)
+    else:
+        # Ensure directory exists
+        settings_path.parent.mkdir(parents=True, exist_ok=True)
+        settings_path.write_text(header + yaml_content)
+        print(f"  ✓ Created: {settings_path}")
 
 
 def create_readme(vault_path: Path, methodology: str, dry_run: bool = False) -> None:
@@ -284,35 +432,97 @@ This Obsidian vault uses the **{method_config["name"]}** methodology.
     content += """
 ## Configuration
 
-Vault configuration is stored in `.claude/config/`:
-- `validator.yaml` - Frontmatter validation rules
-- `frontmatter.yaml` - Property definitions
-- `note-types.yaml` - Note type definitions
+Vault configuration is stored in `.claude/settings.yaml`.
+
+This is the **primary source of truth** for:
+- Core frontmatter properties
+- Note type definitions
+- Validation rules
+- Folder structure
 
 ## Validation
 
 To validate this vault, run:
 
 ```bash
+/obsidian:validate
+```
+
+Or via CLI:
+
+```bash
 uv run skills/validate/scripts/validator.py --vault . --mode report
 ```
 
-To auto-fix issues:
+## Managing Settings
 
+View current settings:
 ```bash
-uv run skills/validate/scripts/validator.py --vault . --mode auto
+/obsidian:config-show
+```
+
+Validate settings:
+```bash
+/obsidian:config-validate
 ```
 """
 
     if dry_run:
         print(f"\n[DRY RUN] Would create: {readme_path}")
-        print(f"[DRY RUN] Content:\n{content}")
     else:
         readme_path.write_text(content)
-        print(f"\nCreated: {readme_path}")
+        print(f"\n✓ Created: {readme_path}")
 
 
-def init_vault(vault_path: Path, methodology: Optional[str] = None, dry_run: bool = False) -> None:
+def create_home_note(vault_path: Path, methodology: str, dry_run: bool = False) -> None:
+    """Create a Home.md file in the vault root.
+
+    Args:
+        vault_path: Path to the vault root
+        methodology: Methodology key
+        dry_run: If True, only print what would be created
+    """
+    method_config = METHODOLOGIES[methodology]
+    home_path = vault_path / "Home.md"
+
+    content = f"""---
+type: home
+created: "{{{{date}}}}"
+---
+
+# Home
+
+Welcome to your **{method_config["name"]}** vault!
+
+## Quick Navigation
+
+"""
+    # Add links based on methodology folders
+    for folder in method_config["folders"]:
+        if not folder.startswith("+") and not folder.startswith("x"):
+            folder_name = folder.split("/")[-1] if "/" in folder else folder
+            content += f"- [[{folder_name}]]\n"
+
+    content += """
+## Getting Started
+
+1. Start capturing ideas in the `+/` inbox
+2. Process inbox items into appropriate folders
+3. Run `/obsidian:validate` to check your notes
+
+## Configuration
+
+Your vault settings are in `.claude/settings.yaml`.
+"""
+
+    if dry_run:
+        print(f"[DRY RUN] Would create: {home_path}")
+    else:
+        home_path.write_text(content)
+        print(f"✓ Created: {home_path}")
+
+
+def init_vault(vault_path: Path, methodology: str | None = None, dry_run: bool = False) -> None:
     """Initialize an Obsidian vault with chosen methodology.
 
     Args:
@@ -328,8 +538,10 @@ def init_vault(vault_path: Path, methodology: Optional[str] = None, dry_run: boo
     if methodology is None:
         methodology = choose_methodology_interactive()
 
-    print(f"\nInitializing vault at: {vault_path}")
+    print(f"\n{'=' * 60}")
+    print(f"Initializing vault at: {vault_path}")
     print(f"Methodology: {METHODOLOGIES[methodology]['name']}")
+    print(f"{'=' * 60}")
 
     if dry_run:
         print("\n*** DRY RUN MODE - No files will be created ***\n")
@@ -337,19 +549,26 @@ def init_vault(vault_path: Path, methodology: Optional[str] = None, dry_run: boo
     # Create folder structure
     create_folder_structure(vault_path, methodology, dry_run)
 
-    # Create config files
-    create_config_files(vault_path, methodology, dry_run)
+    # Create settings.yaml (PRIMARY configuration)
+    create_settings_yaml(vault_path, methodology, dry_run)
 
     # Create README
     create_readme(vault_path, methodology, dry_run)
 
-    print("\n✓ Vault initialization complete!")
+    # Create Home note
+    create_home_note(vault_path, methodology, dry_run)
+
+    print(f"\n{'=' * 60}")
+    print("✓ Vault initialization complete!")
+    print(f"{'=' * 60}")
+
     if not dry_run:
         print(f"\nYour vault is ready at: {vault_path}")
         print("\nNext steps:")
         print("  1. Open the vault in Obsidian")
         print("  2. Start creating notes based on your chosen methodology")
-        print("  3. Run validation to check frontmatter: /obsidian:validate")
+        print("  3. Run validation: /obsidian:validate")
+        print("  4. View settings: /obsidian:config-show")
 
 
 def main() -> int:
@@ -391,8 +610,11 @@ def main() -> int:
     try:
         init_vault(args.vault, args.methodology, args.dry_run)
         return 0
-    except Exception as e:
+    except ValueError as e:
         print(f"Error: {e}", file=sys.stderr)
+        return 1
+    except Exception as e:
+        print(f"Unexpected error: {e}", file=sys.stderr)
         return 1
 
 
