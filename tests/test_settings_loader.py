@@ -338,3 +338,412 @@ class TestSettingsExist:
     def test_settings_exist_false(self, tmp_path: Path) -> None:
         """Test that settings_exist returns False when file doesn't exist."""
         assert settings_exist(tmp_path) is False
+
+
+class TestPropertyInheritance:
+    """Tests for property inheritance (inherit_core field)."""
+
+    def test_default_inherit_core_true(self, tmp_path: Path) -> None:
+        """Test that note types inherit core_properties by default."""
+        settings = load_settings(tmp_path, create_if_missing=True)
+        # Default template has inherit_core: true (default)
+        map_type = get_note_type(settings, "map")
+        assert map_type is not None
+        # Should have all core_properties
+        for prop in settings.core_properties:
+            assert prop in map_type.required_properties
+
+    def test_additional_required_with_inheritance(self, tmp_path: Path) -> None:
+        """Test that additional_required is added to core_properties."""
+        settings_dir = tmp_path / ".claude"
+        settings_dir.mkdir(parents=True)
+        settings_file = settings_dir / "settings.yaml"
+
+        config = {
+            "version": "1.0",
+            "methodology": "custom",
+            "core_properties": ["type", "up", "created"],
+            "note_types": {
+                "source": {
+                    "description": "Source notes",
+                    "folder_hints": ["Sources/"],
+                    # inherit_core: true is default
+                    "properties": {
+                        "additional_required": ["author", "url"],
+                        "optional": ["published"],
+                    },
+                }
+            },
+        }
+
+        with settings_file.open("w") as f:
+            yaml.safe_dump(config, f)
+
+        settings = load_settings(tmp_path)
+        source_type = get_note_type(settings, "source")
+        assert source_type is not None
+        # Should have core + additional_required
+        assert "type" in source_type.required_properties
+        assert "up" in source_type.required_properties
+        assert "created" in source_type.required_properties
+        assert "author" in source_type.required_properties
+        assert "url" in source_type.required_properties
+        assert "published" in source_type.optional_properties
+
+    def test_explicit_inherit_core_false(self, tmp_path: Path) -> None:
+        """Test that inherit_core: false uses explicit required list only."""
+        settings_dir = tmp_path / ".claude"
+        settings_dir.mkdir(parents=True)
+        settings_file = settings_dir / "settings.yaml"
+
+        config = {
+            "version": "1.0",
+            "methodology": "custom",
+            "core_properties": ["type", "up", "created"],
+            "note_types": {
+                "custom": {
+                    "description": "Custom note type",
+                    "folder_hints": ["Custom/"],
+                    "inherit_core": False,  # Explicit no inheritance
+                    "properties": {
+                        "required": ["title", "status"],
+                        "optional": [],
+                    },
+                }
+            },
+        }
+
+        with settings_file.open("w") as f:
+            yaml.safe_dump(config, f)
+
+        settings = load_settings(tmp_path)
+        custom_type = get_note_type(settings, "custom")
+        assert custom_type is not None
+        assert custom_type.inherit_core is False
+        # Should NOT have core_properties
+        assert "type" not in custom_type.required_properties
+        assert "up" not in custom_type.required_properties
+        # Should have explicit required only
+        assert "title" in custom_type.required_properties
+        assert "status" in custom_type.required_properties
+
+    def test_backward_compat_explicit_required(self, tmp_path: Path) -> None:
+        """Test backward compatibility with old 'required' format."""
+        settings_dir = tmp_path / ".claude"
+        settings_dir.mkdir(parents=True)
+        settings_file = settings_dir / "settings.yaml"
+
+        config = {
+            "version": "1.0",
+            "methodology": "custom",
+            "core_properties": ["type", "up", "created"],
+            "note_types": {
+                "old_format": {
+                    "description": "Old format note type",
+                    "folder_hints": ["Old/"],
+                    # Old format: explicit required list (no additional_required)
+                    "properties": {
+                        "required": ["type", "up", "custom_prop"],
+                        "optional": [],
+                    },
+                }
+            },
+        }
+
+        with settings_file.open("w") as f:
+            yaml.safe_dump(config, f)
+
+        settings = load_settings(tmp_path)
+        old_type = get_note_type(settings, "old_format")
+        assert old_type is not None
+        # Should use explicit required as-is
+        assert "type" in old_type.required_properties
+        assert "up" in old_type.required_properties
+        assert "custom_prop" in old_type.required_properties
+
+    def test_validate_inheritance_missing_core(self, tmp_path: Path) -> None:
+        """Test validation catches missing core properties with inherit_core=True."""
+        from skills.config.scripts.settings_loader import NoteTypeConfig
+
+        settings = Settings(
+            version="1.0",
+            methodology="custom",
+            core_properties=["type", "up", "created"],
+            note_types={
+                "broken": NoteTypeConfig(
+                    name="broken",
+                    description="Broken type",
+                    folder_hints=["Broken/"],
+                    required_properties=["type"],  # Missing up, created
+                    optional_properties=[],
+                    validation={},
+                    inherit_core=True,  # Claims to inherit but doesn't have all core
+                )
+            },
+            validation=ValidationRules(),
+            folder_structure={},
+            up_links={},
+            exclude_paths=[],
+            exclude_files=[],
+            formats={},
+            logging={},
+            raw={},
+        )
+        errors = validate_settings(settings)
+        assert any("missing core properties" in e for e in errors)
+
+
+class TestSettingsLoaderCLI:
+    """Tests for CLI main function."""
+
+    def test_main_show(self, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+        """Test --show option."""
+        import sys
+
+        from skills.config.scripts.settings_loader import main
+
+        create_default_settings(tmp_path)
+        old_argv = sys.argv
+        try:
+            sys.argv = ["settings_loader", "--vault", str(tmp_path), "--show"]
+            result = main()
+            assert result == 0
+            captured = capsys.readouterr()
+            assert "Version:" in captured.out
+            assert "Methodology:" in captured.out
+        finally:
+            sys.argv = old_argv
+
+    def test_main_validate(self, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+        """Test --validate option."""
+        import sys
+
+        from skills.config.scripts.settings_loader import main
+
+        create_default_settings(tmp_path)
+        old_argv = sys.argv
+        try:
+            sys.argv = ["settings_loader", "--vault", str(tmp_path), "--validate"]
+            result = main()
+            assert result == 0
+            captured = capsys.readouterr()
+            assert "Settings are valid" in captured.out
+        finally:
+            sys.argv = old_argv
+
+    def test_main_type(self, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+        """Test --type option."""
+        import sys
+
+        from skills.config.scripts.settings_loader import main
+
+        create_default_settings(tmp_path)
+        old_argv = sys.argv
+        try:
+            sys.argv = ["settings_loader", "--vault", str(tmp_path), "--type", "map"]
+            result = main()
+            assert result == 0
+            captured = capsys.readouterr()
+            assert "Note type: map" in captured.out
+            assert "Description:" in captured.out
+        finally:
+            sys.argv = old_argv
+
+    def test_main_type_not_found(self, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+        """Test --type option with nonexistent type."""
+        import sys
+
+        from skills.config.scripts.settings_loader import main
+
+        create_default_settings(tmp_path)
+        old_argv = sys.argv
+        try:
+            sys.argv = [
+                "settings_loader",
+                "--vault",
+                str(tmp_path),
+                "--type",
+                "nonexistent",
+            ]
+            result = main()
+            assert result == 1
+            captured = capsys.readouterr()
+            assert "not found" in captured.err
+        finally:
+            sys.argv = old_argv
+
+    def test_main_create(self, tmp_path: Path) -> None:
+        """Test --create option."""
+        import sys
+
+        from skills.config.scripts.settings_loader import main
+
+        old_argv = sys.argv
+        try:
+            sys.argv = ["settings_loader", "--vault", str(tmp_path), "--create"]
+            result = main()
+            assert result == 0
+            assert (tmp_path / ".claude" / "settings.yaml").exists()
+        finally:
+            sys.argv = old_argv
+
+    def test_main_missing_settings(self, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+        """Test error when settings don't exist."""
+        import sys
+
+        from skills.config.scripts.settings_loader import main
+
+        old_argv = sys.argv
+        try:
+            sys.argv = ["settings_loader", "--vault", str(tmp_path)]
+            result = main()
+            assert result == 1
+            captured = capsys.readouterr()
+            assert "Error:" in captured.err
+        finally:
+            sys.argv = old_argv
+
+    def test_main_reset_list(self, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+        """Test --reset list option."""
+        import sys
+
+        from skills.config.scripts.settings_loader import main
+
+        old_argv = sys.argv
+        try:
+            sys.argv = ["settings_loader", "--vault", str(tmp_path), "--reset", "list"]
+            result = main()
+            assert result == 0
+            captured = capsys.readouterr()
+            assert "Available methodologies" in captured.out
+            assert "lyt-ace" in captured.out
+            assert "para" in captured.out
+        finally:
+            sys.argv = old_argv
+
+    def test_main_reset_invalid_methodology(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture
+    ) -> None:
+        """Test --reset with invalid methodology."""
+        import sys
+
+        from skills.config.scripts.settings_loader import main
+
+        old_argv = sys.argv
+        try:
+            sys.argv = [
+                "settings_loader",
+                "--vault",
+                str(tmp_path),
+                "--reset",
+                "invalid",
+            ]
+            result = main()
+            assert result == 1
+            captured = capsys.readouterr()
+            assert "Invalid methodology" in captured.out
+        finally:
+            sys.argv = old_argv
+
+    def test_main_reset_with_yes(self, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+        """Test --reset with --yes option."""
+        import sys
+
+        from skills.config.scripts.settings_loader import main
+
+        # Create initial settings
+        create_default_settings(tmp_path)
+
+        old_argv = sys.argv
+        try:
+            sys.argv = [
+                "settings_loader",
+                "--vault",
+                str(tmp_path),
+                "--reset",
+                "para",
+                "--yes",
+            ]
+            result = main()
+            assert result == 0
+            captured = capsys.readouterr()
+            assert "Created new settings" in captured.out
+            # Verify methodology was changed
+            settings = load_settings(tmp_path)
+            assert settings.methodology == "para"
+        finally:
+            sys.argv = old_argv
+
+    def test_main_reset_without_yes_non_interactive(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test --reset without --yes in non-interactive mode."""
+        import sys
+        from io import StringIO
+
+        from skills.config.scripts.settings_loader import main
+
+        # Create initial settings
+        create_default_settings(tmp_path)
+
+        # Create a non-tty stdin
+        fake_stdin = StringIO()
+        monkeypatch.setattr(sys, "stdin", fake_stdin)
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            [
+                "settings_loader",
+                "--vault",
+                str(tmp_path),
+                "--reset",
+                "para",
+            ],
+        )
+
+        result = main()
+        assert result == 1
+        captured = capsys.readouterr()
+        assert "Cannot confirm interactively" in captured.out
+
+    def test_main_reset_new_settings(self, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+        """Test --reset creating new settings when none exist."""
+        import sys
+
+        from skills.config.scripts.settings_loader import main
+
+        old_argv = sys.argv
+        try:
+            sys.argv = [
+                "settings_loader",
+                "--vault",
+                str(tmp_path),
+                "--reset",
+                "zettelkasten",
+            ]
+            result = main()
+            assert result == 0
+            captured = capsys.readouterr()
+            assert "Created new settings" in captured.out
+            settings = load_settings(tmp_path)
+            assert settings.methodology == "zettelkasten"
+        finally:
+            sys.argv = old_argv
+
+
+class TestPrintResetHelp:
+    """Tests for print_reset_help function."""
+
+    def test_print_reset_help(self, capsys: pytest.CaptureFixture) -> None:
+        """Test print_reset_help output."""
+        from skills.config.scripts.settings_loader import print_reset_help
+
+        print_reset_help()
+        captured = capsys.readouterr()
+        assert "Available methodologies" in captured.out
+        assert "lyt-ace" in captured.out
+        assert "para" in captured.out
+        assert "zettelkasten" in captured.out
+        assert "minimal" in captured.out
+        assert "custom" in captured.out
+        assert "Examples:" in captured.out

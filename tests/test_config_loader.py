@@ -467,3 +467,119 @@ class TestIntegration:
         type_config = get_note_type_config(config, note_type)
         assert type_config is not None
         assert "properties" in type_config
+
+
+class TestConfigLoaderCLI:
+    """Test config_loader CLI main function."""
+
+    def test_main_validate(self, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+        """Test --validate option."""
+        import sys
+
+        from skills.config.scripts.config_loader import main
+
+        old_argv = sys.argv
+        try:
+            sys.argv = ["config_loader", "--vault", str(tmp_path), "--validate"]
+            result = main()
+            assert result == 0
+            captured = capsys.readouterr()
+            assert "Configuration is valid" in captured.out
+        finally:
+            sys.argv = old_argv
+
+    def test_main_show(self, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+        """Test --show option."""
+        import sys
+
+        from skills.config.scripts.config_loader import main
+
+        old_argv = sys.argv
+        try:
+            sys.argv = ["config_loader", "--vault", str(tmp_path), "--show"]
+            result = main()
+            assert result == 0
+            captured = capsys.readouterr()
+            assert "core_properties" in captured.out
+            assert "note_types" in captured.out
+        finally:
+            sys.argv = old_argv
+
+    def test_main_validate_with_errors(self, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+        """Test --validate with invalid config."""
+        import sys
+
+        from skills.config.scripts.config_loader import main
+
+        # Create invalid config
+        config_dir = tmp_path / ".claude" / "config"
+        config_dir.mkdir(parents=True)
+        config_file = config_dir / "default.yaml"
+        config_file.write_text("core_properties: not_a_list\nnote_types: {}")
+
+        old_argv = sys.argv
+        try:
+            sys.argv = ["config_loader", "--vault", str(tmp_path), "--validate"]
+            result = main()
+            assert result == 1
+            captured = capsys.readouterr()
+            assert "validation errors" in captured.err
+        finally:
+            sys.argv = old_argv
+
+    def test_main_error_handling(self, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+        """Test error handling for nonexistent vault."""
+        import sys
+
+        from skills.config.scripts.config_loader import main
+
+        old_argv = sys.argv
+        try:
+            sys.argv = [
+                "config_loader",
+                "--vault",
+                str(tmp_path / "nonexistent"),
+                "--validate",
+            ]
+            result = main()
+            assert result == 1
+            captured = capsys.readouterr()
+            assert "Error:" in captured.err
+        finally:
+            sys.argv = old_argv
+
+    def test_main_custom_config(self, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+        """Test --config option with custom config file."""
+        import sys
+
+        from skills.config.scripts.config_loader import main
+
+        # Create custom config
+        config_dir = tmp_path / ".claude" / "config"
+        config_dir.mkdir(parents=True)
+        config_file = config_dir / "custom.yaml"
+        config_file.write_text(
+            "core_properties: [type, up]\n"
+            "note_types:\n"
+            "  test:\n"
+            "    description: Test\n"
+            "    folder_hints: [Test/]\n"
+            "    properties: [type]\n"
+        )
+
+        old_argv = sys.argv
+        try:
+            sys.argv = [
+                "config_loader",
+                "--vault",
+                str(tmp_path),
+                "--config",
+                "custom.yaml",
+                "--show",
+            ]
+            result = main()
+            assert result == 0
+            captured = capsys.readouterr()
+            assert "test:" in captured.out
+        finally:
+            sys.argv = old_argv
