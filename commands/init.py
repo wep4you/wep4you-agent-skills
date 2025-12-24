@@ -189,7 +189,8 @@ def main() -> int:
     )
 
     parser.add_argument(
-        "-m", "--methodology",
+        "-m",
+        "--methodology",
         choices=["lyt-ace", "para", "zettelkasten", "minimal"],
         help="PKM methodology to use",
     )

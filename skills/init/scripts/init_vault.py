@@ -74,6 +74,7 @@ class WizardConfig:
     create_samples: bool = True
     reset_vault: bool = False
 
+
 # Methodology definitions with folder structures, note types, and descriptions
 METHODOLOGIES: dict[str, dict[str, Any]] = {
     "lyt-ace": {
@@ -1662,7 +1663,8 @@ Examples:
         help=argparse.SUPPRESS,  # Hidden, for backward compatibility
     )
     parser.add_argument(
-        "-m", "--methodology",
+        "-m",
+        "--methodology",
         choices=list(METHODOLOGIES.keys()),
         help="Methodology to use (lyt-ace, para, zettelkasten, minimal)",
     )
