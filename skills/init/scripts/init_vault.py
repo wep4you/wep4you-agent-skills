@@ -345,7 +345,7 @@ def detect_existing_vault(vault_path: Path) -> dict[str, Any]:
     }
 
 
-def prompt_existing_vault_action(detection: dict[str, Any]) -> str:
+def prompt_existing_vault_action(detection: dict[str, Any]) -> str:  # pragma: no cover
     """Ask user what to do with existing vault.
 
     Args:
@@ -937,7 +937,7 @@ def wizard_full_flow(vault_path: Path) -> WizardConfig | None:
     return config
 
 
-def wizard_step_methodology() -> str:
+def wizard_step_methodology() -> str:  # pragma: no cover
     """Choose a methodology with nice formatting.
 
     Returns:
@@ -1208,7 +1208,7 @@ def print_methodologies() -> None:
         print(f"  {' ' * 17} Folders: {', '.join(method['folders'])}\n")
 
 
-def choose_methodology_interactive() -> str:
+def choose_methodology_interactive() -> str:  # pragma: no cover
     """Interactively choose a methodology."""
     print_methodologies()
 
@@ -1628,7 +1628,7 @@ def is_interactive() -> bool:
     return sys.stdin.isatty()
 
 
-def main() -> int:
+def main() -> int:  # pragma: no cover
     """Main entry point."""
     parser = argparse.ArgumentParser(
         description="Initialize an Obsidian vault with a PKM methodology",
