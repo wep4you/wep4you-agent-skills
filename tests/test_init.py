@@ -18,15 +18,25 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "skills" / "init" / "scrip
 # Import after path modification
 from init_vault import (
     METHODOLOGIES,
+    WizardConfig,
     build_settings_yaml,
     choose_methodology_interactive,
     create_folder_structure,
     create_home_note,
     create_readme,
+    create_sample_notes,
     create_settings_yaml,
+    detect_existing_vault,
+    generate_sample_note,
     init_vault,
     main,
     print_methodologies,
+    reset_vault,
+    show_migration_hint,
+    wizard_step_confirm,
+    wizard_step_frontmatter,
+    wizard_step_note_types,
+    wizard_step_quick_or_custom,
 )
 
 
@@ -403,7 +413,7 @@ class TestMainCLI:
     def test_main_with_methodology(self, tmp_path: Path) -> None:
         """Test main function with methodology flag"""
         vault_path = tmp_path / "cli-vault"
-        args = ["--vault", str(vault_path), "--methodology", "minimal"]
+        args = [str(vault_path), "-m", "minimal", "--defaults"]
 
         with patch("sys.argv", ["init_vault.py", *args]):
             exit_code = main()
@@ -413,7 +423,7 @@ class TestMainCLI:
 
     def test_main_list_methodologies(self, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
         """Test --list flag"""
-        args = ["--vault", str(tmp_path / "test"), "--list"]
+        args = ["--list"]
 
         with patch("sys.argv", ["init_vault.py", *args]):
             exit_code = main()
@@ -426,7 +436,7 @@ class TestMainCLI:
     def test_main_dry_run(self, tmp_path: Path) -> None:
         """Test --dry-run flag"""
         vault_path = tmp_path / "dry-cli-vault"
-        args = ["--vault", str(vault_path), "--methodology", "para", "--dry-run"]
+        args = [str(vault_path), "-m", "para", "--dry-run", "--defaults"]
 
         with patch("sys.argv", ["init_vault.py", *args]):
             exit_code = main()
@@ -437,13 +447,15 @@ class TestMainCLI:
             assert not (vault_path / "Projects").exists()
 
     def test_main_interactive(self, tmp_path: Path) -> None:
-        """Test interactive mode via CLI"""
+        """Test interactive mode via CLI (wizard mode)"""
         vault_path = tmp_path / "interactive-cli"
-        args = ["--vault", str(vault_path)]
+        args = [str(vault_path), "--wizard"]
 
+        # Mock is_interactive to return True and the full wizard flow
         with patch("sys.argv", ["init_vault.py", *args]):
-            with patch("builtins.input", return_value="zettelkasten"):
-                exit_code = main()
+            with patch("init_vault.is_interactive", return_value=True):
+                with patch("builtins.input", side_effect=["zettelkasten", "q", "y"]):
+                    exit_code = main()
 
         assert exit_code == 0
         assert (vault_path / "Permanent").exists()
@@ -451,7 +463,7 @@ class TestMainCLI:
     def test_main_error_handling(self, tmp_path: Path) -> None:
         """Test error handling in main"""
         vault_path = tmp_path / "error-vault"
-        args = ["--vault", str(vault_path), "--methodology", "invalid"]
+        args = [str(vault_path), "-m", "invalid"]
 
         # argparse calls sys.exit(2) on invalid choice
         with patch("sys.argv", ["init_vault.py", *args]):
@@ -470,7 +482,8 @@ class TestEdgeCases:
         vault_path.mkdir()
         (vault_path / "existing-file.md").write_text("# Existing")
 
-        init_vault(vault_path, "minimal", dry_run=False)
+        # Use defaults to skip the interactive prompt for existing vault
+        init_vault(vault_path, "minimal", dry_run=False, use_defaults=True)
 
         # Should create new folders without destroying existing file
         assert (vault_path / "existing-file.md").exists()
@@ -547,3 +560,269 @@ class TestIntegration:
             assert isinstance(settings["core_properties"], list)
             assert isinstance(settings["note_types"], dict)
             assert isinstance(settings["validation"], dict)
+
+
+class TestDetectExistingVault:
+    """Tests for vault detection"""
+
+    def test_detect_nonexistent_vault(self, tmp_path: Path) -> None:
+        """Test detection of non-existent vault"""
+        vault_path = tmp_path / "nonexistent"
+        result = detect_existing_vault(vault_path)
+
+        assert result["exists"] is False
+        assert result["has_obsidian"] is False
+        assert result["has_content"] is False
+
+    def test_detect_empty_vault(self, tmp_path: Path) -> None:
+        """Test detection of empty vault"""
+        vault_path = tmp_path / "empty"
+        vault_path.mkdir()
+        result = detect_existing_vault(vault_path)
+
+        assert result["exists"] is True
+        assert result["has_content"] is False
+        assert result["folder_count"] == 0
+
+    def test_detect_obsidian_vault(self, tmp_path: Path) -> None:
+        """Test detection of Obsidian vault"""
+        vault_path = tmp_path / "obsidian"
+        vault_path.mkdir()
+        (vault_path / ".obsidian").mkdir()
+        result = detect_existing_vault(vault_path)
+
+        assert result["has_obsidian"] is True
+
+    def test_detect_claude_config(self, tmp_path: Path) -> None:
+        """Test detection of Claude configuration"""
+        vault_path = tmp_path / "claude"
+        vault_path.mkdir()
+        (vault_path / ".claude").mkdir()
+        result = detect_existing_vault(vault_path)
+
+        assert result["has_claude_config"] is True
+
+    def test_detect_content(self, tmp_path: Path) -> None:
+        """Test detection of existing content"""
+        vault_path = tmp_path / "content"
+        vault_path.mkdir()
+        (vault_path / "Notes").mkdir()
+        (vault_path / "test.md").write_text("# Test")
+        result = detect_existing_vault(vault_path)
+
+        assert result["has_content"] is True
+        assert result["folder_count"] == 1
+        assert result["file_count"] == 1
+
+
+class TestResetVault:
+    """Tests for vault reset functionality"""
+
+    def test_reset_removes_content(self, tmp_path: Path) -> None:
+        """Test that reset removes all content"""
+        vault_path = tmp_path / "reset"
+        vault_path.mkdir()
+        (vault_path / "Notes").mkdir()
+        (vault_path / "test.md").write_text("# Test")
+
+        reset_vault(vault_path, keep_obsidian=True)
+
+        assert not (vault_path / "Notes").exists()
+        assert not (vault_path / "test.md").exists()
+
+    def test_reset_keeps_obsidian(self, tmp_path: Path) -> None:
+        """Test that reset keeps .obsidian folder"""
+        vault_path = tmp_path / "keep-obsidian"
+        vault_path.mkdir()
+        (vault_path / ".obsidian").mkdir()
+        (vault_path / "Notes").mkdir()
+
+        reset_vault(vault_path, keep_obsidian=True)
+
+        assert (vault_path / ".obsidian").exists()
+        assert not (vault_path / "Notes").exists()
+
+
+class TestWizardSteps:
+    """Tests for wizard step functions"""
+
+    def test_wizard_step_quick_or_custom_quick(self) -> None:
+        """Test quick setup selection"""
+        with patch("builtins.input", return_value="q"):
+            result = wizard_step_quick_or_custom()
+        assert result is True
+
+    def test_wizard_step_quick_or_custom_custom(self) -> None:
+        """Test custom setup selection"""
+        with patch("builtins.input", return_value="c"):
+            result = wizard_step_quick_or_custom()
+        assert result is False
+
+    def test_wizard_step_note_types_default(self) -> None:
+        """Test note types with default selection"""
+        with patch("builtins.input", return_value=""):
+            result = wizard_step_note_types("lyt-ace")
+
+        # Should return all note types
+        assert "map" in result
+        assert "dot" in result
+        assert len(result) == len(METHODOLOGIES["lyt-ace"]["note_types"])
+
+    def test_wizard_step_frontmatter_default(self) -> None:
+        """Test frontmatter with default selection"""
+        core = ["type", "up", "created"]
+        with patch("builtins.input", side_effect=["", ""]):
+            mandatory, optional, custom = wizard_step_frontmatter(core)
+
+        assert mandatory == core
+        assert optional == []
+        assert custom == []
+
+    def test_wizard_step_frontmatter_with_optional(self) -> None:
+        """Test frontmatter with optional selection"""
+        core = ["type", "up", "created"]
+        with patch("builtins.input", side_effect=["3", ""]):
+            mandatory, optional, custom = wizard_step_frontmatter(core)
+
+        assert "created" in optional
+        assert "created" not in mandatory
+
+    def test_wizard_step_confirm_yes(self) -> None:
+        """Test confirmation with yes"""
+        config = WizardConfig(
+            methodology="minimal",
+            note_types={"note": {}},
+            core_properties=["type"],
+            mandatory_properties=["type"],
+        )
+        with patch("builtins.input", return_value="y"):
+            result = wizard_step_confirm(config)
+        assert result is True
+
+    def test_wizard_step_confirm_no(self) -> None:
+        """Test confirmation with no"""
+        config = WizardConfig(
+            methodology="minimal",
+            note_types={"note": {}},
+            core_properties=["type"],
+            mandatory_properties=["type"],
+        )
+        with patch("builtins.input", return_value="n"):
+            result = wizard_step_confirm(config)
+        assert result is False
+
+
+class TestSampleNotes:
+    """Tests for sample note generation"""
+
+    def test_generate_sample_note_content(self) -> None:
+        """Test sample note content generation"""
+        note_type_config = {
+            "description": "Test note type",
+            "folder_hints": ["Notes/"],
+            "properties": {"additional_required": [], "optional": []},
+        }
+        content = generate_sample_note(
+            "test",
+            note_type_config,
+            ["type", "created"],
+            "minimal",
+            {},
+        )
+
+        assert "---" in content
+        assert 'type: "test"' in content
+        assert "Getting Started with Tests" in content
+
+    def test_generate_sample_note_with_additional_props(self) -> None:
+        """Test sample note with additional required properties"""
+        note_type_config = {
+            "description": "Source note",
+            "folder_hints": ["Sources/"],
+            "properties": {"additional_required": ["author", "url"], "optional": []},
+        }
+        content = generate_sample_note(
+            "source",
+            note_type_config,
+            ["type", "created"],
+            "lyt-ace",
+            {},
+        )
+
+        assert 'author: "Unknown"' in content
+        assert 'url: ""' in content
+
+    def test_create_sample_notes(self, tmp_path: Path) -> None:
+        """Test creating sample notes"""
+        vault_path = tmp_path / "samples"
+        vault_path.mkdir()
+        (vault_path / "Notes").mkdir()
+
+        note_types = {
+            "note": {
+                "description": "General notes",
+                "folder_hints": ["Notes/"],
+                "properties": {"additional_required": [], "optional": []},
+            }
+        }
+
+        files = create_sample_notes(
+            vault_path, "minimal", note_types, ["type", "created"], dry_run=False
+        )
+
+        assert len(files) == 1
+        assert files[0].exists()
+        assert "Getting Started with Notes.md" in str(files[0])
+
+    def test_create_sample_notes_dry_run(self, tmp_path: Path) -> None:
+        """Test sample notes dry run"""
+        vault_path = tmp_path / "dry-samples"
+        vault_path.mkdir()
+
+        note_types = {
+            "note": {
+                "description": "General notes",
+                "folder_hints": ["Notes/"],
+                "properties": {"additional_required": [], "optional": []},
+            }
+        }
+
+        files = create_sample_notes(
+            vault_path, "minimal", note_types, ["type", "created"], dry_run=True
+        )
+
+        assert len(files) == 0
+
+
+class TestMigrationHint:
+    """Tests for migration hint"""
+
+    def test_migration_hint_with_existing(self, capsys: pytest.CaptureFixture) -> None:
+        """Test migration hint is shown for existing content"""
+        show_migration_hint(has_existing_content=True)
+        captured = capsys.readouterr()
+        assert "Migration" in captured.out
+
+    def test_migration_hint_without_existing(self, capsys: pytest.CaptureFixture) -> None:
+        """Test migration hint is not shown for new vault"""
+        show_migration_hint(has_existing_content=False)
+        captured = capsys.readouterr()
+        assert captured.out == ""
+
+
+class TestWizardConfig:
+    """Tests for WizardConfig dataclass"""
+
+    def test_wizard_config_defaults(self) -> None:
+        """Test WizardConfig default values"""
+        config = WizardConfig(
+            methodology="minimal",
+            note_types={"note": {}},
+            core_properties=["type"],
+        )
+
+        assert config.mandatory_properties == []
+        assert config.optional_properties == []
+        assert config.custom_properties == []
+        assert config.create_samples is True
+        assert config.reset_vault is False
