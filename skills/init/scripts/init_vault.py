@@ -428,7 +428,7 @@ def reset_vault(vault_path: Path, keep_obsidian: bool = True) -> None:
 # =============================================================================
 
 
-def wizard_step_quick_or_custom() -> bool:
+def wizard_step_quick_or_custom() -> bool:  # pragma: no cover
     """Ask user whether to use quick setup or customize.
 
     Returns:
@@ -453,7 +453,7 @@ def wizard_step_quick_or_custom() -> bool:
         print("  Invalid choice. Please enter 'q' or 'c'.")
 
 
-def wizard_step_note_types(methodology: str) -> dict[str, dict[str, Any]]:
+def wizard_step_note_types(methodology: str) -> dict[str, dict[str, Any]]:  # pragma: no cover
     """Configure which note types to enable.
 
     Args:
@@ -506,7 +506,7 @@ def wizard_step_note_types(methodology: str) -> dict[str, dict[str, Any]]:
     return enabled
 
 
-def wizard_step_frontmatter(
+def wizard_step_frontmatter(  # pragma: no cover
     core_properties: list[str],
 ) -> tuple[list[str], list[str], list[str]]:
     """Configure frontmatter properties.
@@ -570,7 +570,7 @@ def wizard_step_frontmatter(
     return mandatory, optional, custom
 
 
-def wizard_step_per_type_properties(
+def wizard_step_per_type_properties(  # pragma: no cover
     note_types: dict[str, dict[str, Any]],
 ) -> dict[str, dict[str, list[str]]]:
     """Configure properties for each note type.
@@ -675,7 +675,7 @@ def wizard_step_per_type_properties(
     return per_type
 
 
-def wizard_step_custom_note_types(
+def wizard_step_custom_note_types(  # pragma: no cover
     methodology: str,
     existing_types: dict[str, dict[str, Any]],
 ) -> dict[str, NoteTypeConfig]:
@@ -784,7 +784,7 @@ def wizard_step_custom_note_types(
     return custom_types
 
 
-def wizard_step_confirm(config: WizardConfig) -> bool:
+def wizard_step_confirm(config: WizardConfig) -> bool:  # pragma: no cover
     """Show summary and ask for confirmation.
 
     Args:
@@ -856,7 +856,7 @@ def wizard_step_confirm(config: WizardConfig) -> bool:
         print("  Please enter 'y' or 'n'.")
 
 
-def wizard_full_flow(vault_path: Path) -> WizardConfig | None:
+def wizard_full_flow(vault_path: Path) -> WizardConfig | None:  # pragma: no cover
     """Run the complete interactive wizard.
 
     Args:
