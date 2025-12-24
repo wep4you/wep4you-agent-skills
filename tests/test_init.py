@@ -18,6 +18,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "skills" / "init" / "scrip
 # Import after path modification
 from init_vault import (
     METHODOLOGIES,
+    NoteTypeConfig,
     WizardConfig,
     build_settings_yaml,
     choose_methodology_interactive,
@@ -34,8 +35,10 @@ from init_vault import (
     reset_vault,
     show_migration_hint,
     wizard_step_confirm,
+    wizard_step_custom_note_types,
     wizard_step_frontmatter,
     wizard_step_note_types,
+    wizard_step_per_type_properties,
     wizard_step_quick_or_custom,
 )
 
@@ -238,9 +241,11 @@ class TestBuildSettingsYaml:
         """Test that core_properties are set correctly"""
         settings = build_settings_yaml("lyt-ace")
 
-        assert "type" in settings["core_properties"]
-        assert "up" in settings["core_properties"]
-        assert "created" in settings["core_properties"]
+        # core_properties is now a dict with 'all' key containing the list
+        assert "all" in settings["core_properties"]
+        assert "type" in settings["core_properties"]["all"]
+        assert "up" in settings["core_properties"]["all"]
+        assert "created" in settings["core_properties"]["all"]
 
 
 class TestCreateSettingsYaml:
@@ -526,7 +531,8 @@ class TestIntegration:
         )
         assert settings["methodology"] == "lyt-ace"
         assert "map" in settings["note_types"]
-        assert "type" in settings["core_properties"]
+        # core_properties is now a dict with 'all' key containing the list
+        assert "type" in settings["core_properties"]["all"]
 
         # Verify README
         readme = (vault_path / "README.md").read_text()
@@ -557,7 +563,10 @@ class TestIntegration:
             # Check required fields
             assert settings["version"] == "1.0"
             assert settings["methodology"] == methodology_key
-            assert isinstance(settings["core_properties"], list)
+            # core_properties is now a dict with 'all' key containing the list
+            assert isinstance(settings["core_properties"], dict)
+            assert "all" in settings["core_properties"]
+            assert isinstance(settings["core_properties"]["all"], list)
             assert isinstance(settings["note_types"], dict)
             assert isinstance(settings["validation"], dict)
 
@@ -824,5 +833,161 @@ class TestWizardConfig:
         assert config.mandatory_properties == []
         assert config.optional_properties == []
         assert config.custom_properties == []
+        assert config.custom_note_types == {}
+        assert config.per_type_properties == {}
         assert config.create_samples is True
         assert config.reset_vault is False
+
+
+class TestNoteTypeConfig:
+    """Tests for NoteTypeConfig dataclass"""
+
+    def test_note_type_config_defaults(self) -> None:
+        """Test NoteTypeConfig default values"""
+        config = NoteTypeConfig(
+            name="meeting",
+            description="Meeting notes",
+            folder_hints=["Meetings/"],
+        )
+
+        assert config.required_properties == []
+        assert config.optional_properties == []
+        assert config.validation == {}
+        assert config.icon == "file"
+        assert config.is_custom is False
+
+    def test_note_type_config_to_dict(self) -> None:
+        """Test NoteTypeConfig conversion to dictionary"""
+        config = NoteTypeConfig(
+            name="recipe",
+            description="Recipe notes",
+            folder_hints=["Recipes/"],
+            required_properties=["ingredients", "time"],
+            optional_properties=["rating"],
+            validation={"allow_empty_up": True},
+            icon="book",
+            is_custom=True,
+        )
+
+        result = config.to_dict()
+
+        assert result["description"] == "Recipe notes"
+        assert result["folder_hints"] == ["Recipes/"]
+        assert result["properties"]["additional_required"] == ["ingredients", "time"]
+        assert result["properties"]["optional"] == ["rating"]
+        assert result["validation"]["allow_empty_up"] is True
+        assert result["icon"] == "book"
+
+
+class TestWizardStepPerTypeProperties:
+    """Tests for per-type property wizard step"""
+
+    def test_per_type_properties_accept_defaults(self) -> None:
+        """Test accepting defaults for per-type properties"""
+        note_types = METHODOLOGIES["minimal"]["note_types"]
+        with patch("builtins.input", return_value=""):
+            result = wizard_step_per_type_properties(note_types)
+        assert result == {}
+
+    def test_per_type_properties_customize(self) -> None:
+        """Test customizing per-type properties"""
+        note_types = {"note": {"properties": {"additional_required": [], "optional": []}}}
+        # c to customize, e to edit, enter new required, enter new optional, n for no more
+        with patch("builtins.input", side_effect=["c", "e", "priority, status", "due_date", "n"]):
+            result = wizard_step_per_type_properties(note_types)
+        assert "note" in result
+        assert "priority" in result["note"]["required"]
+        assert "due_date" in result["note"]["optional"]
+
+
+class TestWizardStepCustomNoteTypes:
+    """Tests for custom note type wizard step"""
+
+    def test_custom_note_types_none(self) -> None:
+        """Test declining to add custom note types"""
+        with patch("builtins.input", return_value=""):
+            result = wizard_step_custom_note_types("minimal", {})
+        assert result == {}
+
+    def test_custom_note_types_add_one(self) -> None:
+        """Test adding one custom note type"""
+        # a to add, meeting, description, 1 for first folder, required, optional, n for no more
+        with patch("builtins.input", side_effect=[
+            "a",  # add custom types
+            "meeting",  # type name
+            "Meeting notes",  # description
+            "1",  # folder choice
+            "attendees",  # required properties
+            "location",  # optional properties
+            "n",  # no more types
+        ]):
+            result = wizard_step_custom_note_types("minimal", {})
+
+        assert "meeting" in result
+        assert result["meeting"].name == "meeting"
+        assert result["meeting"].description == "Meeting notes"
+        assert "attendees" in result["meeting"].required_properties
+        assert "location" in result["meeting"].optional_properties
+        assert result["meeting"].is_custom is True
+
+
+class TestBuildSettingsYamlWithConfig:
+    """Tests for build_settings_yaml with WizardConfig"""
+
+    def test_build_with_per_type_customizations(self) -> None:
+        """Test building settings with per-type property customizations"""
+        config = WizardConfig(
+            methodology="minimal",
+            note_types=METHODOLOGIES["minimal"]["note_types"],
+            core_properties=["type", "created"],
+            per_type_properties={
+                "note": {"required": ["priority"], "optional": ["rating"]}
+            },
+        )
+
+        settings = build_settings_yaml("minimal", config)
+
+        assert settings["note_types"]["note"]["properties"]["additional_required"] == ["priority"]
+        assert settings["note_types"]["note"]["properties"]["optional"] == ["rating"]
+
+    def test_build_with_custom_note_types(self) -> None:
+        """Test building settings with custom note types"""
+        custom_type = NoteTypeConfig(
+            name="recipe",
+            description="Recipe notes",
+            folder_hints=["Recipes/"],
+            required_properties=["ingredients"],
+            optional_properties=[],
+            is_custom=True,
+        )
+        config = WizardConfig(
+            methodology="minimal",
+            note_types=METHODOLOGIES["minimal"]["note_types"],
+            core_properties=["type", "created"],
+            custom_note_types={"recipe": custom_type},
+        )
+
+        settings = build_settings_yaml("minimal", config)
+
+        assert "recipe" in settings["note_types"]
+        assert settings["note_types"]["recipe"]["description"] == "Recipe notes"
+        recipe_props = settings["note_types"]["recipe"]["properties"]
+        assert recipe_props["additional_required"] == ["ingredients"]
+
+    def test_build_with_mandatory_optional_classification(self) -> None:
+        """Test building settings with mandatory/optional property classification"""
+        config = WizardConfig(
+            methodology="minimal",
+            note_types=METHODOLOGIES["minimal"]["note_types"],
+            core_properties=["type", "created", "tags"],
+            mandatory_properties=["type", "created"],
+            optional_properties=["tags"],
+            custom_properties=["priority"],
+        )
+
+        settings = build_settings_yaml("minimal", config)
+
+        assert settings["core_properties"]["mandatory"] == ["type", "created"]
+        assert settings["core_properties"]["optional"] == ["tags"]
+        assert settings["core_properties"]["custom"] == ["priority"]
+        assert "priority" in settings["core_properties"]["all"]

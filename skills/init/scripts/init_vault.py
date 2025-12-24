@@ -33,6 +33,33 @@ import yaml
 
 
 @dataclass
+class NoteTypeConfig:
+    """Configuration for a single note type."""
+
+    name: str
+    description: str
+    folder_hints: list[str]
+    required_properties: list[str] = field(default_factory=list)
+    optional_properties: list[str] = field(default_factory=list)
+    validation: dict[str, Any] = field(default_factory=dict)
+    icon: str = "file"
+    is_custom: bool = False
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for settings.yaml."""
+        return {
+            "description": self.description,
+            "folder_hints": self.folder_hints,
+            "properties": {
+                "additional_required": self.required_properties,
+                "optional": self.optional_properties,
+            },
+            "validation": self.validation,
+            "icon": self.icon,
+        }
+
+
+@dataclass
 class WizardConfig:
     """Configuration collected from the wizard flow."""
 
@@ -42,6 +69,8 @@ class WizardConfig:
     mandatory_properties: list[str] = field(default_factory=list)
     optional_properties: list[str] = field(default_factory=list)
     custom_properties: list[str] = field(default_factory=list)
+    custom_note_types: dict[str, NoteTypeConfig] = field(default_factory=dict)
+    per_type_properties: dict[str, dict[str, list[str]]] = field(default_factory=dict)
     create_samples: bool = True
     reset_vault: bool = False
 
@@ -540,6 +569,220 @@ def wizard_step_frontmatter(
     return mandatory, optional, custom
 
 
+def wizard_step_per_type_properties(
+    note_types: dict[str, dict[str, Any]],
+) -> dict[str, dict[str, list[str]]]:
+    """Configure properties for each note type.
+
+    Args:
+        note_types: Dictionary of enabled note types
+
+    Returns:
+        Dictionary mapping type names to property configurations
+        {type_name: {"required": [...], "optional": [...]}}
+    """
+    print()
+    print("┌" + "─" * 58 + "┐")
+    print("│" + " STEP 5: Per-Type Properties".ljust(58) + "│")
+    print("├" + "─" * 58 + "┤")
+    print("│" + " Configure properties for each note type".ljust(58) + "│")
+    print("│".ljust(59) + "│")
+    print("│   [a] Accept defaults for all types (press Enter)".ljust(59) + "│")
+    print("│   [c] Customize per-type properties".ljust(59) + "│")
+    print("└" + "─" * 58 + "┘")
+
+    choice = input("\nYour choice [a]: ").strip().lower()
+
+    if choice == "" or choice in ("a", "accept"):
+        print("  ✓ Using default properties for all types")
+        return {}
+
+    per_type: dict[str, dict[str, list[str]]] = {}
+
+    for type_name, type_config in note_types.items():
+        current_required = type_config.get("properties", {}).get("additional_required", [])
+        current_optional = type_config.get("properties", {}).get("optional", [])
+
+        print()
+        print("┌" + "─" * 58 + "┐")
+        line = f"│  Note Type: {type_name}"
+        print(line.ljust(59) + "│")
+        print("├" + "─" * 58 + "┤")
+
+        # Show current required properties
+        if current_required:
+            print("│" + " Required properties:".ljust(58) + "│")
+            for i, prop in enumerate(current_required, 1):
+                line = f"│   {i}. {prop}"
+                print(line.ljust(59) + "│")
+        else:
+            print("│" + " Required properties: (none)".ljust(58) + "│")
+
+        # Show current optional properties
+        if current_optional:
+            print("│" + " Optional properties:".ljust(58) + "│")
+            for prop in current_optional:
+                line = f"│   - {prop}"
+                print(line.ljust(59) + "│")
+        else:
+            print("│" + " Optional properties: (none)".ljust(58) + "│")
+
+        print("├" + "─" * 58 + "┤")
+        print("│" + " [Enter] Keep defaults  [e] Edit properties".ljust(58) + "│")
+        print("└" + "─" * 58 + "┘")
+
+        edit_choice = input(f"\nEdit {type_name} properties? [n]: ").strip().lower()
+
+        if edit_choice not in ("e", "edit", "y", "yes"):
+            continue
+
+        # Edit required properties
+        print(f"\n  Current required: {', '.join(current_required) or '(none)'}")
+        print("  Enter new required properties (comma-separated)")
+        print("  Or press Enter to keep current, '-' to clear all")
+        new_required_input = input("  Required: ").strip()
+
+        if new_required_input == "-":
+            new_required: list[str] = []
+            print("  ✓ Cleared required properties")
+        elif new_required_input:
+            new_required = [p.strip() for p in new_required_input.split(",") if p.strip()]
+            print(f"  ✓ Set required: {', '.join(new_required)}")
+        else:
+            new_required = list(current_required)
+
+        # Edit optional properties
+        print(f"\n  Current optional: {', '.join(current_optional) or '(none)'}")
+        print("  Enter new optional properties (comma-separated)")
+        print("  Or press Enter to keep current, '-' to clear all")
+        new_optional_input = input("  Optional: ").strip()
+
+        if new_optional_input == "-":
+            new_optional: list[str] = []
+            print("  ✓ Cleared optional properties")
+        elif new_optional_input:
+            new_optional = [p.strip() for p in new_optional_input.split(",") if p.strip()]
+            print(f"  ✓ Set optional: {', '.join(new_optional)}")
+        else:
+            new_optional = list(current_optional)
+
+        per_type[type_name] = {
+            "required": new_required,
+            "optional": new_optional,
+        }
+
+    return per_type
+
+
+def wizard_step_custom_note_types(
+    methodology: str,
+    existing_types: dict[str, dict[str, Any]],
+) -> dict[str, NoteTypeConfig]:
+    """Add custom note types beyond methodology defaults.
+
+    Args:
+        methodology: Selected methodology key
+        existing_types: Already configured note types
+
+    Returns:
+        Dictionary of custom note type configurations
+    """
+    print()
+    print("┌" + "─" * 58 + "┐")
+    print("│" + " STEP 6: Custom Note Types (Optional)".ljust(58) + "│")
+    print("├" + "─" * 58 + "┤")
+    print("│" + " Add your own note types beyond the methodology defaults".ljust(58) + "│")
+    print("│".ljust(59) + "│")
+    print("│   [n] No custom types (press Enter)".ljust(59) + "│")
+    print("│   [a] Add custom note types".ljust(59) + "│")
+    print("└" + "─" * 58 + "┘")
+
+    choice = input("\nYour choice [n]: ").strip().lower()
+
+    if choice == "" or choice in ("n", "no"):
+        return {}
+
+    custom_types: dict[str, NoteTypeConfig] = {}
+    method_config = METHODOLOGIES[methodology]
+    folders = method_config["folders"]
+
+    while True:
+        print()
+        print("┌" + "─" * 58 + "┐")
+        print("│" + " New Custom Note Type".ljust(58) + "│")
+        print("└" + "─" * 58 + "┘")
+
+        # Get type name
+        type_name = input("\nType name (e.g., 'meeting', 'recipe'): ").strip().lower()
+        if not type_name:
+            break
+
+        # Check for conflicts
+        if type_name in existing_types or type_name in custom_types:
+            print(f"  ⚠️  Type '{type_name}' already exists. Choose another name.")
+            continue
+
+        # Get description
+        description = input("Description: ").strip()
+        if not description:
+            description = f"Custom {type_name} notes"
+
+        # Choose folder
+        print("\n  Available folders:")
+        for i, folder in enumerate(folders, 1):
+            print(f"    {i}. {folder}")
+        print(f"    {len(folders) + 1}. (Create new folder)")
+
+        folder_choice = input("\n  Folder [1]: ").strip()
+        if not folder_choice:
+            folder_idx = 0
+        else:
+            try:
+                folder_idx = int(folder_choice) - 1
+            except ValueError:
+                folder_idx = 0
+
+        if 0 <= folder_idx < len(folders):
+            folder_hint = folders[folder_idx]
+            if not folder_hint.endswith("/"):
+                folder_hint += "/"
+        else:
+            new_folder = input("  New folder name: ").strip()
+            folder_hint = new_folder.rstrip("/") + "/" if new_folder else "Notes/"
+
+        # Get required properties
+        req_input = input("\nRequired properties (comma-separated, or Enter for none): ").strip()
+        required_props = [p.strip() for p in req_input.split(",") if p.strip()] if req_input else []
+
+        # Get optional properties
+        opt_input = input("Optional properties (comma-separated, or Enter for none): ").strip()
+        optional_props = [p.strip() for p in opt_input.split(",") if p.strip()] if opt_input else []
+
+        # Create config
+        custom_types[type_name] = NoteTypeConfig(
+            name=type_name,
+            description=description,
+            folder_hints=[folder_hint],
+            required_properties=required_props,
+            optional_properties=optional_props,
+            validation={"allow_empty_up": True},
+            icon="file",
+            is_custom=True,
+        )
+
+        print(f"\n  ✓ Added custom type: {type_name}")
+        print(f"    Folder: {folder_hint}")
+        print(f"    Required: {', '.join(required_props) or '(none)'}")
+        print(f"    Optional: {', '.join(optional_props) or '(none)'}")
+
+        # Ask if they want to add more
+        more = input("\nAdd another custom type? [n]: ").strip().lower()
+        if more not in ("y", "yes"):
+            break
+
+    return custom_types
+
+
 def wizard_step_confirm(config: WizardConfig) -> bool:
     """Show summary and ask for confirmation.
 
@@ -553,16 +796,26 @@ def wizard_step_confirm(config: WizardConfig) -> bool:
 
     print()
     print("┌" + "─" * 58 + "┐")
-    print("│" + " STEP 5: Confirm Configuration".ljust(58) + "│")
+    print("│" + " STEP 7: Confirm Configuration".ljust(58) + "│")
     print("╞" + "═" * 58 + "╡")
 
     line = f"│   Methodology:  {method['name']}"
     print(line.ljust(59) + "│")
 
-    line = f"│   Note Types:   {', '.join(config.note_types.keys())}"
+    # Show note types including custom ones
+    all_types = list(config.note_types.keys()) + list(config.custom_note_types.keys())
+    line = f"│   Note Types:   {', '.join(all_types)}"
     if len(line) > 58:
         line = line[:55] + "..."
     print(line.ljust(59) + "│")
+
+    # Show custom types if any
+    if config.custom_note_types:
+        custom_names = list(config.custom_note_types.keys())
+        line = f"│   Custom Types: {', '.join(custom_names)}"
+        if len(line) > 58:
+            line = line[:55] + "..."
+        print(line.ljust(59) + "│")
 
     line = f"│   Mandatory:    {', '.join(config.mandatory_properties) or '(none)'}"
     if len(line) > 58:
@@ -572,8 +825,19 @@ def wizard_step_confirm(config: WizardConfig) -> bool:
     line = f"│   Optional:     {', '.join(config.optional_properties) or '(none)'}"
     print(line.ljust(59) + "│")
 
-    line = f"│   Custom:       {', '.join(config.custom_properties) or '(none)'}"
+    line = f"│   Custom Props: {', '.join(config.custom_properties) or '(none)'}"
     print(line.ljust(59) + "│")
+
+    # Show per-type customizations if any
+    if config.per_type_properties:
+        print("│".ljust(59) + "│")
+        print("│   Per-Type Customizations:".ljust(59) + "│")
+        for type_name, props in config.per_type_properties.items():
+            req = props.get("required", [])
+            opt = props.get("optional", [])
+            if req or opt:
+                line = f"│     {type_name}: req={len(req)}, opt={len(opt)}"
+                print(line.ljust(59) + "│")
 
     line = f"│   Sample Notes: {'Yes' if config.create_samples else 'No'}"
     print(line.ljust(59) + "│")
@@ -635,6 +899,8 @@ def wizard_full_flow(vault_path: Path) -> WizardConfig | None:
             mandatory_properties=list(method_config["core_properties"]),
             optional_properties=[],
             custom_properties=[],
+            custom_note_types={},
+            per_type_properties={},
             create_samples=True,
         )
     else:
@@ -642,8 +908,14 @@ def wizard_full_flow(vault_path: Path) -> WizardConfig | None:
         # STEP 3: Configure note types
         note_types = wizard_step_note_types(methodology)
 
-        # STEP 4: Configure frontmatter
+        # STEP 4: Configure frontmatter (core properties)
         mandatory, optional, custom = wizard_step_frontmatter(method_config["core_properties"])
+
+        # STEP 5: Configure per-type properties
+        per_type_props = wizard_step_per_type_properties(note_types)
+
+        # STEP 6: Add custom note types
+        custom_types = wizard_step_custom_note_types(methodology, note_types)
 
         config = WizardConfig(
             methodology=methodology,
@@ -652,10 +924,12 @@ def wizard_full_flow(vault_path: Path) -> WizardConfig | None:
             mandatory_properties=mandatory,
             optional_properties=optional,
             custom_properties=custom,
+            custom_note_types=custom_types,
+            per_type_properties=per_type_props,
             create_samples=True,
         )
 
-    # STEP 5: Confirmation
+    # STEP 7: Confirmation
     if not wizard_step_confirm(config):
         print("\n  Restarting wizard...\n")
         return wizard_full_flow(vault_path)
@@ -981,22 +1255,74 @@ def create_folder_structure(vault_path: Path, methodology: str, dry_run: bool = 
             print(f"  ✓ Created: {folder_path}")
 
 
-def build_settings_yaml(methodology: str) -> dict[str, Any]:
+def build_settings_yaml(
+    methodology: str,
+    config: WizardConfig | None = None,
+) -> dict[str, Any]:
     """Build settings.yaml content for a methodology.
 
     Args:
         methodology: Methodology key
+        config: Optional WizardConfig with user customizations
 
     Returns:
         Dictionary representing the settings.yaml content
     """
     method_config = METHODOLOGIES[methodology]
 
+    # Start with methodology defaults for note types
+    note_types = dict(method_config["note_types"])
+
+    # Apply per-type property customizations if provided
+    if config and config.per_type_properties:
+        for type_name, props in config.per_type_properties.items():
+            if type_name in note_types:
+                note_types[type_name] = dict(note_types[type_name])
+                note_types[type_name]["properties"] = {
+                    "additional_required": props.get("required", []),
+                    "optional": props.get("optional", []),
+                }
+
+    # Add custom note types if provided
+    if config and config.custom_note_types:
+        for type_name, type_config in config.custom_note_types.items():
+            note_types[type_name] = type_config.to_dict()
+
+    # Use configured note types if provided (for disabled types)
+    if config and config.note_types:
+        # Only keep types that are in config.note_types
+        filtered_types = {}
+        for type_name in config.note_types:
+            if type_name in note_types:
+                filtered_types[type_name] = note_types[type_name]
+        # Also include any custom types
+        if config.custom_note_types:
+            for type_name, type_config in config.custom_note_types.items():
+                filtered_types[type_name] = type_config.to_dict()
+        note_types = filtered_types
+
+    # Build core properties configuration
+    core_properties_config: dict[str, Any] = {
+        "all": list(method_config["core_properties"]),
+    }
+
+    # Add mandatory/optional classification if customized
+    if config:
+        if config.mandatory_properties:
+            core_properties_config["mandatory"] = config.mandatory_properties
+        if config.optional_properties:
+            core_properties_config["optional"] = config.optional_properties
+        if config.custom_properties:
+            core_properties_config["custom"] = config.custom_properties
+            # Add custom properties to the 'all' list
+            base_props = list(method_config["core_properties"])
+            core_properties_config["all"] = base_props + config.custom_properties
+
     settings: dict[str, Any] = {
         "version": "1.0",
         "methodology": methodology,
-        "core_properties": method_config["core_properties"],
-        "note_types": method_config["note_types"],
+        "core_properties": core_properties_config,
+        "note_types": note_types,
         "validation": {
             "require_core_properties": True,
             "allow_empty_properties": ["tags", "collection", "related"],
@@ -1027,7 +1353,12 @@ def build_settings_yaml(methodology: str) -> dict[str, Any]:
     return settings
 
 
-def create_settings_yaml(vault_path: Path, methodology: str, dry_run: bool = False) -> None:
+def create_settings_yaml(
+    vault_path: Path,
+    methodology: str,
+    dry_run: bool = False,
+    config: WizardConfig | None = None,
+) -> None:
     """Create settings.yaml for the vault.
 
     This is the PRIMARY source of truth for all vault configuration.
@@ -1036,8 +1367,9 @@ def create_settings_yaml(vault_path: Path, methodology: str, dry_run: bool = Fal
         vault_path: Path to the vault root
         methodology: Methodology key
         dry_run: If True, only print what would be created
+        config: Optional WizardConfig with user customizations
     """
-    settings = build_settings_yaml(methodology)
+    settings = build_settings_yaml(methodology, config)
     settings_path = vault_path / ".claude" / "settings.yaml"
 
     # Build YAML with header comments
@@ -1214,13 +1546,18 @@ def init_vault(
         vault_path.mkdir(parents=True, exist_ok=True)
 
     # Determine configuration source
+    config: WizardConfig | None = None
+
     if use_wizard and methodology is None:
         # Full wizard mode - handles everything including existing vault check
         config = wizard_full_flow(vault_path)
         if config is None:
             return  # User aborted
         methodology = config.methodology
-        note_types = config.note_types
+        # Merge custom note types with methodology types
+        note_types = dict(config.note_types)
+        for type_name, type_config in config.custom_note_types.items():
+            note_types[type_name] = type_config.to_dict()
         core_properties = config.core_properties
         create_samples = config.create_samples
     else:
@@ -1256,8 +1593,8 @@ def init_vault(
     # Create folder structure
     create_folder_structure(vault_path, methodology, dry_run)
 
-    # Create settings.yaml (PRIMARY configuration)
-    create_settings_yaml(vault_path, methodology, dry_run)
+    # Create settings.yaml (PRIMARY configuration) with user customizations
+    create_settings_yaml(vault_path, methodology, dry_run, config)
 
     # Create README
     create_readme(vault_path, methodology, dry_run)
