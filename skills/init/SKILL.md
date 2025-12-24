@@ -1,6 +1,6 @@
 ---
 name: init
-version: "0.12.1"
+version: "0.12.0"
 license: MIT
 description: "Initialize a new Obsidian vault with a chosen PKM methodology (LYT-ACE, PARA, Zettelkasten, or Minimal). Creates folder structure, configuration files, and frontmatter standards. Use when the user wants to (1) create a new Obsidian vault, (2) set up a vault with a specific methodology, (3) initialize vault configuration, or (4) scaffold a new PKM system. Triggers on keywords like init vault, create vault, new obsidian vault, setup vault, scaffold vault."
 ---
@@ -57,7 +57,7 @@ Use AskUserQuestion with methodology options:
 
 Then execute initialization:
 ```bash
-uv run "${CLAUDE_PLUGIN_ROOT}/skills/init/scripts/init_vault.py" <vault_path> -m <methodology> --defaults
+uv run init_vault.py <vault_path> -m <methodology> --defaults
 ```
 
 ### Example Flow
@@ -76,7 +76,7 @@ uv run "${CLAUDE_PLUGIN_ROOT}/skills/init/scripts/init_vault.py" <vault_path> -m
 4. If JSON shows "methodology_required":
    → AskUserQuestion: "Which methodology?"
    → User selects "para"
-   → Run: uv run "${CLAUDE_PLUGIN_ROOT}/skills/init/scripts/init_vault.py" /path -m para --defaults
+   → Run: uv run init_vault.py /path -m para --defaults
 
 5. Show results and next steps
 ```
@@ -108,19 +108,19 @@ Show what was created and suggest next steps:
 
 ```bash
 # Check vault status (JSON output)
-uv run "${CLAUDE_PLUGIN_ROOT}/skills/init/scripts/init_vault.py" /path/to/vault --check
+uv run init_vault.py /path/to/vault --check
 
 # Initialize with PARA methodology
-uv run "${CLAUDE_PLUGIN_ROOT}/skills/init/scripts/init_vault.py" /path/to/vault -m para --defaults
+uv run init_vault.py /path/to/vault -m para --defaults
 
 # Reset and reinitialize
-uv run "${CLAUDE_PLUGIN_ROOT}/skills/init/scripts/init_vault.py" /path/to/vault -m lyt-ace --defaults --reset
+uv run init_vault.py /path/to/vault -m lyt-ace --defaults --reset
 
 # Preview what would be created
-uv run "${CLAUDE_PLUGIN_ROOT}/skills/init/scripts/init_vault.py" /path/to/vault -m zettelkasten --dry-run
+uv run init_vault.py /path/to/vault -m zettelkasten --dry-run
 
 # List available methodologies
-uv run "${CLAUDE_PLUGIN_ROOT}/skills/init/scripts/init_vault.py" --list
+uv run init_vault.py --list
 ```
 
 ## What Gets Created
