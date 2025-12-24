@@ -33,8 +33,9 @@ def check_vault_status(vault_path: Path) -> dict:
     script = get_script_path()
 
     try:
-        result = subprocess.run(
-            ["uv", "run", str(script), str(vault_path), "--check"],
+        cmd = ["uv", "run", str(script), str(vault_path), "--check"]
+        result = subprocess.run(  # noqa: S603
+            cmd,
             capture_output=True,
             text=True,
             timeout=30,
@@ -57,9 +58,11 @@ def check_vault_status(vault_path: Path) -> dict:
 
 def output_action_prompt(status: dict) -> None:
     """Output prompt for existing vault action selection."""
+    folders = status.get("folders", 0)
+    files = status.get("files", 0)
     prompt = {
         "prompt_type": "action_required",
-        "message": f"Existing vault detected: {status.get('folders', 0)} folders, {status.get('files', 0)} files",
+        "message": f"Existing vault detected: {folders} folders, {files} files",
         "vault_path": status.get("path", ""),
         "has_obsidian": status.get("has_obsidian", False),
         "has_claude_config": status.get("has_claude_config", False),
@@ -106,7 +109,7 @@ def output_methodology_prompt(vault_path: str) -> None:
             {
                 "id": "lyt-ace",
                 "label": "LYT-ACE",
-                "description": "Linking Your Thinking + ACE Framework - comprehensive interconnected knowledge",
+                "description": "LYT + ACE Framework - interconnected knowledge",
                 "is_default": False,
             },
             {
@@ -128,7 +131,7 @@ def output_methodology_prompt(vault_path: str) -> None:
                 "is_default": False,
             },
         ],
-        "next_step": "Call init_vault.py with: uv run init_vault.py <path> -m <methodology> --defaults",
+        "next_step": "Call init_vault.py with: uv run init_vault.py <path> -m <method>",
     }
     print(json.dumps(prompt, indent=2))
 
@@ -146,8 +149,8 @@ def output_migrate_hint() -> None:
     """Output migration feature hint."""
     result = {
         "status": "migration_not_available",
-        "message": "Migration feature is planned for a future release. Your existing content will remain untouched.",
-        "suggestion": "You can use 'Continue' to add methodology structure without modifying existing files.",
+        "message": "Migration feature is planned for a future release.",
+        "suggestion": "Use 'Continue' to add structure without modifying files.",
     }
     print(json.dumps(result, indent=2))
 
@@ -161,7 +164,7 @@ def execute_init(vault_path: Path, methodology: str, reset: bool = False) -> int
         cmd.append("--reset")
 
     # Run and stream output
-    result = subprocess.run(cmd)
+    result = subprocess.run(cmd)  # noqa: S603
     return result.returncode
 
 
@@ -209,7 +212,8 @@ def main() -> int:
     # Pass-through: --list
     if args.list:
         script = get_script_path()
-        result = subprocess.run(["uv", "run", str(script), "--list"])
+        cmd = ["uv", "run", str(script), "--list"]
+        result = subprocess.run(cmd)  # noqa: S603
         return result.returncode
 
     # Pass-through: --check
