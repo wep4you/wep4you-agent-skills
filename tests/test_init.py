@@ -695,6 +695,7 @@ class TestWizardSteps:
 
         assert "created" in optional
         assert "created" not in mandatory
+        assert custom == []  # No custom properties added
 
     def test_wizard_step_confirm_yes(self) -> None:
         """Test confirmation with yes"""
@@ -889,15 +890,54 @@ class TestWizardStepPerTypeProperties:
             result = wizard_step_per_type_properties(note_types)
         assert result == {}
 
+    def test_per_type_properties_accept_with_a(self) -> None:
+        """Test accepting defaults with 'a' input"""
+        note_types = METHODOLOGIES["minimal"]["note_types"]
+        with patch("builtins.input", return_value="a"):
+            result = wizard_step_per_type_properties(note_types)
+        assert result == {}
+
     def test_per_type_properties_customize(self) -> None:
         """Test customizing per-type properties"""
         note_types = {"note": {"properties": {"additional_required": [], "optional": []}}}
-        # c to customize, e to edit, enter new required, enter new optional, n for no more
-        with patch("builtins.input", side_effect=["c", "e", "priority, status", "due_date", "n"]):
+        # c to customize, e to edit, enter new required, enter new optional
+        with patch("builtins.input", side_effect=["c", "e", "priority, status", "due_date"]):
             result = wizard_step_per_type_properties(note_types)
         assert "note" in result
         assert "priority" in result["note"]["required"]
         assert "due_date" in result["note"]["optional"]
+
+    def test_per_type_properties_clear_with_dash(self) -> None:
+        """Test clearing properties with '-' input"""
+        note_types = {
+            "note": {"properties": {"additional_required": ["old"], "optional": ["legacy"]}}
+        }
+        # c to customize, e to edit, - to clear required, - to clear optional
+        with patch("builtins.input", side_effect=["c", "e", "-", "-"]):
+            result = wizard_step_per_type_properties(note_types)
+        assert "note" in result
+        assert result["note"]["required"] == []
+        assert result["note"]["optional"] == []
+
+    def test_per_type_properties_skip_editing(self) -> None:
+        """Test skipping editing a type"""
+        note_types = {"note": {"properties": {"additional_required": [], "optional": []}}}
+        # c to customize, n to skip editing
+        with patch("builtins.input", side_effect=["c", "n"]):
+            result = wizard_step_per_type_properties(note_types)
+        assert result == {}
+
+    def test_per_type_properties_keep_existing(self) -> None:
+        """Test keeping existing properties with empty input"""
+        note_types = {
+            "note": {"properties": {"additional_required": ["status"], "optional": ["rating"]}}
+        }
+        # c to customize, e to edit, enter to keep required, enter to keep optional
+        with patch("builtins.input", side_effect=["c", "y", "", ""]):
+            result = wizard_step_per_type_properties(note_types)
+        assert "note" in result
+        assert result["note"]["required"] == ["status"]
+        assert result["note"]["optional"] == ["rating"]
 
 
 class TestWizardStepCustomNoteTypes:
@@ -906,6 +946,12 @@ class TestWizardStepCustomNoteTypes:
     def test_custom_note_types_none(self) -> None:
         """Test declining to add custom note types"""
         with patch("builtins.input", return_value=""):
+            result = wizard_step_custom_note_types("minimal", {})
+        assert result == {}
+
+    def test_custom_note_types_none_with_n(self) -> None:
+        """Test declining to add custom note types with 'n'"""
+        with patch("builtins.input", return_value="n"):
             result = wizard_step_custom_note_types("minimal", {})
         assert result == {}
 
@@ -929,6 +975,88 @@ class TestWizardStepCustomNoteTypes:
         assert "attendees" in result["meeting"].required_properties
         assert "location" in result["meeting"].optional_properties
         assert result["meeting"].is_custom is True
+
+    def test_custom_note_types_empty_name_exits(self) -> None:
+        """Test empty name exits the wizard"""
+        with patch("builtins.input", side_effect=[
+            "a",  # add custom types
+            "",  # empty name exits
+        ]):
+            result = wizard_step_custom_note_types("minimal", {})
+        assert result == {}
+
+    def test_custom_note_types_default_description(self) -> None:
+        """Test default description when empty"""
+        with patch("builtins.input", side_effect=[
+            "a",  # add custom types
+            "recipe",  # type name
+            "",  # empty description -> default
+            "1",  # folder choice
+            "",  # no required properties
+            "",  # no optional properties
+            "n",  # no more types
+        ]):
+            result = wizard_step_custom_note_types("minimal", {})
+
+        assert "recipe" in result
+        assert result["recipe"].description == "Custom recipe notes"
+
+    def test_custom_note_types_new_folder(self) -> None:
+        """Test creating a new folder for custom type"""
+        with patch("builtins.input", side_effect=[
+            "a",  # add custom types
+            "recipe",  # type name
+            "Recipe notes",  # description
+            "99",  # invalid -> create new folder
+            "Recipes",  # new folder name
+            "",  # no required properties
+            "",  # no optional properties
+            "n",  # no more types
+        ]):
+            result = wizard_step_custom_note_types("minimal", {})
+
+        assert "recipe" in result
+        assert result["recipe"].folder_hints == ["Recipes/"]
+
+    def test_custom_note_types_duplicate_name_rejected(self) -> None:
+        """Test duplicate name is rejected"""
+        existing = {"note": {}}
+        with patch("builtins.input", side_effect=[
+            "a",  # add custom types
+            "note",  # duplicate name
+            "unique",  # valid name
+            "Unique notes",  # description
+            "1",  # folder choice
+            "",  # no required properties
+            "",  # no optional properties
+            "n",  # no more types
+        ]):
+            result = wizard_step_custom_note_types("minimal", existing)
+
+        assert "note" not in result  # Rejected
+        assert "unique" in result
+
+    def test_custom_note_types_add_multiple(self) -> None:
+        """Test adding multiple custom note types"""
+        with patch("builtins.input", side_effect=[
+            "a",  # add custom types
+            "recipe",  # first type
+            "Recipe notes",  # description
+            "1",  # folder
+            "",  # no required
+            "",  # no optional
+            "y",  # add more
+            "meeting",  # second type
+            "Meeting notes",  # description
+            "1",  # folder
+            "attendees",  # required
+            "",  # no optional
+            "n",  # no more types
+        ]):
+            result = wizard_step_custom_note_types("minimal", {})
+
+        assert "recipe" in result
+        assert "meeting" in result
 
 
 class TestBuildSettingsYamlWithConfig:
