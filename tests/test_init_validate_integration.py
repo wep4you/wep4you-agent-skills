@@ -65,9 +65,7 @@ class TestInitGeneratesValidSettings:
         )
 
     @pytest.mark.parametrize("methodology", list(METHODOLOGIES.keys()))
-    def test_note_types_have_required_properties(
-        self, tmp_path: Path, methodology: str
-    ) -> None:
+    def test_note_types_have_required_properties(self, tmp_path: Path, methodology: str) -> None:
         """Test that each note type has required_properties that include core."""
         init_vault(tmp_path, methodology, dry_run=False, use_defaults=True)
         settings = load_settings(tmp_path)
@@ -222,9 +220,7 @@ class TestValidatorUsesSettings:
         assert validator.settings is not None
         assert validator.settings.methodology == "para"
 
-    def test_validator_uses_core_properties_from_settings(
-        self, tmp_path: Path
-    ) -> None:
+    def test_validator_uses_core_properties_from_settings(self, tmp_path: Path) -> None:
         """Test that validator uses core_properties from settings.yaml."""
         init_vault(tmp_path, "minimal", dry_run=False, use_defaults=True)
 
@@ -248,6 +244,7 @@ class TestResetAndReinitialize:
         # Reset (manually clear and re-init)
         # In real usage, reset_vault would be called
         import shutil
+
         for item in tmp_path.iterdir():
             if item.name != ".obsidian":
                 if item.is_dir():
@@ -289,14 +286,10 @@ class TestTemplateGeneration:
 
         for note_type in expected_templates:
             template_file = templates_path / f"{note_type}.md"
-            assert template_file.exists(), (
-                f"Template for {note_type} not created in {methodology}"
-            )
+            assert template_file.exists(), f"Template for {note_type} not created in {methodology}"
 
     @pytest.mark.parametrize("methodology", list(METHODOLOGIES.keys()))
-    def test_templates_have_valid_frontmatter(
-        self, tmp_path: Path, methodology: str
-    ) -> None:
+    def test_templates_have_valid_frontmatter(self, tmp_path: Path, methodology: str) -> None:
         """Test that template files have valid frontmatter structure."""
         init_vault(tmp_path, methodology, dry_run=False, use_defaults=True)
 
@@ -342,9 +335,7 @@ class TestTemplateGeneration:
         content = project_template.read_text()
         assert "status:" in content, "Project template missing status property"
 
-    def test_template_has_optional_properties_as_comments(
-        self, tmp_path: Path
-    ) -> None:
+    def test_template_has_optional_properties_as_comments(self, tmp_path: Path) -> None:
         """Test that optional properties are included as comments."""
         init_vault(tmp_path, "lyt-ace", dry_run=False, use_defaults=True)
 
@@ -426,7 +417,7 @@ class TestAllBasesFileGeneration:
         # Check folder-specific views
         expected_folders = ["Projects", "Areas", "Resources", "Archives"]
         for folder in expected_folders:
-            assert f'name: {folder}' in content, f"Missing {folder} view"
+            assert f"name: {folder}" in content, f"Missing {folder} view"
             assert f'file.inFolder("{folder}")' in content, f"Missing {folder} filter"
 
     def test_lyt_ace_has_top_level_views(self, tmp_path: Path) -> None:
@@ -439,7 +430,7 @@ class TestAllBasesFileGeneration:
         # Check top-level folder views
         expected_folders = ["Atlas", "Calendar", "Efforts"]
         for folder in expected_folders:
-            assert f'name: {folder}' in content, f"Missing {folder} view"
+            assert f"name: {folder}" in content, f"Missing {folder} view"
             assert f'file.inFolder("{folder}")' in content, f"Missing {folder} filter"
 
     def test_folder_views_have_no_groupby(self, tmp_path: Path) -> None:
@@ -476,7 +467,7 @@ class TestFolderReadmeGeneration:
         for folder in content_folders:
             readme_file = tmp_path / folder / "_Readme.md"
             content = readme_file.read_text()
-            assert 'type: map' in content, f"_Readme.md in {folder} missing type: map"
+            assert "type: map" in content, f"_Readme.md in {folder} missing type: map"
 
     @pytest.mark.parametrize("methodology", list(METHODOLOGIES.keys()))
     def test_folder_readmes_embed_base_view(self, tmp_path: Path, methodology: str) -> None:
@@ -525,8 +516,14 @@ class TestFolderReadmeGeneration:
         init_vault(tmp_path, "lyt-ace", dry_run=False, use_defaults=True)
 
         # Check subfolders have readmes
-        subfolders = ["Atlas/Dots", "Atlas/Maps", "Atlas/Sources",
-                      "Efforts/Projects", "Efforts/Areas", "Calendar/daily"]
+        subfolders = [
+            "Atlas/Dots",
+            "Atlas/Maps",
+            "Atlas/Sources",
+            "Efforts/Projects",
+            "Efforts/Areas",
+            "Calendar/daily",
+        ]
         for folder in subfolders:
             readme_file = tmp_path / folder / "_Readme.md"
             assert readme_file.exists(), f"_Readme.md not created in {folder}"
@@ -839,14 +836,11 @@ class TestConfigNoteTypeIntegration:
         actual_types = set(settings.note_types.keys())
 
         assert expected_types == actual_types, (
-            f"Note types mismatch for {methodology}: "
-            f"expected {expected_types}, got {actual_types}"
+            f"Note types mismatch for {methodology}: expected {expected_types}, got {actual_types}"
         )
 
     @pytest.mark.parametrize("methodology", list(METHODOLOGIES.keys()))
-    def test_note_type_properties_preserved(
-        self, tmp_path: Path, methodology: str
-    ) -> None:
+    def test_note_type_properties_preserved(self, tmp_path: Path, methodology: str) -> None:
         """Test that note type properties are preserved from init to config."""
         init_vault(tmp_path, methodology, dry_run=False, use_defaults=True)
         settings = load_settings(tmp_path)
@@ -886,9 +880,7 @@ class TestConfigNoteTypeIntegration:
         assert "resource" not in settings.note_types
         assert "archive" not in settings.note_types
 
-    def test_filtered_types_validator_only_checks_included(
-        self, tmp_path: Path
-    ) -> None:
+    def test_filtered_types_validator_only_checks_included(self, tmp_path: Path) -> None:
         """Test that validator only validates notes matching included types."""
         # Init with only project type
         init_vault(
@@ -922,9 +914,7 @@ tags: []
         # Should flag unknown type (behavior may vary based on validator)
         assert len(resource_issues) >= 0
 
-    def test_note_type_folder_hints_used_by_validator(
-        self, tmp_path: Path
-    ) -> None:
+    def test_note_type_folder_hints_used_by_validator(self, tmp_path: Path) -> None:
         """Test that folder hints from note types are used in validation."""
         init_vault(tmp_path, "para", dry_run=False, use_defaults=True)
         settings = load_settings(tmp_path)
@@ -946,17 +936,13 @@ tags: []
             if type_config.inherit_core:
                 required = set(type_config.required_properties)
                 missing = core_props - required
-                assert not missing, (
-                    f"Note type {type_name} missing core properties: {missing}"
-                )
+                assert not missing, f"Note type {type_name} missing core properties: {missing}"
 
 
 class TestValidatorUsesConfigNoteTypes:
     """Test that validator correctly uses note types from config."""
 
-    def test_validator_validates_against_note_type_required_props(
-        self, tmp_path: Path
-    ) -> None:
+    def test_validator_validates_against_note_type_required_props(self, tmp_path: Path) -> None:
         """Test that validator checks for note type specific required properties."""
         # Init PARA
         init_vault(tmp_path, "para", dry_run=False, use_defaults=True)
@@ -981,8 +967,7 @@ tags: []
         status_issues = [i for i in missing_issues if "status" in str(i).lower()]
 
         assert len(status_issues) > 0, (
-            f"Validator should flag missing 'status' on project type. "
-            f"Got issues: {missing_issues}"
+            f"Validator should flag missing 'status' on project type. Got issues: {missing_issues}"
         )
 
     def test_validator_allows_optional_properties(self, tmp_path: Path) -> None:

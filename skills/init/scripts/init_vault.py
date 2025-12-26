@@ -342,6 +342,7 @@ def detect_existing_vault(vault_path: Path) -> dict[str, Any]:
     if settings_file.exists():
         try:
             import yaml
+
             with open(settings_file) as f:
                 settings = yaml.safe_load(f)
                 current_methodology = settings.get("methodology")
@@ -1086,8 +1087,7 @@ def generate_sample_note(
     if core_properties_filter:
         mandatory = {"type", "created"}
         active_properties = [
-            p for p in core_properties
-            if p in core_properties_filter or p in mandatory
+            p for p in core_properties if p in core_properties_filter or p in mandatory
         ]
 
     # Add custom properties
@@ -1277,7 +1277,11 @@ def create_sample_notes(
         file_path = vault_path / folder / filename
 
         content = generate_sample_note(
-            note_type, type_config, core_properties, methodology, up_links,
+            note_type,
+            type_config,
+            core_properties,
+            methodology,
+            up_links,
             core_properties_filter=core_properties_filter,
             custom_properties=custom_properties,
             per_type_properties=per_type_properties,
@@ -1321,8 +1325,7 @@ def generate_template_note(
     if core_properties_filter:
         mandatory = {"type", "created"}
         active_properties = [
-            p for p in core_properties
-            if p in core_properties_filter or p in mandatory
+            p for p in core_properties if p in core_properties_filter or p in mandatory
         ]
 
     # Add custom properties
@@ -1445,7 +1448,9 @@ def create_template_notes(
 
         template_file = templates_path / f"{note_type}.md"
         content = generate_template_note(
-            note_type, type_config, core_properties,
+            note_type,
+            type_config,
+            core_properties,
             core_properties_filter=core_properties_filter,
             custom_properties=custom_properties,
             per_type_properties=per_type_properties,
@@ -1537,8 +1542,8 @@ def generate_all_bases_content(methodology: str) -> str:
     lines = [
         "filters:",
         "  and:",
-        '    - \'!file.inFolder("+")\'',
-        '    - \'!file.inFolder("x")\'',
+        "    - '!file.inFolder(\"+\")'",
+        "    - '!file.inFolder(\"x\")'",
         '    - file.folder != "/"',
         '    - file.name != "_Readme"',
         "views:",
@@ -1557,17 +1562,19 @@ def generate_all_bases_content(methodology: str) -> str:
     for folder in content_folders:
         # Use last part of path as view name (e.g., "Dots" not "Atlas/Dots")
         view_name = folder.split("/")[-1] if "/" in folder else folder
-        lines.extend([
-            "  - type: table",
-            f"    name: {view_name}",
-            "    filters:",
-            "      and:",
-            f'        - file.inFolder("{folder}")',
-            "    order:",
-            "      - file.name",
-            "      - type",
-            "      - up",
-        ])
+        lines.extend(
+            [
+                "  - type: table",
+                f"    name: {view_name}",
+                "    filters:",
+                "      and:",
+                f'        - file.inFolder("{folder}")',
+                "    order:",
+                "      - file.name",
+                "      - type",
+                "      - up",
+            ]
+        )
 
     return "\n".join(lines) + "\n"
 
@@ -1787,7 +1794,7 @@ def get_folders_for_note_types(
         List of folder paths to create
     """
     method_config = METHODOLOGIES[methodology]
-    all_folders = method_config["folders"]
+    all_folders: list[str] = method_config["folders"]
     note_types = method_config.get("note_types", {})
 
     # System folders always included (inbox, templates, bases)
@@ -1950,8 +1957,7 @@ def build_settings_yaml(
         # Always include 'type' and 'created' as mandatory
         mandatory = {"type", "created"}
         filtered_props = [
-            p for p in all_core_properties
-            if p in core_properties_filter or p in mandatory
+            p for p in all_core_properties if p in core_properties_filter or p in mandatory
         ]
         all_core_properties = filtered_props
 
@@ -1982,8 +1988,7 @@ def build_settings_yaml(
             if core_properties_filter:
                 mandatory = {"type", "created"}
                 base_props = [
-                    p for p in base_props
-                    if p in core_properties_filter or p in mandatory
+                    p for p in base_props if p in core_properties_filter or p in mandatory
                 ]
             core_properties_config["all"] = base_props + all_custom
 
@@ -2047,7 +2052,10 @@ def create_settings_yaml(
         per_type_properties: Dict of type -> list of additional properties
     """
     settings = build_settings_yaml(
-        methodology, config, note_types_filter, core_properties_filter,
+        methodology,
+        config,
+        note_types_filter,
+        core_properties_filter,
         custom_properties=custom_properties,
         per_type_properties=per_type_properties,
     )
@@ -2285,7 +2293,12 @@ def init_vault(
 
     # Create settings.yaml (PRIMARY configuration) with user customizations
     create_settings_yaml(
-        vault_path, methodology, dry_run, config, note_types_filter, core_properties_filter,
+        vault_path,
+        methodology,
+        dry_run,
+        config,
+        note_types_filter,
+        core_properties_filter,
         custom_properties=custom_properties,
         per_type_properties=per_type_properties,
     )
@@ -2299,7 +2312,11 @@ def init_vault(
     # Create sample notes
     if create_samples:
         create_sample_notes(
-            vault_path, methodology, note_types, core_properties, dry_run,
+            vault_path,
+            methodology,
+            note_types,
+            core_properties,
+            dry_run,
             core_properties_filter=core_properties_filter,
             custom_properties=custom_properties,
             per_type_properties=per_type_properties,
@@ -2307,7 +2324,11 @@ def init_vault(
 
     # Create template notes for each note type
     create_template_notes(
-        vault_path, methodology, note_types, core_properties, dry_run,
+        vault_path,
+        methodology,
+        note_types,
+        core_properties,
+        dry_run,
         core_properties_filter=core_properties_filter,
         custom_properties=custom_properties,
         per_type_properties=per_type_properties,
@@ -2364,8 +2385,7 @@ def main() -> int:  # pragma: no cover
                 "Use: python3 ${CLAUDE_PLUGIN_ROOT}/commands/init.py"
             ),
             "hint": (
-                "The wrapper handles the interactive workflow "
-                "and calls this script internally."
+                "The wrapper handles the interactive workflow and calls this script internally."
             ),
         }
         print(json.dumps(error_msg, indent=2))
@@ -2566,9 +2586,7 @@ Examples:
     # Parse custom properties
     custom_properties_list = None
     if args.custom_properties:
-        custom_properties_list = [
-            p.strip() for p in args.custom_properties.split(",") if p.strip()
-        ]
+        custom_properties_list = [p.strip() for p in args.custom_properties.split(",") if p.strip()]
 
     # Parse per-type properties (format: type1:prop1,prop2;type2:prop3)
     per_type_properties: dict[str, list[str]] = {}

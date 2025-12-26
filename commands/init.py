@@ -234,21 +234,28 @@ def output_note_types_select_prompt(
     note_types_data = get_note_types_for_methodology(methodology)
 
     if "error" in note_types_data:
-        print(json.dumps({
-            "status": "error",
-            "message": f"Could not load note types: {note_types_data['error']}",
-        }, indent=2))
+        print(
+            json.dumps(
+                {
+                    "status": "error",
+                    "message": f"Could not load note types: {note_types_data['error']}",
+                },
+                indent=2,
+            )
+        )
         return
 
     # Build options from note types
     options = []
     for type_id, type_info in note_types_data.items():
-        options.append({
-            "id": type_id,
-            "label": type_id.capitalize(),
-            "description": type_info.get("description", ""),
-            "selected": True,  # All selected by default
-        })
+        options.append(
+            {
+                "id": type_id,
+                "label": type_id.capitalize(),
+                "description": type_info.get("description", ""),
+                "selected": True,  # All selected by default
+            }
+        )
 
     # Build the next_step command
     cmd_parts = [f"python3 ${{CLAUDE_PLUGIN_ROOT}}/commands/init.py {vault_path}"]
@@ -378,13 +385,15 @@ def output_properties_select_prompt(
     options = []
     for prop in core_properties:
         is_mandatory = prop in mandatory
-        options.append({
-            "id": prop,
-            "label": prop.capitalize(),
-            "description": f"{'Required - always included' if is_mandatory else 'Optional'}",
-            "selected": True,  # All selected by default
-            "disabled": is_mandatory,  # Can't deselect mandatory
-        })
+        options.append(
+            {
+                "id": prop,
+                "label": prop.capitalize(),
+                "description": f"{'Required - always included' if is_mandatory else 'Optional'}",
+                "selected": True,  # All selected by default
+                "disabled": is_mandatory,  # Can't deselect mandatory
+            }
+        )
 
     # Build the next_step command
     cmd_parts = [f"python3 ${{CLAUDE_PLUGIN_ROOT}}/commands/init.py {vault_path}"]
@@ -492,20 +501,24 @@ def output_per_type_properties_prompt(
     # Build options
     options = []
     for prop in additional_required:
-        options.append({
-            "id": prop,
-            "label": prop.capitalize(),
-            "description": "Required for this type",
-            "selected": True,
-            "disabled": True,  # Required can't be deselected
-        })
+        options.append(
+            {
+                "id": prop,
+                "label": prop.capitalize(),
+                "description": "Required for this type",
+                "selected": True,
+                "disabled": True,  # Required can't be deselected
+            }
+        )
     for prop in optional:
-        options.append({
-            "id": prop,
-            "label": prop.capitalize(),
-            "description": "Optional",
-            "selected": False,
-        })
+        options.append(
+            {
+                "id": prop,
+                "label": prop.capitalize(),
+                "description": "Optional",
+                "selected": False,
+            }
+        )
 
     # Build per_type_props string for next command
     per_type_str = ""
@@ -530,7 +543,8 @@ def output_per_type_properties_prompt(
     types_remaining = len(remaining_types)
     progress_msg = (
         f"Type {len(note_types.split(',')) - types_remaining} of {len(note_types.split(','))}"
-        if note_types != "all" else ""
+        if note_types != "all"
+        else ""
     )
 
     prompt = {
@@ -617,9 +631,7 @@ def execute_init(
         cmd.extend(["--custom-properties", ",".join(custom_properties)])
     if per_type_properties:
         # Format: type1:prop1,prop2;type2:prop3,prop4
-        per_type_str = ";".join(
-            f"{k}:{','.join(v)}" for k, v in per_type_properties.items()
-        )
+        per_type_str = ";".join(f"{k}:{','.join(v)}" for k, v in per_type_properties.items())
         cmd.extend(["--per-type-props", per_type_str])
 
     # Set environment variable to indicate we're calling from wrapper
@@ -727,9 +739,7 @@ def main() -> int:
     custom_properties: list[str] | None = None
     if args.custom_properties:
         if args.custom_properties.lower() not in ("none", "skip", ""):
-            custom_properties = [
-                p.strip() for p in args.custom_properties.split(",") if p.strip()
-            ]
+            custom_properties = [p.strip() for p in args.custom_properties.split(",") if p.strip()]
 
     # Parse per-type properties if provided (format: type1:prop1,prop2;type2:prop3)
     # Use "none" or empty string to mark a type as configured without properties
@@ -848,7 +858,7 @@ def main() -> int:
                     type_config = type_data.get(type_name, {})
                     props = type_config.get("properties", {})
                     # Check if type has additional_required or optional properties
-                    if (props.get("additional_required") or props.get("optional")):
+                    if props.get("additional_required") or props.get("optional"):
                         types_needing_config.append(type_name)
 
             # If there are types that need per-type configuration
@@ -927,16 +937,14 @@ def main() -> int:
         return 0
 
     # STEP 7: Custom properties handled - check for per-type properties
-    selected_types = note_types or list(
-        get_note_types_for_methodology(args.methodology).keys()
-    )
+    selected_types = note_types or list(get_note_types_for_methodology(args.methodology).keys())
     types_needing_config = []
     for type_name in selected_types:
         if type_name not in per_type_properties:
             type_data = get_note_types_for_methodology(args.methodology)
             type_config = type_data.get(type_name, {})
             props = type_config.get("properties", {})
-            if (props.get("additional_required") or props.get("optional")):
+            if props.get("additional_required") or props.get("optional"):
                 types_needing_config.append(type_name)
 
     if not args.defaults and types_needing_config:
