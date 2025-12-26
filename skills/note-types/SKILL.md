@@ -1,6 +1,6 @@
 ---
 name: note-types
-version: "0.45.0"
+version: "0.46.0"
 license: MIT
 description: "Manage Obsidian note type definitions including folders, properties, and templates. Use when the user wants to (1) define new note types, (2) manage note type configurations, (3) set up folder and property mappings, (4) create note type templates, or (5) view existing note types. Triggers on keywords like note types, note type config, manage note types, define note type, note type wizard."
 ---
@@ -15,12 +15,24 @@ Manage note type definitions for your Obsidian vault. Define folders, required p
 |---------|-------------|
 | `obsidian:note-types --list` | List all note types |
 | `obsidian:note-types --show <name>` | Show details for a note type |
-| `obsidian:note-types --add <name> --non-interactive` | Add a new note type (minimal) |
-| `obsidian:note-types --add <name> --config '{...}'` | Add with full JSON config |
+| `obsidian:note-types --add <name> --config '{...}'` | Add with full JSON config (PREFERRED) |
+| `obsidian:note-types --add <name> --non-interactive` | Add with minimal defaults only |
 | `obsidian:note-types --edit <name> --non-interactive [options]` | Edit a note type |
 | `obsidian:note-types --remove <name> --yes` | Remove a note type |
 
-**IMPORTANT for Claude Code**: Always use `--non-interactive` or `--config` with `--add`, `--non-interactive` with `--edit`, and `--yes` with `--remove`. Interactive mode (`--wizard`) requires terminal input and cannot be used.
+## CRITICAL: Claude Code Usage
+
+**When user provides ANY configuration details (description, folder, properties, icon), ALWAYS use `--config` with the FULL JSON:**
+
+```bash
+# CORRECT - pass all config in one command:
+uv run note_types.py --add meeting --config '{"description": "Meeting notes", "folder": "Meetings/", "required_props": ["date"], "icon": "calendar"}'
+
+# WRONG - do NOT use --non-interactive and then edit settings.yaml:
+uv run note_types.py --add meeting --non-interactive  # Creates wrong defaults!
+```
+
+**Use `--non-interactive` ONLY when user wants minimal defaults with no customization.**
 
 ## Quick Start
 
@@ -33,11 +45,14 @@ uv run skills/note-types/scripts/note_types.py --list
 # Show details for a specific type
 uv run skills/note-types/scripts/note_types.py --show project
 
-# Interactive wizard to create a new type
-uv run skills/note-types/scripts/note_types.py --wizard
+# Add a note type with full config (RECOMMENDED for Claude Code)
+uv run skills/note-types/scripts/note_types.py --add blog --config '{"description": "Blog posts", "folder": "Blog/", "required_props": ["status"], "icon": "pen-tool"}'
 
-# Add a note type non-interactively
+# Add with minimal defaults only (when no config specified)
 uv run skills/note-types/scripts/note_types.py --add blog --non-interactive
+
+# Remove a note type
+uv run skills/note-types/scripts/note_types.py --remove blog --yes
 
 # Specify vault path explicitly
 uv run skills/note-types/scripts/note_types.py --vault /path/to/vault --list
