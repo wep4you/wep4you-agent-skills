@@ -2087,17 +2087,16 @@ def main() -> int:  # pragma: no cover
     import os
 
     # Check if called from wrapper (required for Claude Code integration)
-    # Allow: --list, --list-note-types, --check, --defaults (from wrapper)
-    # Block: direct calls with -m/--methodology without --defaults
+    # Allow: --list, --list-note-types, --check (query operations only)
+    # Block: ALL direct calls with -m/--methodology (even with --defaults)
     from_wrapper = os.environ.get("INIT_FROM_WRAPPER") == "1"
     raw_args = sys.argv[1:]
 
-    # If not from wrapper and trying to initialize (has -m but not --defaults)
+    # If not from wrapper and trying to initialize with methodology
     has_methodology = "-m" in raw_args or "--methodology" in raw_args
-    has_defaults = "--defaults" in raw_args
     is_query = "--list" in raw_args or "--list-note-types" in raw_args or "--check" in raw_args
 
-    if has_methodology and not has_defaults and not from_wrapper and not is_query:
+    if has_methodology and not from_wrapper and not is_query:
         error_msg = {
             "error": "Direct call not allowed",
             "message": (

@@ -416,12 +416,14 @@ class TestMainCLI:
     """Test CLI main function"""
 
     def test_main_with_methodology(self, tmp_path: Path) -> None:
-        """Test main function with methodology flag"""
+        """Test main function with methodology flag (simulating wrapper call)"""
         vault_path = tmp_path / "cli-vault"
         args = [str(vault_path), "-m", "minimal", "--defaults"]
 
-        with patch("sys.argv", ["init_vault.py", *args]):
-            exit_code = main()
+        # Set env to simulate wrapper call
+        with patch.dict("os.environ", {"INIT_FROM_WRAPPER": "1"}):
+            with patch("sys.argv", ["init_vault.py", *args]):
+                exit_code = main()
 
         assert exit_code == 0
         assert (vault_path / "Notes").exists()
@@ -439,12 +441,14 @@ class TestMainCLI:
         assert "para" in captured.out
 
     def test_main_dry_run(self, tmp_path: Path) -> None:
-        """Test --dry-run flag"""
+        """Test --dry-run flag (simulating wrapper call)"""
         vault_path = tmp_path / "dry-cli-vault"
         args = [str(vault_path), "-m", "para", "--dry-run", "--defaults"]
 
-        with patch("sys.argv", ["init_vault.py", *args]):
-            exit_code = main()
+        # Set env to simulate wrapper call
+        with patch.dict("os.environ", {"INIT_FROM_WRAPPER": "1"}):
+            with patch("sys.argv", ["init_vault.py", *args]):
+                exit_code = main()
 
         assert exit_code == 0
         # Should not create folders in dry-run
