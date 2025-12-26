@@ -273,6 +273,36 @@ bd sync               # Sync with git remote
 
 ---
 
+## Plugin Versioning
+
+**CRITICAL:** When bumping versions, you MUST update BOTH files:
+
+1. `.claude-plugin/plugin.json` → `"version": "X.Y.Z"` (Claude Code reads this!)
+2. `skills/<skill>/SKILL.md` → `version: "X.Y.Z"` (Skill metadata)
+
+### Version Bump Checklist
+
+```bash
+# 1. Update plugin.json (Claude Code uses this for updates)
+# Edit .claude-plugin/plugin.json → "version": "X.Y.Z"
+
+# 2. Update SKILL.md for changed skills
+# Edit skills/<skill>/SKILL.md → version: "X.Y.Z"
+
+# 3. Commit both changes together
+git add .claude-plugin/plugin.json skills/*/SKILL.md
+git commit -m "chore: Bump version to X.Y.Z"
+```
+
+### Why Both Files?
+
+- **plugin.json**: Claude Code marketplace reads this to detect updates
+- **SKILL.md**: Individual skill metadata for documentation and discovery
+
+If you only update SKILL.md, Claude Code won't detect the new version!
+
+---
+
 ## Session Completion Protocol
 
 **When ending a work session**, complete ALL steps below. Work is NOT complete until `git push` succeeds.
