@@ -21,12 +21,15 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "skills" / "config" / "scr
 
 from init_vault import (
     METHODOLOGIES,
+    FOLDER_DESCRIPTIONS,
     init_vault,
     generate_template_note,
     create_template_notes,
     get_content_folders,
     generate_all_bases_content,
     create_all_bases_file,
+    generate_folder_readme_content,
+    create_folder_readmes,
 )
 from settings_loader import load_settings
 from validator import VaultValidator
@@ -455,3 +458,70 @@ class TestAllBasesFileGeneration:
         # Parse views - All should have groupBy, others shouldn't
         # Count occurrences - should be exactly 1 (for All view)
         assert content.count("groupBy:") == 1, "Only All view should have groupBy"
+
+
+class TestFolderReadmeGeneration:
+    """Test that init generates _Readme.md (MOC) files in each content folder."""
+
+    @pytest.mark.parametrize("methodology", list(METHODOLOGIES.keys()))
+    def test_folder_readmes_created(self, tmp_path: Path, methodology: str) -> None:
+        """Test that _Readme.md files are created in each content folder."""
+        init_vault(tmp_path, methodology, dry_run=False, use_defaults=True)
+
+        content_folders = get_content_folders(methodology)
+        for folder in content_folders:
+            readme_file = tmp_path / folder / "_Readme.md"
+            assert readme_file.exists(), f"_Readme.md not created in {folder}"
+
+    @pytest.mark.parametrize("methodology", list(METHODOLOGIES.keys()))
+    def test_folder_readmes_have_moc_type(self, tmp_path: Path, methodology: str) -> None:
+        """Test that _Readme.md files have type: moc in frontmatter."""
+        init_vault(tmp_path, methodology, dry_run=False, use_defaults=True)
+
+        content_folders = get_content_folders(methodology)
+        for folder in content_folders:
+            readme_file = tmp_path / folder / "_Readme.md"
+            content = readme_file.read_text()
+            assert 'type: moc' in content, f"_Readme.md in {folder} missing type: moc"
+
+    @pytest.mark.parametrize("methodology", list(METHODOLOGIES.keys()))
+    def test_folder_readmes_embed_base_view(self, tmp_path: Path, methodology: str) -> None:
+        """Test that _Readme.md files embed the correct base view."""
+        init_vault(tmp_path, methodology, dry_run=False, use_defaults=True)
+
+        content_folders = get_content_folders(methodology)
+        for folder in content_folders:
+            readme_file = tmp_path / folder / "_Readme.md"
+            content = readme_file.read_text()
+            expected_embed = f"![[all_bases.base#{folder}]]"
+            assert expected_embed in content, (
+                f"_Readme.md in {folder} missing embed: {expected_embed}"
+            )
+
+    def test_para_folder_descriptions(self, tmp_path: Path) -> None:
+        """Test PARA folders have correct descriptions."""
+        init_vault(tmp_path, "para", dry_run=False, use_defaults=True)
+
+        # Check Projects description
+        projects_readme = tmp_path / "Projects" / "_Readme.md"
+        content = projects_readme.read_text()
+        assert "Active projects with defined outcomes" in content
+
+        # Check Archives description
+        archives_readme = tmp_path / "Archives" / "_Readme.md"
+        content = archives_readme.read_text()
+        assert "Completed or inactive items" in content
+
+    def test_lyt_ace_folder_descriptions(self, tmp_path: Path) -> None:
+        """Test LYT-ACE folders have correct descriptions."""
+        init_vault(tmp_path, "lyt-ace", dry_run=False, use_defaults=True)
+
+        # Check Atlas description
+        atlas_readme = tmp_path / "Atlas" / "_Readme.md"
+        content = atlas_readme.read_text()
+        assert "Knowledge repository" in content
+
+        # Check Efforts description
+        efforts_readme = tmp_path / "Efforts" / "_Readme.md"
+        content = efforts_readme.read_text()
+        assert "Active work including projects" in content

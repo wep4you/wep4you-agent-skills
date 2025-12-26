@@ -1416,6 +1416,99 @@ def create_all_bases_file(
         return base_file
 
 
+# Folder descriptions for each methodology
+FOLDER_DESCRIPTIONS: dict[str, dict[str, str]] = {
+    "lyt-ace": {
+        "Atlas": "Knowledge repository containing Maps of Content, atomic concepts, and sources.",
+        "Calendar": "Time-based notes including daily journals and periodic reviews.",
+        "Efforts": "Active work including projects and ongoing areas of responsibility.",
+    },
+    "para": {
+        "Projects": "Active projects with defined outcomes and deadlines.",
+        "Areas": "Ongoing areas of responsibility that require maintenance.",
+        "Resources": "Reference materials and resources for future use.",
+        "Archives": "Completed or inactive items preserved for reference.",
+    },
+    "zettelkasten": {
+        "Permanent": "Your own ideas and insights - the core of your knowledge base.",
+        "Literature": "Notes from reading and external sources.",
+        "Fleeting": "Quick captures and ideas to process later.",
+        "References": "External sources and citations.",
+    },
+    "minimal": {
+        "Notes": "General notes and ideas.",
+        "Daily": "Daily journal entries and reflections.",
+    },
+}
+
+
+def generate_folder_readme_content(
+    folder_name: str,
+    methodology: str,
+) -> str:
+    """Generate _Readme.md content for a folder.
+
+    Args:
+        folder_name: Name of the folder (e.g., "Projects", "Atlas")
+        methodology: Methodology key
+
+    Returns:
+        Markdown content for the _Readme.md
+    """
+    descriptions = FOLDER_DESCRIPTIONS.get(methodology, {})
+    description = descriptions.get(folder_name, f"Notes and content for {folder_name}.")
+
+    content = f"""---
+type: moc
+created: "{{{{date}}}}"
+---
+
+# {folder_name}
+
+{description}
+
+## Contents
+
+![[all_bases.base#{folder_name}]]
+"""
+    return content
+
+
+def create_folder_readmes(
+    vault_path: Path,
+    methodology: str,
+    dry_run: bool = False,
+) -> list[Path]:
+    """Create _Readme.md files in each content folder.
+
+    Args:
+        vault_path: Path to the vault root
+        methodology: Methodology key
+        dry_run: If True, only print what would be created
+
+    Returns:
+        List of created file paths
+    """
+    content_folders = get_content_folders(methodology)
+    created_files: list[Path] = []
+
+    print("\nCreating folder _Readme.md files (MOCs)...")
+
+    for folder in content_folders:
+        readme_path = vault_path / folder / "_Readme.md"
+        content = generate_folder_readme_content(folder, methodology)
+
+        if dry_run:
+            print(f"  [DRY RUN] Would create: {readme_path}")
+        else:
+            readme_path.parent.mkdir(parents=True, exist_ok=True)
+            readme_path.write_text(content)
+            print(f"  ✓ Created: {readme_path}")
+            created_files.append(readme_path)
+
+    return created_files
+
+
 def show_migration_hint(has_existing_content: bool) -> None:
     """Show hint about future migration feature.
 
@@ -1572,7 +1665,7 @@ def build_settings_yaml(
         "up_links": method_config.get("up_links", {}),
         "exclude": {
             "paths": ["+/", "x/", ".obsidian/", ".claude/", ".git/"],
-            "files": ["Home.md", "README.md"],
+            "files": ["Home.md", "README.md", "_Readme.md"],
         },
         "formats": {
             "date": "YYYY-MM-DD",
@@ -1842,6 +1935,9 @@ def init_vault(
 
     # Create all_bases.base for Obsidian Bases plugin
     create_all_bases_file(vault_path, methodology, dry_run)
+
+    # Create _Readme.md (MOC) in each content folder
+    create_folder_readmes(vault_path, methodology, dry_run)
 
     # Show migration hint if there was existing content
     if has_existing:
