@@ -21,16 +21,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "skills" / "config" / "scr
 
 from init_vault import (
     METHODOLOGIES,
-    FOLDER_DESCRIPTIONS,
-    init_vault,
     generate_template_note,
-    create_template_notes,
     get_content_folders,
-    get_all_content_folders,
-    generate_all_bases_content,
-    create_all_bases_file,
-    generate_folder_readme_content,
-    create_folder_readmes,
+    init_vault,
 )
 from settings_loader import load_settings
 from validator import VaultValidator
@@ -926,8 +919,8 @@ tags: []
         issues = validator.issues.get("unknown_type", [])
         resource_issues = [i for i in issues if "test_resource" in str(i)]
 
-        # Should flag unknown type
-        assert len(resource_issues) >= 0  # May or may not be flagged depending on validator behavior
+        # Should flag unknown type (behavior may vary based on validator)
+        assert len(resource_issues) >= 0
 
     def test_note_type_folder_hints_used_by_validator(
         self, tmp_path: Path
@@ -1020,3 +1013,153 @@ status: active
             f"Validator should not require optional 'deadline' property. "
             f"Got issues: {missing_issues}"
         )
+
+
+class TestFilteredSampleAndTemplateGeneration:
+    """Test that filtered core properties don't appear in sample notes and templates."""
+
+    def test_filtered_properties_not_in_sample_notes(self, tmp_path: Path) -> None:
+        """Test that deselected core properties don't appear in sample notes."""
+        # LYT-ACE has: type, up, created, daily, tags, collection, related
+        # Filter to exclude: daily, collection, related
+        init_vault(
+            tmp_path,
+            "lyt-ace",
+            dry_run=False,
+            use_defaults=True,
+            core_properties_filter=["type", "created", "up", "tags"],
+        )
+
+        # Check a sample note
+        sample_note = tmp_path / "Atlas" / "Maps" / "Getting Started with Maps.md"
+        assert sample_note.exists(), "Sample note should exist"
+
+        content = sample_note.read_text()
+
+        # These properties should be present
+        assert "type:" in content
+        assert "created:" in content
+        assert "up:" in content
+        assert "tags:" in content
+
+        # These properties should NOT be present (filtered out)
+        assert "daily:" not in content
+        assert "collection:" not in content
+        assert "related:" not in content
+
+    def test_filtered_properties_not_in_templates(self, tmp_path: Path) -> None:
+        """Test that deselected core properties don't appear in template notes."""
+        # LYT-ACE has: type, up, created, daily, tags, collection, related
+        # Filter to exclude: daily, collection, related
+        init_vault(
+            tmp_path,
+            "lyt-ace",
+            dry_run=False,
+            use_defaults=True,
+            core_properties_filter=["type", "created", "up", "tags"],
+        )
+
+        # Check a template note
+        template = tmp_path / "x" / "templates" / "map.md"
+        assert template.exists(), "Template should exist"
+
+        content = template.read_text()
+
+        # These properties should be present
+        assert "type:" in content
+        assert "created:" in content or "{{date}}" in content
+        assert "up:" in content
+        assert "tags:" in content
+
+        # These properties should NOT be present (filtered out)
+        assert "daily:" not in content
+        assert "collection:" not in content
+        assert "related:" not in content
+
+    def test_mandatory_properties_always_in_sample_notes(self, tmp_path: Path) -> None:
+        """Test that type and created are always in sample notes even if not in filter."""
+        # Filter without type and created (mandatory)
+        init_vault(
+            tmp_path,
+            "para",
+            dry_run=False,
+            use_defaults=True,
+            core_properties_filter=["up", "tags"],  # Missing type, created
+        )
+
+        # Check a sample note
+        sample_note = tmp_path / "Projects" / "Getting Started with Projects.md"
+        assert sample_note.exists()
+
+        content = sample_note.read_text()
+
+        # Mandatory properties should always be present
+        assert "type:" in content
+        assert "created:" in content
+
+    def test_mandatory_properties_always_in_templates(self, tmp_path: Path) -> None:
+        """Test that type and created are always in templates even if not in filter."""
+        # Filter without type and created (mandatory)
+        init_vault(
+            tmp_path,
+            "para",
+            dry_run=False,
+            use_defaults=True,
+            core_properties_filter=["up", "tags"],  # Missing type, created
+        )
+
+        # Check a template
+        template = tmp_path / "x" / "templates" / "project.md"
+        assert template.exists()
+
+        content = template.read_text()
+
+        # Mandatory properties should always be present
+        assert "type:" in content
+        assert "created:" in content or "{{date}}" in content
+
+    def test_all_filter_includes_all_in_samples(self, tmp_path: Path) -> None:
+        """Test that no filter (None) includes all properties in samples."""
+        init_vault(
+            tmp_path,
+            "lyt-ace",
+            dry_run=False,
+            use_defaults=True,
+            core_properties_filter=None,  # All properties
+        )
+
+        # Check a sample note (map type in LYT-ACE)
+        sample_note = tmp_path / "Atlas" / "Maps" / "Getting Started with Maps.md"
+        content = sample_note.read_text()
+
+        # All LYT-ACE core properties should be present
+        assert "type:" in content
+        assert "created:" in content
+        assert "up:" in content
+        assert "tags:" in content
+        assert "daily:" in content
+        assert "collection:" in content
+        assert "related:" in content
+
+    def test_para_filter_excludes_tags_from_samples(self, tmp_path: Path) -> None:
+        """Test PARA methodology with tags filtered out."""
+        # PARA has: type, up, created, tags
+        init_vault(
+            tmp_path,
+            "para",
+            dry_run=False,
+            use_defaults=True,
+            core_properties_filter=["type", "created", "up"],  # No tags
+        )
+
+        # Check sample note
+        sample_note = tmp_path / "Projects" / "Getting Started with Projects.md"
+        content = sample_note.read_text()
+
+        # type, created, up should be present
+        assert "type:" in content
+        assert "created:" in content
+        assert "up:" in content
+
+        # tags should NOT be present
+        assert "tags:" not in content

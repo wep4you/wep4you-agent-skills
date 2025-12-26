@@ -175,7 +175,56 @@ def output_note_types_prompt(
     methodology: str,
     action: str | None = None,
 ) -> None:
-    """Output prompt for note type selection.
+    """Output prompt for note type selection (All vs Custom choice).
+
+    Args:
+        vault_path: Path to the vault
+        methodology: Selected methodology
+        action: Previous action (continue/reset) to preserve in next command
+    """
+    note_types_data = get_note_types_for_methodology(methodology)
+    type_names = list(note_types_data.keys()) if "error" not in note_types_data else []
+    type_list = ", ".join(type_names) if type_names else "all types"
+
+    # Build the next_step command
+    cmd_parts = [f"python3 ${{CLAUDE_PLUGIN_ROOT}}/commands/init.py {vault_path}"]
+    if action:
+        cmd_parts.append(f"--action={action}")
+    cmd_parts.append(f"-m {methodology}")
+    cmd_parts.append("--note-types=<choice>")
+    next_cmd = " ".join(cmd_parts)
+
+    prompt = {
+        "prompt_type": "note_types_required",
+        "message": f"Note types for {methodology}: {type_list}",
+        "vault_path": vault_path,
+        "methodology": methodology,
+        "previous_action": action,
+        "question": "Which note types do you want to include?",
+        "multi_select": False,
+        "options": [
+            {
+                "id": "all",
+                "label": "All (Recommended)",
+                "description": f"Include all note types: {type_list}",
+            },
+            {
+                "id": "custom",
+                "label": "Custom",
+                "description": "Select individual note types to include",
+            },
+        ],
+        "next_step": next_cmd,
+    }
+    print(json.dumps(prompt, indent=2))
+
+
+def output_note_types_select_prompt(
+    vault_path: str,
+    methodology: str,
+    action: str | None = None,
+) -> None:
+    """Output prompt for individual note type selection (multi-select).
 
     Args:
         vault_path: Path to the vault
@@ -185,7 +234,6 @@ def output_note_types_prompt(
     note_types_data = get_note_types_for_methodology(methodology)
 
     if "error" in note_types_data:
-        # Fallback - skip note type selection
         print(json.dumps({
             "status": "error",
             "message": f"Could not load note types: {note_types_data['error']}",
@@ -211,16 +259,15 @@ def output_note_types_prompt(
     next_cmd = " ".join(cmd_parts)
 
     prompt = {
-        "prompt_type": "note_types_required",
+        "prompt_type": "note_types_select",
         "message": f"Select note types for {methodology}",
         "vault_path": vault_path,
         "methodology": methodology,
         "previous_action": action,
-        "question": "Which note types do you want to include?",
+        "question": "Select the note types to include:",
         "multi_select": True,
         "options": options,
         "next_step": next_cmd,
-        "hint": "Use --defaults to skip this step and include all note types",
     }
     print(json.dumps(prompt, indent=2))
 
@@ -263,7 +310,59 @@ def output_properties_prompt(
     note_types: str,
     action: str | None = None,
 ) -> None:
-    """Output prompt for core property selection.
+    """Output prompt for property selection (All vs Custom choice).
+
+    Args:
+        vault_path: Path to the vault
+        methodology: Selected methodology
+        note_types: Comma-separated list of selected note types
+        action: Previous action (continue/reset) to preserve in next command
+    """
+    core_properties = get_core_properties_for_methodology(methodology)
+    props_list = ", ".join(core_properties)
+
+    # Build the next_step command
+    cmd_parts = [f"python3 ${{CLAUDE_PLUGIN_ROOT}}/commands/init.py {vault_path}"]
+    if action:
+        cmd_parts.append(f"--action={action}")
+    cmd_parts.append(f"-m {methodology}")
+    cmd_parts.append(f"--note-types={note_types}")
+    cmd_parts.append("--core-properties=<choice>")
+    next_cmd = " ".join(cmd_parts)
+
+    prompt = {
+        "prompt_type": "properties_required",
+        "message": f"Core properties: {props_list}",
+        "vault_path": vault_path,
+        "methodology": methodology,
+        "note_types": note_types,
+        "previous_action": action,
+        "question": "Which properties do you want to use?",
+        "multi_select": False,
+        "options": [
+            {
+                "id": "all",
+                "label": "All (Recommended)",
+                "description": f"Include all properties: {props_list}",
+            },
+            {
+                "id": "custom",
+                "label": "Custom",
+                "description": "Select individual properties (type and created are mandatory)",
+            },
+        ],
+        "next_step": next_cmd,
+    }
+    print(json.dumps(prompt, indent=2))
+
+
+def output_properties_select_prompt(
+    vault_path: str,
+    methodology: str,
+    note_types: str,
+    action: str | None = None,
+) -> None:
+    """Output prompt for individual property selection (multi-select).
 
     Args:
         vault_path: Path to the vault
@@ -282,7 +381,7 @@ def output_properties_prompt(
         options.append({
             "id": prop,
             "label": prop.capitalize(),
-            "description": f"{'Required' if is_mandatory else 'Optional'} property",
+            "description": f"{'Required - always included' if is_mandatory else 'Optional'}",
             "selected": True,  # All selected by default
             "disabled": is_mandatory,  # Can't deselect mandatory
         })
@@ -297,17 +396,17 @@ def output_properties_prompt(
     next_cmd = " ".join(cmd_parts)
 
     prompt = {
-        "prompt_type": "properties_required",
-        "message": f"Select core properties for your notes",
+        "prompt_type": "properties_select",
+        "message": "Select core properties",
         "vault_path": vault_path,
         "methodology": methodology,
         "note_types": note_types,
         "previous_action": action,
-        "question": "Which properties do you want to use?",
+        "question": "Select the properties to include:",
         "multi_select": True,
         "options": options,
         "next_step": next_cmd,
-        "hint": "type and created are mandatory. Use --defaults to skip and include all.",
+        "hint": "type and created are mandatory and cannot be deselected.",
     }
     print(json.dumps(prompt, indent=2))
 
@@ -428,13 +527,25 @@ def main() -> int:
 
     # Parse note types if provided
     note_types = None
+    note_types_is_custom = False
     if args.note_types:
-        note_types = [t.strip() for t in args.note_types.split(",") if t.strip()]
+        if args.note_types.lower() == "custom":
+            note_types_is_custom = True
+        elif args.note_types.lower() == "all":
+            note_types = None  # None means all types
+        else:
+            note_types = [t.strip() for t in args.note_types.split(",") if t.strip()]
 
     # Parse core properties if provided
     core_properties = None
+    core_properties_is_custom = False
     if args.core_properties:
-        core_properties = [p.strip() for p in args.core_properties.split(",") if p.strip()]
+        if args.core_properties.lower() == "custom":
+            core_properties_is_custom = True
+        elif args.core_properties.lower() == "all":
+            core_properties = None  # None means all properties
+        else:
+            core_properties = [p.strip() for p in args.core_properties.split(",") if p.strip()]
 
     # Pass-through: --list
     if args.list:
@@ -477,19 +588,42 @@ def main() -> int:
             if not args.methodology:
                 output_methodology_prompt(str(vault_path), action=args.action)
                 return 0
+
             # Methodology specified - check for note types
-            if not args.defaults and not note_types:
-                output_note_types_prompt(str(vault_path), args.methodology, args.action)
-                return 0
+            if not args.defaults:
+                # Need note types selection
+                if not args.note_types:
+                    # No note types argument at all - show All/Custom choice
+                    output_note_types_prompt(str(vault_path), args.methodology, args.action)
+                    return 0
+                elif note_types_is_custom:
+                    # User chose "custom" - show multi-select
+                    output_note_types_select_prompt(str(vault_path), args.methodology, args.action)
+                    return 0
+                # note_types_is_all or explicit list - continue to properties
+
             # Note types specified - check for core properties
-            if not args.defaults and not core_properties:
-                output_properties_prompt(
-                    str(vault_path),
-                    args.methodology,
-                    args.note_types or "",
-                    args.action,
-                )
-                return 0
+            if not args.defaults:
+                if not args.core_properties:
+                    # No core properties argument at all - show All/Custom choice
+                    output_properties_prompt(
+                        str(vault_path),
+                        args.methodology,
+                        args.note_types or "all",
+                        args.action,
+                    )
+                    return 0
+                elif core_properties_is_custom:
+                    # User chose "custom" - show multi-select
+                    output_properties_select_prompt(
+                        str(vault_path),
+                        args.methodology,
+                        args.note_types or "all",
+                        args.action,
+                    )
+                    return 0
+                # core_properties_is_all or explicit list - continue to execution
+
             # Execute with methodology, note types, and core properties
             return execute_init(
                 vault_path,
@@ -505,18 +639,36 @@ def main() -> int:
         return 0
 
     # STEP 4: Methodology specified - check for note types
-    if not args.defaults and not note_types:
-        output_note_types_prompt(str(vault_path), args.methodology)
-        return 0
+    if not args.defaults:
+        if not args.note_types:
+            # No note types argument - show All/Custom choice
+            output_note_types_prompt(str(vault_path), args.methodology)
+            return 0
+        elif note_types_is_custom:
+            # User chose "custom" - show multi-select
+            output_note_types_select_prompt(str(vault_path), args.methodology)
+            return 0
+        # note_types_is_all or explicit list - continue to properties
 
     # STEP 5: Note types specified - check for core properties
-    if not args.defaults and not core_properties:
-        output_properties_prompt(
-            str(vault_path),
-            args.methodology,
-            args.note_types or "",
-        )
-        return 0
+    if not args.defaults:
+        if not args.core_properties:
+            # No core properties argument - show All/Custom choice
+            output_properties_prompt(
+                str(vault_path),
+                args.methodology,
+                args.note_types or "all",
+            )
+            return 0
+        elif core_properties_is_custom:
+            # User chose "custom" - show multi-select
+            output_properties_select_prompt(
+                str(vault_path),
+                args.methodology,
+                args.note_types or "all",
+            )
+            return 0
+        # core_properties_is_all or explicit list - continue to execution
 
     # STEP 6: Execute initialization
     return execute_init(

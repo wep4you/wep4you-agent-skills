@@ -1,6 +1,6 @@
 ---
 name: init
-version: "0.31.0"
+version: "0.32.0"
 license: MIT
 description: "Initialize a new Obsidian vault with a chosen PKM methodology (LYT-ACE, PARA, Zettelkasten, or Minimal). Creates folder structure, configuration files, and frontmatter standards. Use when the user wants to (1) create a new Obsidian vault, (2) set up a vault with a specific methodology, (3) initialize vault configuration, or (4) scaffold a new PKM system. Triggers on keywords like init vault, create vault, new obsidian vault, setup vault, scaffold vault."
 ---
@@ -54,25 +54,39 @@ python3 "${CLAUDE_PLUGIN_ROOT}/commands/init.py" <vault_path> --action=continue 
 ```
 
 #### Step 4: `prompt_type: "note_types_required"`
+→ Use AskUserQuestion with "All (Recommended)" or "Custom" options
+→ If user chooses "all": `--note-types=all`
+→ If user chooses "custom": `--note-types=custom` (triggers Step 4b)
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/commands/init.py" <vault_path> --action=continue -m para --note-types=all
+```
+
+#### Step 4b: `prompt_type: "note_types_select"` (only if custom)
 → Use AskUserQuestion with multi-select (all types selected by default)
 → Join selected IDs with comma
-→ Call wrapper again WITH `--note-types=<types>` AND keep ALL previous flags:
 ```bash
 python3 "${CLAUDE_PLUGIN_ROOT}/commands/init.py" <vault_path> --action=continue -m para --note-types=project,area
 ```
 
 #### Step 5: `prompt_type: "properties_required"`
-→ Use AskUserQuestion with multi-select (all selected by default, type/created disabled)
-→ Join selected IDs with comma
-→ Call wrapper again WITH `--core-properties=<props>` AND keep ALL previous flags:
+→ Use AskUserQuestion with "All (Recommended)" or "Custom" options
+→ If user chooses "all": `--core-properties=all`
+→ If user chooses "custom": `--core-properties=custom` (triggers Step 5b)
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/commands/init.py" <vault_path> --action=continue -m para --note-types=project,area --core-properties=type,created,up,tags
+python3 "${CLAUDE_PLUGIN_ROOT}/commands/init.py" <vault_path> --action=continue -m para --note-types=all --core-properties=all
+```
+
+#### Step 5b: `prompt_type: "properties_select"` (only if custom)
+→ Use AskUserQuestion with multi-select (type/created are mandatory and disabled)
+→ Join selected IDs with comma
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/commands/init.py" <vault_path> --action=continue -m para --note-types=all --core-properties=type,created,up,tags
 ```
 
 #### Step 6: Execution
 The wrapper automatically executes when all parameters are provided.
 
-### Complete Example
+### Complete Example (with Custom selection)
 
 ```
 1. User: /obsidian:init
@@ -87,13 +101,36 @@ The wrapper automatically executes when all parameters are provided.
 
 4. Run: python3 .../commands/init.py /vault --action=continue -m para
    → JSON: {"prompt_type": "note_types_required", ...}
-   → AskUserQuestion (multi-select) → User: "project,area,resource"
+   → AskUserQuestion (All/Custom) → User: "custom"
 
-5. Run: python3 .../commands/init.py /vault --action=continue -m para --note-types=project,area,resource
+5. Run: python3 .../commands/init.py /vault --action=continue -m para --note-types=custom
+   → JSON: {"prompt_type": "note_types_select", ...}
+   → AskUserQuestion (multi-select) → User: "project,area"
+
+6. Run: python3 .../commands/init.py /vault --action=continue -m para --note-types=project,area
    → JSON: {"prompt_type": "properties_required", ...}
-   → AskUserQuestion (multi-select) → User: "type,created,up,tags"
+   → AskUserQuestion (All/Custom) → User: "all"
 
-6. Run: python3 .../commands/init.py /vault --action=continue -m para --note-types=project,area,resource --core-properties=type,created,up,tags
+7. Run: python3 .../commands/init.py /vault --action=continue -m para --note-types=project,area --core-properties=all
+   → Initialization runs! Show results.
+```
+
+### Quick Example (All defaults)
+
+```
+1. User: /obsidian:init
+
+2-4. (action, methodology selection as above)
+
+5. Run: python3 .../commands/init.py /vault --action=continue -m para
+   → JSON: {"prompt_type": "note_types_required", ...}
+   → AskUserQuestion → User: "all"
+
+6. Run: python3 .../commands/init.py /vault --action=continue -m para --note-types=all
+   → JSON: {"prompt_type": "properties_required", ...}
+   → AskUserQuestion → User: "all"
+
+7. Run: python3 .../commands/init.py /vault --action=continue -m para --note-types=all --core-properties=all
    → Initialization runs! Show results.
 ```
 

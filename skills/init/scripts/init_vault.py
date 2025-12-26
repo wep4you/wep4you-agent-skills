@@ -1054,6 +1054,7 @@ def generate_sample_note(
     core_properties: list[str],
     methodology: str,
     up_links: dict[str, str],
+    core_properties_filter: list[str] | None = None,
 ) -> str:
     """Generate sample note content dynamically.
 
@@ -1063,6 +1064,7 @@ def generate_sample_note(
         core_properties: List of core frontmatter properties
         methodology: Selected methodology name
         up_links: UP link mappings for folders
+        core_properties_filter: Optional filter for which properties to include
 
     Returns:
         Complete markdown content with frontmatter and helpful body
@@ -1074,26 +1076,41 @@ def generate_sample_note(
     # Determine up link
     up_link = up_links.get(folder_hint, "[[Home]]")
 
+    # Filter core properties if filter is provided
+    # Always include 'type' and 'created' as mandatory
+    active_properties = core_properties
+    if core_properties_filter:
+        mandatory = {"type", "created"}
+        active_properties = [
+            p for p in core_properties
+            if p in core_properties_filter or p in mandatory
+        ]
+
     # Build frontmatter
     frontmatter_lines = [
         "---",
         f'type: "{note_type}"',
-        f'up: "{up_link}"',
-        f'created: "{today}"',
     ]
 
-    # Add daily link if in core properties
-    if "daily" in core_properties:
+    # Add up link if in active properties
+    if "up" in active_properties:
+        frontmatter_lines.append(f'up: "{up_link}"')
+
+    # Add created (always included)
+    frontmatter_lines.append(f'created: "{today}"')
+
+    # Add daily link if in active properties
+    if "daily" in active_properties:
         frontmatter_lines.append(f'daily: "[[{today}]]"')
 
     # Add tags
-    if "tags" in core_properties:
+    if "tags" in active_properties:
         frontmatter_lines.append(f"tags: [sample, {methodology}]")
 
-    # Add collection and related if in core properties
-    if "collection" in core_properties:
+    # Add collection and related if in active properties
+    if "collection" in active_properties:
         frontmatter_lines.append('collection: ""')
-    if "related" in core_properties:
+    if "related" in active_properties:
         frontmatter_lines.append("related: []")
 
     # Add additional_required properties with placeholder values
@@ -1186,6 +1203,7 @@ def create_sample_notes(
     note_types: dict[str, dict[str, Any]],
     core_properties: list[str],
     dry_run: bool = False,
+    core_properties_filter: list[str] | None = None,
 ) -> list[Path]:
     """Create sample notes for each enabled note type.
 
@@ -1195,6 +1213,7 @@ def create_sample_notes(
         note_types: Dictionary of enabled note types
         core_properties: List of core properties
         dry_run: If True, only print what would be created
+        core_properties_filter: Optional filter for which properties to include
 
     Returns:
         List of created file paths
@@ -1223,7 +1242,8 @@ def create_sample_notes(
         file_path = vault_path / folder / filename
 
         content = generate_sample_note(
-            note_type, type_config, core_properties, methodology, up_links
+            note_type, type_config, core_properties, methodology, up_links,
+            core_properties_filter=core_properties_filter,
         )
 
         if dry_run:
@@ -1241,6 +1261,7 @@ def generate_template_note(
     note_type: str,
     type_config: dict[str, Any],
     core_properties: list[str],
+    core_properties_filter: list[str] | None = None,
 ) -> str:
     """Generate a template note for a specific note type.
 
@@ -1248,16 +1269,27 @@ def generate_template_note(
         note_type: The type of note (e.g., 'map', 'dot', 'project')
         type_config: Configuration for this note type
         core_properties: List of core properties
+        core_properties_filter: Optional filter for which properties to include
 
     Returns:
         Template content as string
     """
+    # Filter core properties if filter is provided
+    # Always include 'type' and 'created' as mandatory
+    active_properties = core_properties
+    if core_properties_filter:
+        mandatory = {"type", "created"}
+        active_properties = [
+            p for p in core_properties
+            if p in core_properties_filter or p in mandatory
+        ]
+
     # Build frontmatter with all properties as placeholders
     lines = ["---"]
     lines.append(f'type: "{note_type}"')
 
     # Add core properties (except type which is already added)
-    for prop in core_properties:
+    for prop in active_properties:
         if prop == "type":
             continue
         elif prop == "up":
@@ -1322,6 +1354,7 @@ def create_template_notes(
     note_types: dict[str, dict[str, Any]],
     core_properties: list[str],
     dry_run: bool = False,
+    core_properties_filter: list[str] | None = None,
 ) -> list[Path]:
     """Create template notes for each note type.
 
@@ -1331,6 +1364,7 @@ def create_template_notes(
         note_types: Dictionary of enabled note types
         core_properties: List of core properties
         dry_run: If True, only print what would be created
+        core_properties_filter: Optional filter for which properties to include
 
     Returns:
         List of created file paths
@@ -1350,7 +1384,10 @@ def create_template_notes(
             continue
 
         template_file = templates_path / f"{note_type}.md"
-        content = generate_template_note(note_type, type_config, core_properties)
+        content = generate_template_note(
+            note_type, type_config, core_properties,
+            core_properties_filter=core_properties_filter,
+        )
 
         if dry_run:
             print(f"  [DRY RUN] Would create: {template_file}")
@@ -1830,7 +1867,10 @@ def build_settings_yaml(
     if core_properties_filter:
         # Always include 'type' and 'created' as mandatory
         mandatory = {"type", "created"}
-        filtered_props = [p for p in all_core_properties if p in core_properties_filter or p in mandatory]
+        filtered_props = [
+            p for p in all_core_properties
+            if p in core_properties_filter or p in mandatory
+        ]
         all_core_properties = filtered_props
 
     core_properties_config: dict[str, Any] = {
@@ -1848,7 +1888,11 @@ def build_settings_yaml(
             # Add custom properties to the 'all' list
             base_props = list(method_config["core_properties"])
             if core_properties_filter:
-                base_props = [p for p in base_props if p in core_properties_filter or p in {"type", "created"}]
+                mandatory = {"type", "created"}
+                base_props = [
+                    p for p in base_props
+                    if p in core_properties_filter or p in mandatory
+                ]
             core_properties_config["all"] = base_props + config.custom_properties
 
     settings: dict[str, Any] = {
@@ -2148,10 +2192,16 @@ def init_vault(
 
     # Create sample notes
     if create_samples:
-        create_sample_notes(vault_path, methodology, note_types, core_properties, dry_run)
+        create_sample_notes(
+            vault_path, methodology, note_types, core_properties, dry_run,
+            core_properties_filter=core_properties_filter,
+        )
 
     # Create template notes for each note type
-    create_template_notes(vault_path, methodology, note_types, core_properties, dry_run)
+    create_template_notes(
+        vault_path, methodology, note_types, core_properties, dry_run,
+        core_properties_filter=core_properties_filter,
+    )
 
     # Create all_bases.base for Obsidian Bases plugin
     create_all_bases_file(vault_path, methodology, dry_run)
@@ -2203,7 +2253,10 @@ def main() -> int:  # pragma: no cover
                 "This script must be called through the wrapper. "
                 "Use: python3 ${CLAUDE_PLUGIN_ROOT}/commands/init.py"
             ),
-            "hint": "The wrapper handles the interactive workflow and calls this script internally.",
+            "hint": (
+                "The wrapper handles the interactive workflow "
+                "and calls this script internally."
+            ),
         }
         print(json.dumps(error_msg, indent=2))
         return 1
