@@ -269,6 +269,12 @@ class TestNoteTypesManager:
             manager.remove_type("project")
         assert "project" not in manager.note_types
 
+    def test_remove_type_skip_confirm(self, temp_vault):
+        """Test removing note type with skip_confirm flag"""
+        manager = NoteTypesManager(str(temp_vault))
+        manager.remove_type("project", skip_confirm=True)
+        assert "project" not in manager.note_types
+
     def test_interactive_type_definition_new(self, temp_vault):
         """Test interactive type definition for new type"""
         manager = NoteTypesManager(str(temp_vault))
@@ -443,6 +449,19 @@ class TestMainFunction:
                 from note_types import main
 
                 main()
+
+        with open(temp_vault / ".claude" / "settings.yaml") as f:
+            settings = yaml.safe_load(f)
+            assert "area" not in settings["note_types"]
+
+    def test_main_remove_with_yes(self, temp_vault):
+        """Test main with --remove --yes (skip confirmation)"""
+        with patch(
+            "sys.argv", ["note_types.py", "--vault", str(temp_vault), "--remove", "area", "--yes"]
+        ):
+            from note_types import main
+
+            main()
 
         with open(temp_vault / ".claude" / "settings.yaml") as f:
             settings = yaml.safe_load(f)

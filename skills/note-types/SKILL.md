@@ -15,10 +15,10 @@ Manage note type definitions for your Obsidian vault. Define folders, required p
 |---------|-------------|
 | `obsidian:note-types --list` | List all note types |
 | `obsidian:note-types --show <name>` | Show details for a note type |
-| `obsidian:note-types --add <name>` | Add a new note type |
-| `obsidian:note-types --edit <name>` | Edit an existing note type |
-| `obsidian:note-types --remove <name>` | Remove a note type |
-| `obsidian:note-types --wizard` | Interactive wizard mode |
+| `obsidian:note-types --add <name> --non-interactive` | Add a new note type |
+| `obsidian:note-types --remove <name> --yes` | Remove a note type |
+
+**IMPORTANT for Claude Code**: Always use `--non-interactive` with `--add` and `--yes` with `--remove`. Interactive modes (`--wizard`, `--edit`) require terminal input and cannot be used. For customization, edit `.claude/settings.yaml` directly.
 
 ## Quick Start
 

@@ -225,21 +225,23 @@ class NoteTypesManager:
         print(f"✅ Updated note type '{name}'")
         self.show_type(name)
 
-    def remove_type(self, name: str) -> None:
+    def remove_type(self, name: str, skip_confirm: bool = False) -> None:
         """Remove a note type
 
         Args:
             name: Name of the note type
+            skip_confirm: Skip confirmation prompt (for non-interactive use)
         """
         if name not in self.note_types:
             print(f"❌ Note type '{name}' not found")
             sys.exit(1)
 
-        # Confirm deletion
-        response = input(f"⚠️  Delete note type '{name}'? (y/N): ").strip().lower()
-        if response != "y":
-            print("Cancelled")
-            return
+        # Confirm deletion unless skipped
+        if not skip_confirm:
+            response = input(f"⚠️  Delete note type '{name}'? (y/N): ").strip().lower()
+            if response != "y":
+                print("Cancelled")
+                return
 
         del self.note_types[name]
         self._save_settings()
@@ -391,6 +393,9 @@ Examples:
     parser.add_argument(
         "--non-interactive", action="store_true", help="Non-interactive mode for --add"
     )
+    parser.add_argument(
+        "--yes", "-y", action="store_true", help="Skip confirmation prompts (for --remove)"
+    )
 
     args = parser.parse_args()
 
@@ -411,7 +416,7 @@ Examples:
     elif args.edit:
         manager.edit_type(args.edit)
     elif args.remove:
-        manager.remove_type(args.remove)
+        manager.remove_type(args.remove, skip_confirm=args.yes)
     elif args.wizard:
         manager.wizard()
 

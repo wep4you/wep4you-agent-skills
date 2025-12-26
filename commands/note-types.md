@@ -40,47 +40,23 @@ Example:
 uv run "${CLAUDE_PLUGIN_ROOT}/skills/note-types/scripts/note_types.py" --show map
 ```
 
-### Interactive Wizard
-
-```bash
-uv run "${CLAUDE_PLUGIN_ROOT}/skills/note-types/scripts/note_types.py" --wizard
-```
-
-Launch the interactive wizard to create a new note type. The wizard will guide you through:
-1. Entering the note type name
-2. Defining the folder location
-3. Specifying required properties
-4. Optionally assigning a template
-
-### Add Note Type
-
-```bash
-uv run "${CLAUDE_PLUGIN_ROOT}/skills/note-types/scripts/note_types.py" --add <name>
-```
-
-Add a new note type interactively. For non-interactive mode:
+### Add Note Type (Non-Interactive)
 
 ```bash
 uv run "${CLAUDE_PLUGIN_ROOT}/skills/note-types/scripts/note_types.py" --add <name> --non-interactive
 ```
 
-Example:
-```bash
-uv run "${CLAUDE_PLUGIN_ROOT}/skills/note-types/scripts/note_types.py" --add blog
-```
-
-### Edit Note Type
-
-```bash
-uv run "${CLAUDE_PLUGIN_ROOT}/skills/note-types/scripts/note_types.py" --edit <name>
-```
-
-Edit an existing note type. Shows current values and prompts for changes.
+Add a new note type with default settings. The type will be created with:
+- Folder: `<Name>/` (capitalized)
+- Properties: minimal defaults
+- Icon: `file`
 
 Example:
 ```bash
-uv run "${CLAUDE_PLUGIN_ROOT}/skills/note-types/scripts/note_types.py" --edit project
+uv run "${CLAUDE_PLUGIN_ROOT}/skills/note-types/scripts/note_types.py" --add blog --non-interactive
 ```
+
+To customize the note type after creation, edit `.claude/settings.yaml` directly.
 
 ### Remove Note Type
 
@@ -97,14 +73,13 @@ uv run "${CLAUDE_PLUGIN_ROOT}/skills/note-types/scripts/note_types.py" --remove 
 
 ## Arguments
 
-- `--config <path>` - Path to custom config file
+- `--vault <path>` - Path to vault root (default: current directory)
 - `--list` - List all note types
 - `--show <name>` - Show details for a note type
-- `--add <name>` - Add a new note type
-- `--edit <name>` - Edit an existing note type
-- `--remove <name>` - Remove a note type
-- `--wizard` - Interactive wizard mode
-- `--non-interactive` - Non-interactive mode for --add
+- `--add <name> --non-interactive` - Add a new note type (**always use --non-interactive**)
+- `--remove <name> --yes` - Remove a note type (**always use --yes**)
+
+**IMPORTANT**: Always use `--non-interactive` with `--add` and `--yes` with `--remove`. The `--wizard` and `--edit` flags require terminal input and cannot be used by Claude Code. For customization, add with defaults then edit `.claude/settings.yaml` directly.
 
 ## Integration
 
