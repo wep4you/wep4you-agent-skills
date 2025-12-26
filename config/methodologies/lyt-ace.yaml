@@ -1,115 +1,175 @@
+# LYT-ACE Methodology Configuration
+# This file serves as the single source of truth for the LYT-ACE methodology.
+# Used by init_vault.py to create vaults and by validate to check notes.
+
 name: LYT-ACE
-description: Linking Your Thinking + ACE Framework
+description: Linking Your Thinking combined with Atlas/Calendar/Efforts structure
 author: Nick Milo
 version: "1.0"
 url: https://www.linkingyourthinking.com
 
-# Core folder structure
+# =============================================================================
+# INIT-COMPATIBLE SECTION (Required for init_vault.py)
+# =============================================================================
+
+# Flat list of folders to create (init_vault.py format)
 folders:
-  - path: Atlas/
-    purpose: Maps and navigation - your home base
-    subfolders:
-      - Maps/
-      - Dots/
-      - Scopes/
+  - Atlas/Maps
+  - Atlas/Dots
+  - Atlas/Sources
+  - Calendar/daily
+  - Efforts/Projects
+  - Efforts/Areas
+  - "+"           # Inbox
+  - x/templates   # System templates
+  - x/bases       # Dataview bases
 
-  - path: Calendar/
-    purpose: Time-based notes and temporal anchors
-    subfolders:
-      - Daily/
-      - Weekly/
-      - Monthly/
-      - Yearly/
+# Core properties required in all notes
+core_properties:
+  - type
+  - up
+  - created
+  - daily
+  - tags
+  - collection
+  - related
 
-  - path: Efforts/
-    purpose: Active work and ongoing engagement
-    subfolders:
-      - Projects/
-      - Areas/
-
-  - path: Extras/
-    purpose: Reference material and resources
-    subfolders:
-      - Sources/
-      - Templates/
-      - Attachments/
-
-  - path: Spaces/
-    purpose: Domains of knowledge
-    description: Subject-specific spaces (e.g., Writing, Health, Learning)
-
-# Note types with their properties and templates
+# Note types with init-compatible structure
 note_types:
   map:
-    folder: Atlas/Maps/
-    description: High-level navigation notes that link to related content
+    description: Map of Content - Overview and navigation notes
+    folder_hints:
+      - Atlas/Maps/
     properties:
-      - type: map
-      - up: parent_map
-      - related: []
-      - tags: []
+      additional_required: []
+      optional:
+        - description
+    validation:
+      allow_empty_up: false
+      require_daily_link: true
+    icon: map
     template: map.md
 
   dot:
-    folder: Atlas/Dots/
-    description: Evergreen notes - atomic, concept-focused notes
+    description: Dot notes - Atomic concepts and ideas
+    folder_hints:
+      - Atlas/Dots/
     properties:
-      - type: dot
-      - up: related_map
-      - tags: []
-      - created: YYYY-MM-DD
+      additional_required: []
+      optional: []
+    validation:
+      allow_empty_up: false
+      require_daily_link: true
+    icon: circle
     template: dot.md
 
-  scope:
-    folder: Atlas/Scopes/
-    description: Perspective notes that provide different views
+  source:
+    description: Source notes - External references and citations
+    folder_hints:
+      - Atlas/Sources/
     properties:
-      - type: scope
-      - perspective: ""
-      - related: []
-    template: scope.md
-
-  daily:
-    folder: Calendar/Daily/
-    description: Daily notes for temporal anchoring
-    properties:
-      - type: daily
-      - date: YYYY-MM-DD
-      - day: weekday
-    template: daily.md
-    naming: YYYY-MM-DD
+      additional_required:
+        - author
+        - url
+      optional:
+        - published
+    validation:
+      allow_empty_up: false
+      require_daily_link: true
+    icon: book
+    template: source.md
 
   project:
-    folder: Efforts/Projects/
-    description: Active projects with clear outcomes
+    description: Project notes - Defined outcomes with deadlines
+    folder_hints:
+      - Efforts/Projects/
     properties:
-      - type: project
-      - status: [active, on-hold, completed, archived]
-      - goal: ""
-      - deadline: YYYY-MM-DD
-      - related: []
+      additional_required:
+        - status
+      optional:
+        - deadline
+        - priority
+    validation:
+      allow_empty_up: false
+      require_daily_link: true
+      require_status: true
+    icon: target
     template: project.md
 
   area:
-    folder: Efforts/Areas/
-    description: Ongoing areas of responsibility
+    description: Area notes - Ongoing responsibilities
+    folder_hints:
+      - Efforts/Areas/
     properties:
-      - type: area
-      - responsibility: ""
-      - standard: ""
-      - related: []
+      additional_required: []
+      optional:
+        - review_frequency
+    validation:
+      allow_empty_up: false
+      require_daily_link: true
+    icon: home
     template: area.md
 
-  source:
-    folder: Extras/Sources/
-    description: Reference material from external sources
+  daily:
+    description: Daily notes - Date-based journal entries
+    folder_hints:
+      - Calendar/daily/
     properties:
-      - type: source
-      - author: ""
-      - url: ""
-      - date_accessed: YYYY-MM-DD
-      - tags: []
-    template: source.md
+      additional_required: []
+      optional:
+        - mood
+        - weather
+    validation:
+      allow_empty_up: true
+      require_daily_link: true
+    icon: calendar
+    template: daily.md
+    naming: YYYY-MM-DD
+
+# Semantic folder structure mapping
+folder_structure:
+  inbox: "+/"
+  system: x/
+  templates: x/templates/
+  bases: x/bases/
+  maps: Atlas/Maps/
+  knowledge:
+    - Atlas/Dots/
+    - Atlas/Sources/
+  efforts:
+    - Efforts/Projects/
+    - Efforts/Areas/
+  calendar: Calendar/daily/
+
+# Default UP links per folder
+up_links:
+  "Atlas/Dots/": "[[Atlas/Maps/Dots]]"
+  "Atlas/Sources/": "[[Atlas/Maps/Sources]]"
+  "Efforts/Projects/": "[[Atlas/Maps/Projects]]"
+  "Efforts/Areas/": "[[Atlas/Maps/Areas]]"
+  "Calendar/daily/": "[[Atlas/Maps/Calendar]]"
+
+# =============================================================================
+# EXTENDED DOCUMENTATION (Additional context, not used by init_vault.py)
+# =============================================================================
+
+# Detailed folder purposes (for documentation)
+folder_docs:
+  Atlas:
+    purpose: Maps and navigation - your home base
+    subfolders:
+      Maps: High-level navigation and index notes
+      Dots: Evergreen atomic notes
+      Sources: External references and citations
+  Calendar:
+    purpose: Time-based notes and temporal anchors
+    subfolders:
+      daily: Daily journal entries
+  Efforts:
+    purpose: Active work and ongoing engagement
+    subfolders:
+      Projects: Time-bound efforts with clear outcomes
+      Areas: Ongoing responsibilities
 
 # Linking conventions
 linking:
@@ -121,9 +181,9 @@ linking:
 tags:
   use_nested: true
   conventions:
-    - status/ (e.g., status/active, status/archived)
-    - type/ (e.g., type/map, type/dot)
-    - domain/ (e.g., domain/writing, domain/health)
+    - "status/ (e.g., status/active, status/archived)"
+    - "type/ (e.g., type/map, type/dot)"
+    - "domain/ (e.g., domain/writing, domain/health)"
 
 # Workflow principles
 workflow:

@@ -1,8 +1,74 @@
+# Minimal Methodology Configuration
+# This file serves as the single source of truth for the Minimal methodology.
+# Used by init_vault.py to create vaults and by validate to check notes.
+
 name: Minimal
-description: Bottom-up, emergence-focused PKM with minimal structure
+description: Simple folder structure for getting started
 author: Inspired by Kepano and emergent note-taking
 version: "1.0"
 url: https://stephanango.com/file-over-app
+
+# =============================================================================
+# INIT-COMPATIBLE SECTION (Required for init_vault.py)
+# =============================================================================
+
+# Flat list of folders to create
+folders:
+  - Notes
+  - Daily
+  - "+"           # Inbox
+  - x/templates   # System templates
+  - x/bases       # Dataview bases
+
+# Core properties required in all notes (minimal set)
+core_properties:
+  - type
+  - created
+  - tags
+
+# Note types with init-compatible structure
+note_types:
+  note:
+    description: General notes
+    folder_hints:
+      - Notes/
+    properties:
+      additional_required: []
+      optional: []
+    validation:
+      allow_empty_up: true
+    icon: file
+    template: note.md
+
+  daily:
+    description: Daily journal entries
+    folder_hints:
+      - Daily/
+    properties:
+      additional_required: []
+      optional:
+        - mood
+    validation:
+      allow_empty_up: true
+    icon: calendar
+    template: daily.md
+    naming: YYYY-MM-DD
+
+# Semantic folder structure mapping
+folder_structure:
+  inbox: "+/"
+  system: x/
+  templates: x/templates/
+  bases: x/bases/
+  notes: Notes/
+  daily: Daily/
+
+# Default UP links per folder (empty for minimal - no hierarchy required)
+up_links: {}
+
+# =============================================================================
+# EXTENDED DOCUMENTATION (Additional context, not used by init_vault.py)
+# =============================================================================
 
 # Core philosophy
 philosophy:
@@ -12,45 +78,6 @@ philosophy:
   - Future-proof with plain text and minimal dependencies
   - Fast capture, minimal friction
   - Bottom-up organization
-
-# Minimal folder structure
-folders:
-  - path: Inbox/
-    purpose: Quick capture area for new notes
-    description: Unprocessed notes and fleeting thoughts
-
-  - path: Archive/
-    purpose: Notes no longer actively used
-    description: Optional archive for old or inactive notes
-
-# Note types (deliberately simple)
-note_types:
-  note:
-    folder: root
-    description: Standard note - most notes should be this type
-    properties:
-      - created: YYYY-MM-DD
-      - tags: []
-    template: note.md
-    naming: descriptive-kebab-case.md
-
-  daily:
-    folder: root
-    description: Optional daily note for temporal anchoring
-    properties:
-      - type: daily
-      - date: YYYY-MM-DD
-    template: daily.md
-    naming: YYYY-MM-DD.md
-
-  inbox:
-    folder: Inbox/
-    description: Quick capture without overthinking
-    properties:
-      - created: YYYY-MM-DD HH:MM
-      - processed: false
-    template: inbox.md
-    naming: YYYYMMDD-quick-description.md
 
 # Organization principles
 organization:
@@ -83,34 +110,27 @@ tags:
       - evergreen
       - seedling
 
-    domains:
-      - Create naturally based on your interests
-      - No predefined list needed
-      - Examples: writing, coding, health, reading
-
 # Linking conventions
 linking:
   style: wikilink
   philosophy: Link freely and frequently
   bidirectional: Rely on backlinks for navigation
-  context: Add context around links when helpful
-
   patterns:
     - Link terms on first use
     - Create notes for concepts as needed
-    - Don't worry about "orphan" notes
+    - Don't worry about orphan notes
     - Let link structure emerge
 
 # Workflow (intentionally simple)
 workflow:
   capture:
-    - Quick notes go to Inbox/
+    - Quick notes go to Inbox
     - Don't overthink location or structure
     - Tag minimally if at all
 
   process:
-    - Review Inbox/ when convenient (not daily required)
-    - Move valuable notes to root
+    - Review Inbox when convenient
+    - Move valuable notes to Notes folder
     - Add tags and links as you go
     - Delete or archive unneeded items
 
@@ -124,7 +144,6 @@ workflow:
     - No strict review schedule
     - Browse tags and backlinks naturally
     - Refactor structure when pain points emerge
-    - Archive inactive notes occasionally
 
 # Search and discovery
 discovery:
@@ -140,25 +159,12 @@ discovery:
     - Rigid categorization
     - Pre-planned organization
 
-# Templates (minimal)
-templates:
-  default_note:
-    - Title as heading
-    - Optional tags
-    - Content
-    - Optional links section
-
-  daily_note:
-    - Date as heading
-    - Free-form content
-    - Optional sections if helpful
-
 # Best practices
 best_practices:
   start_simple:
     - Begin with just notes in root folder
-    - Add Inbox/ if you need capture area
-    - Add Archive/ if root gets cluttered
+    - Add folders only if you need them
+    - Keep it minimal
 
   evolve_naturally:
     - Don't create structure upfront
@@ -189,32 +195,6 @@ avoid:
   - Perfectionism in capture
   - Analysis paralysis
 
-# Optional additions (add only if needed)
-optional_features:
-  daily_notes:
-    when: If you want temporal anchoring
-    where: Root folder with YYYY-MM-DD.md naming
-
-  projects:
-    when: If managing active work
-    how: Create project notes, link related content, use tags
-
-  maps:
-    when: Topic gets complex
-    how: Create index/map note with links to related notes
-
-  metadata:
-    when: Specific search/filtering needs emerge
-    how: Add YAML frontmatter properties as needed
-
-# Migration-friendly
-portability:
-  - Plain markdown files
-  - Standard wikilinks
-  - Minimal metadata
-  - No proprietary formats
-  - Easy to move between tools
-
 # Scaling strategy
 scaling:
   small_vault:
@@ -223,20 +203,19 @@ scaling:
     - Search for discovery
 
   medium_vault:
-    - Add Inbox/ for capture
-    - Some structure notes for complex topics
+    - Add structure notes for complex topics
     - More consistent tagging
+    - Consider Daily notes
 
   large_vault:
-    - Archive/ for old content
     - Hub notes for major themes
     - More metadata if helpful
     - Still avoid deep folder hierarchies
 
-# Success metrics
-success_metrics:
-  - Low friction to create notes
-  - Easy to find what you need
-  - Structure supports thinking
-  - System feels sustainable
-  - Minimal maintenance burden
+# Portability
+portability:
+  - Plain markdown files
+  - Standard wikilinks
+  - Minimal metadata
+  - No proprietary formats
+  - Easy to move between tools

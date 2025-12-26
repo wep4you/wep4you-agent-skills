@@ -1,190 +1,212 @@
+# Zettelkasten Methodology Configuration
+# This file serves as the single source of truth for the Zettelkasten methodology.
+# Used by init_vault.py to create vaults and by validate to check notes.
+
 name: Zettelkasten
-description: The Slip-Box Method - A knowledge development and thinking system
+description: Traditional slip-box system with permanent, literature, and fleeting notes
 author: Niklas Luhmann
 version: "1.0"
 url: https://zettelkasten.de/introduction/
 
-# Core principles
-principles:
-  - Atomic notes - one idea per note
-  - Unique identifiers - timestamp-based IDs
-  - Flat structure - minimal folders
-  - Dense linking - connect related ideas
-  - Progressive elaboration - build knowledge over time
-  - Folgezettel - continuation notes
+# =============================================================================
+# INIT-COMPATIBLE SECTION (Required for init_vault.py)
+# =============================================================================
 
-# Folder structure (minimal by design)
+# Flat list of folders to create
 folders:
-  - path: Zettelkasten/
-    purpose: Main slip-box for all notes
-    description: Flat structure with timestamp-based filenames
+  - Permanent
+  - Literature
+  - Fleeting
+  - References
+  - "+"           # Inbox
+  - x/templates   # System templates
+  - x/bases       # Dataview bases
 
-  - path: Inbox/
-    purpose: Temporary storage for new ideas and captures
-    description: Processing area before creating permanent notes
+# Core properties required in all notes
+core_properties:
+  - type
+  - up
+  - created
+  - tags
+  - related
 
-  - path: References/
-    purpose: Literature notes and bibliographic information
-    description: Source material and citations
-
-  - path: Indexes/
-    purpose: Entry points into the Zettelkasten
-    description: Structure notes that provide navigation
-
-# Note types
+# Note types with init-compatible structure
 note_types:
-  zettel:
-    folder: Zettelkasten/
-    description: Atomic permanent note with a single idea
+  permanent:
+    description: Permanent notes - Your own ideas and insights
+    folder_hints:
+      - Permanent/
     properties:
-      - type: zettel
-      - id: YYYYMMDDHHMMSS
-      - tags: []
-      - related: []
-      - folgezettel: []
-    template: zettel.md
-    naming: YYYYMMDDHHMMSS.md
-
-  index:
-    folder: Indexes/
-    description: Structure note providing entry point and overview
-    properties:
-      - type: index
-      - topic: ""
-      - tags: []
-      - main_zettels: []
-    template: index.md
-    naming: descriptive-name.md
-
-  hub:
-    folder: Indexes/
-    description: Central hub connecting related structure notes
-    properties:
-      - type: hub
-      - topic: ""
-      - indexes: []
-      - key_zettels: []
-    template: hub.md
-    naming: hub-topic-name.md
+      additional_required: []
+      optional: []
+    validation:
+      allow_empty_up: false
+    icon: file-text
+    template: permanent.md
 
   literature:
-    folder: References/
-    description: Notes from external sources
+    description: Literature notes - Notes from reading
+    folder_hints:
+      - Literature/
     properties:
-      - type: literature
-      - source: ""
-      - author: ""
-      - title: ""
-      - year: ""
-      - url: ""
-      - date_read: YYYY-MM-DD
-      - tags: []
+      additional_required:
+        - source
+      optional:
+        - author
+        - page
+    validation:
+      allow_empty_up: true
+    icon: book-open
     template: literature.md
-    naming: Author-YYYY-ShortTitle.md
 
   fleeting:
-    folder: Inbox/
-    description: Quick capture of thoughts and ideas
+    description: Fleeting notes - Quick captures to process
+    folder_hints:
+      - Fleeting/
     properties:
-      - type: fleeting
-      - created: YYYY-MM-DD HH:MM
-      - processed: false
+      additional_required: []
+      optional: []
+    validation:
+      allow_empty_up: true
+    icon: zap
     template: fleeting.md
-    naming: YYYYMMDD-description.md
 
-# ID generation
+  reference:
+    description: Reference notes - External sources
+    folder_hints:
+      - References/
+    properties:
+      additional_required:
+        - url
+      optional:
+        - author
+    validation:
+      allow_empty_up: true
+    icon: link
+    template: reference.md
+
+# Semantic folder structure mapping
+folder_structure:
+  inbox: "+/"
+  system: x/
+  templates: x/templates/
+  bases: x/bases/
+  permanent: Permanent/
+  literature: Literature/
+  fleeting: Fleeting/
+  references: References/
+
+# Default UP links per folder
+up_links:
+  "Permanent/": "[[Index]]"
+  "Literature/": "[[Literature Index]]"
+
+# =============================================================================
+# EXTENDED DOCUMENTATION (Additional context, not used by init_vault.py)
+# =============================================================================
+
+# Core principles
+principles:
+  atomicity:
+    description: One idea per note
+    rule: Each permanent note contains exactly one concept or thought
+
+  connectivity:
+    description: Notes must be linked
+    rule: Every note should connect to at least one other note
+
+  own_words:
+    description: Write in your own words
+    rule: Never copy-paste - always reformulate in your own words
+
+  emergence:
+    description: Let structure emerge
+    rule: Don't pre-plan categories, let them emerge from connections
+
+  flat_structure:
+    description: Minimal folders
+    rule: Use links instead of folder hierarchies
+
+# ID format (optional for naming)
 id_format:
   type: timestamp
   format: YYYYMMDDHHMMSS
   example: "20231223143022"
-  timezone: local
-  uniqueness: Guaranteed by timestamp precision
+  description: Unique timestamp-based IDs for permanent notes
 
 # Folgezettel - Continuation notes
 folgezettel:
   description: Notes that continue or branch from another note
-  implementation: Link using 'folgezettel' property
   convention: Direct continuation of thought from parent note
-  usage: When expanding on a specific aspect of a note
+  implementation: Link using 'related' property with context
 
-# Linking strategy
+# Workflow
+workflow:
+  capture:
+    - Capture ideas in Inbox as fleeting notes
+    - Don't worry about structure or perfection
+    - Quick capture is better than no capture
+
+  process:
+    - Review fleeting notes daily
+    - Create permanent notes from valuable ideas
+    - Delete or archive processed fleeting notes
+    - Process within 24-48 hours
+
+  create_permanent:
+    - Write in your own words
+    - One idea per note
+    - Link to related permanent notes
+    - Add to relevant index if needed
+
+  literature:
+    - Create literature note for each source
+    - Extract key ideas as separate permanent notes
+    - Link permanent notes back to literature note
+    - Include source reference
+
+# Linking conventions
 linking:
   style: wikilink
-  required_links: Every zettel should link to at least one other note
+  patterns:
+    direct: Link directly to related concepts
+    sequence: Use Folgezettel for argument chains
+    hub: Create index notes for topic clusters
+
   link_types:
     - direct_relation: Notes on same topic
     - contrast: Notes with opposing views
     - continuation: Folgezettel relationship
     - source: Link back to literature note
-    - index: Link from structure note to zettels
-
-  link_context: Always add context around links explaining the relationship
-
-# Workflow
-workflow:
-  capture:
-    - Capture ideas in Inbox/ as fleeting notes
-    - Don't worry about structure or perfection
-
-  process:
-    - Review fleeting notes daily
-    - Create permanent zettels from valuable ideas
-    - Delete or archive processed fleeting notes
-
-  create_zettel:
-    - Write in your own words
-    - One idea per note
-    - Add unique timestamp ID
-    - Link to related zettels
-    - Add to relevant index notes
-
-  develop_knowledge:
-    - Follow links to discover connections
-    - Create new zettels when gaps appear
-    - Build index notes to navigate topics
-    - Create hub notes for major themes
-
-  literature_notes:
-    - Create literature note for source
-    - Extract key ideas as separate zettels
-    - Link zettels back to literature note
-    - Keep literature notes in References/
 
 # Tags strategy
 tags:
   use_sparingly: true
-  purpose: Entry points and broad categorization
+  purpose: Only for broad categories, not for connections
   conventions:
-    - Keep tags minimal (3-5 per note max)
-    - Use specific, meaningful tags
-    - Tags complement links, don't replace them
-  examples:
-    - concept
-    - method
-    - example
-    - definition
-    - question
+    - Use sparingly - links are primary organization
+    - Broad topics only (e.g., #philosophy, #programming)
+    - Never use tags as replacement for links
 
 # Search and navigation
 navigation:
-  entry_points:
-    - Index notes in Indexes/
-    - Hub notes for major topics
-    - Tag searches for broad exploration
-    - Random note for serendipity
+  methods:
+    - Follow links between notes
+    - Use index notes for topic entry points
+    - Full-text search for specific content
+    - Graph view for visual exploration
 
-  following_threads:
-    - Start with index or hub
-    - Follow links based on interest
-    - Create new zettels when gaps found
-    - Update indexes with new connections
+  entry_points:
+    - Index notes for major topics
+    - Recent permanent notes
+    - Tag searches for exploration
 
 # Best practices
 best_practices:
   atomicity:
-    - One clear idea per zettel
+    - One clear idea per note
     - Should be understandable standalone
-    - Can be combined with other zettels
+    - Can be combined with other notes
 
   own_words:
     - Rephrase source material
@@ -201,11 +223,6 @@ best_practices:
     - Build on existing notes
     - Let structure emerge organically
 
-  consistency:
-    - Use same ID format always
-    - Follow template structure
-    - Regular processing of inbox
-
 # Anti-patterns to avoid
 avoid:
   - Overly complex folder structures
@@ -213,10 +230,3 @@ avoid:
   - Isolated notes without links
   - Waiting for perfect organization
   - Hoarding notes without processing
-
-# Integration
-integrations:
-  daily_notes: Optional - can link to zettelkasten from daily notes
-  projects: Reference relevant zettels in project notes
-  reading: Create literature notes, extract to zettels
-  writing: Use zettelkasten as research and idea source
