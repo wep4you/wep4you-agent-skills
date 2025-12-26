@@ -504,9 +504,9 @@ class TestCLI:
 
     def test_cli_list_methodologies(self):
         """Should list methodologies when run without args."""
-        result = subprocess.run(  # noqa: S603
-            ["uv", "run", "python", "config/methodologies/loader.py"],  # noqa: S607
-            cwd="/Users/peterweiss/dev/skills-methodology-defs",
+        result = subprocess.run(
+            ["uv", "run", "python", "config/methodologies/loader.py"],
+            cwd=_REPO_ROOT,
             capture_output=True,
             text=True,
             check=False,
@@ -517,9 +517,9 @@ class TestCLI:
 
     def test_cli_show_methodology(self):
         """Should show methodology details when name provided."""
-        result = subprocess.run(  # noqa: S603
-            ["uv", "run", "python", "config/methodologies/loader.py", "para"],  # noqa: S607
-            cwd="/Users/peterweiss/dev/skills-methodology-defs",
+        result = subprocess.run(
+            ["uv", "run", "python", "config/methodologies/loader.py", "para"],
+            cwd=_REPO_ROOT,
             capture_output=True,
             text=True,
             check=False,
@@ -530,9 +530,9 @@ class TestCLI:
 
     def test_cli_error_handling(self):
         """Should exit with error for invalid methodology."""
-        result = subprocess.run(  # noqa: S603
-            ["uv", "run", "python", "config/methodologies/loader.py", "nonexistent"],  # noqa: S607
-            cwd="/Users/peterweiss/dev/skills-methodology-defs",
+        result = subprocess.run(
+            ["uv", "run", "python", "config/methodologies/loader.py", "nonexistent"],
+            cwd=_REPO_ROOT,
             capture_output=True,
             text=True,
             check=False,
