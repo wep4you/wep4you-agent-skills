@@ -1,23 +1,52 @@
 ---
 name: obsidian:note-types
-description: Manage Obsidian note type definitions
-argument-hint: [--list|--show|--add|--edit|--remove|--wizard] [name]
+description: "Manage Obsidian note type definitions. CRITICAL: When user provides --config, pass it EXACTLY to the script. Never manually edit settings.yaml."
+argument-hint: [--list|--show|--add|--edit|--remove] [name] [--config '{...}']
 allowed-tools: Bash(uv run:*)
 ---
 
 # Obsidian Note Types Manager
 
-Manage note type definitions for your Obsidian vault. Define folders, required properties, and templates for different types of notes.
+Manage note type definitions for your Obsidian vault.
 
-## Execution
+## ⚠️ CRITICAL: Pass --config DIRECTLY to Script
 
-Run the note types manager script:
+When user provides `--config '{...}'`, pass it EXACTLY as-is to the script:
 
 ```bash
-uv run "${CLAUDE_PLUGIN_ROOT}/skills/note-types/scripts/note_types.py" --list
+# User types: /obsidian:note-types --add meeting --config '{"folder": "Meetings/"}'
+# Execute EXACTLY:
+uv run "${CLAUDE_PLUGIN_ROOT}/skills/note-types/scripts/note_types.py" --add meeting --config '{"folder": "Meetings/"}'
 ```
 
+**DO NOT:**
+- ❌ Use --non-interactive instead of --config
+- ❌ Manually edit settings.yaml
+- ❌ Read settings.yaml before running the command
+
 ## Commands
+
+### Add Note Type with Config (RECOMMENDED)
+
+```bash
+uv run "${CLAUDE_PLUGIN_ROOT}/skills/note-types/scripts/note_types.py" --add <name> --config '{"folder": "Folder/", "required_props": ["prop1"]}'
+```
+
+Example:
+```bash
+uv run "${CLAUDE_PLUGIN_ROOT}/skills/note-types/scripts/note_types.py" --add meeting --config '{"description": "Meeting notes", "folder": "Meetings/", "required_props": ["attendees", "date"], "icon": "calendar"}'
+```
+
+### Edit Note Type with Config (RECOMMENDED)
+
+```bash
+uv run "${CLAUDE_PLUGIN_ROOT}/skills/note-types/scripts/note_types.py" --edit <name> --config '{"description": "Updated", "icon": "new-icon"}'
+```
+
+Example:
+```bash
+uv run "${CLAUDE_PLUGIN_ROOT}/skills/note-types/scripts/note_types.py" --edit project --config '{"description": "Active projects", "icon": "rocket"}'
+```
 
 ### List All Note Types
 
@@ -25,61 +54,46 @@ uv run "${CLAUDE_PLUGIN_ROOT}/skills/note-types/scripts/note_types.py" --list
 uv run "${CLAUDE_PLUGIN_ROOT}/skills/note-types/scripts/note_types.py" --list
 ```
 
-Shows all defined note types with their folders and properties.
-
 ### Show Note Type Details
 
 ```bash
 uv run "${CLAUDE_PLUGIN_ROOT}/skills/note-types/scripts/note_types.py" --show <name>
 ```
 
-Display detailed information about a specific note type.
+### Add with Defaults (no user config)
 
-Example:
-```bash
-uv run "${CLAUDE_PLUGIN_ROOT}/skills/note-types/scripts/note_types.py" --show map
-```
-
-### Add Note Type (Non-Interactive)
+Only use when user doesn't provide --config:
 
 ```bash
 uv run "${CLAUDE_PLUGIN_ROOT}/skills/note-types/scripts/note_types.py" --add <name> --non-interactive
 ```
 
-Add a new note type with default settings. The type will be created with:
-- Folder: `<Name>/` (capitalized)
-- Properties: minimal defaults
-- Icon: `file`
-
-Example:
-```bash
-uv run "${CLAUDE_PLUGIN_ROOT}/skills/note-types/scripts/note_types.py" --add blog --non-interactive
-```
-
-To customize the note type after creation, edit `.claude/settings.yaml` directly.
-
 ### Remove Note Type
 
 ```bash
-uv run "${CLAUDE_PLUGIN_ROOT}/skills/note-types/scripts/note_types.py" --remove <name>
+uv run "${CLAUDE_PLUGIN_ROOT}/skills/note-types/scripts/note_types.py" --remove <name> --yes
 ```
 
-Remove a note type after confirmation.
+## Config JSON Fields
 
-Example:
-```bash
-uv run "${CLAUDE_PLUGIN_ROOT}/skills/note-types/scripts/note_types.py" --remove custom
-```
+| Field | Type | Description |
+|-------|------|-------------|
+| `description` | string | Note type description |
+| `folder` | string | Folder path (e.g., "Meetings/") |
+| `required_props` | array | Required properties |
+| `optional_props` | array | Optional properties |
+| `icon` | string | Lucide icon name |
+| `allow_empty_up` | boolean | Allow empty up links |
 
 ## Arguments
 
 - `--vault <path>` - Path to vault root (default: current directory)
 - `--list` - List all note types
 - `--show <name>` - Show details for a note type
-- `--add <name> --non-interactive` - Add a new note type (**always use --non-interactive**)
-- `--remove <name> --yes` - Remove a note type (**always use --yes**)
-
-**IMPORTANT**: Always use `--non-interactive` with `--add` and `--yes` with `--remove`. The `--wizard` and `--edit` flags require terminal input and cannot be used by Claude Code. For customization, add with defaults then edit `.claude/settings.yaml` directly.
+- `--add <name> --config '{...}'` - Add with JSON config (**preferred**)
+- `--add <name> --non-interactive` - Add with defaults (only if no config provided)
+- `--edit <name> --config '{...}'` - Edit with JSON config (**preferred**)
+- `--remove <name> --yes` - Remove a note type
 
 ## Integration
 
