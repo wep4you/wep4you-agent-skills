@@ -336,6 +336,19 @@ def detect_existing_vault(vault_path: Path) -> dict[str, Any]:
     folders = [f for f in vault_path.iterdir() if f.is_dir() and not f.name.startswith(".")]
     files = [f for f in vault_path.iterdir() if f.is_file() and not f.name.startswith(".")]
 
+    # Try to read current methodology from settings.yaml
+    current_methodology = None
+    settings_file = vault_path / ".claude" / "settings.yaml"
+    if settings_file.exists():
+        try:
+            import yaml
+            with open(settings_file) as f:
+                settings = yaml.safe_load(f)
+                current_methodology = settings.get("methodology")
+        except (OSError, yaml.YAMLError):
+            # Settings file unreadable or invalid - treat as no methodology
+            pass
+
     return {
         "exists": True,
         "has_obsidian": has_obsidian,
@@ -343,6 +356,7 @@ def detect_existing_vault(vault_path: Path) -> dict[str, Any]:
         "has_content": len(folders) > 0 or len(files) > 0,
         "folder_count": len(folders),
         "file_count": len(files),
+        "current_methodology": current_methodology,
     }
 
 
@@ -1374,7 +1388,8 @@ def generate_all_bases_content(methodology: str) -> str:
     Returns:
         YAML content for the .base file
     """
-    content_folders = get_content_folders(methodology)
+    # Use all content folders including subfolders for views
+    content_folders = get_all_content_folders(methodology)
 
     # Build the YAML structure manually for proper formatting
     lines = [
@@ -1398,9 +1413,11 @@ def generate_all_bases_content(methodology: str) -> str:
 
     # Add a view for each content folder
     for folder in content_folders:
+        # Use last part of path as view name (e.g., "Dots" not "Atlas/Dots")
+        view_name = folder.split("/")[-1] if "/" in folder else folder
         lines.extend([
             "  - type: table",
-            f"    name: {folder}",
+            f"    name: {view_name}",
             "    filters:",
             "      and:",
             f'        - file.inFolder("{folder}")',
@@ -1498,11 +1515,8 @@ def generate_folder_readme_content(
     descriptions = FOLDER_DESCRIPTIONS.get(methodology, {})
     description = descriptions.get(folder_path, f"Notes and content for {folder_path}.")
 
-    # Get display name (last part of path)
+    # Get display name (last part of path) - also used as base view name
     display_name = folder_path.split("/")[-1] if "/" in folder_path else folder_path
-
-    # Get top-level folder for base view embed
-    top_level = folder_path.split("/")[0]
 
     content = f"""---
 type: map
@@ -1515,7 +1529,7 @@ created: "{{{{date}}}}"
 
 ## Contents
 
-![[all_bases.base#{top_level}]]
+![[all_bases.base#{display_name}]]
 """
     return content
 
@@ -1951,6 +1965,13 @@ def init_vault(
         note_types = method_config["note_types"]
         core_properties = method_config["core_properties"]
         create_samples = True
+
+        # Auto-reset if methodology changed (even with --defaults)
+        current_methodology = detection.get("current_methodology")
+        if current_methodology and current_methodology != methodology:
+            print(f"\n  Methodology change detected: {current_methodology} → {methodology}")
+            print("  Auto-resetting vault to clean state...")
+            reset_vault(vault_path, keep_obsidian=True)
 
     print(f"\n{'=' * 60}")
     print(f"Initializing vault at: {vault_path}")

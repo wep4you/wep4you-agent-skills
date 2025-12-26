@@ -538,15 +538,19 @@ class TestFolderReadmeGeneration:
             readme_file = tmp_path / folder / "_Readme.md"
             assert readme_file.exists(), f"_Readme.md not created in {folder}"
 
-    def test_subfolder_readme_embeds_top_level_view(self, tmp_path: Path) -> None:
-        """Test subfolder _Readme.md embeds top-level folder view."""
+    def test_subfolder_readme_embeds_subfolder_view(self, tmp_path: Path) -> None:
+        """Test subfolder _Readme.md embeds its own folder view."""
         init_vault(tmp_path, "lyt-ace", dry_run=False, use_defaults=True)
 
-        # Atlas/Dots should embed ![[all_bases.base#Atlas]] not #Dots
+        # Atlas/Dots should embed ![[all_bases.base#Dots]] (subfolder-specific view)
         dots_readme = tmp_path / "Atlas" / "Dots" / "_Readme.md"
         content = dots_readme.read_text()
-        assert "![[all_bases.base#Atlas]]" in content
-        assert "![[all_bases.base#Dots]]" not in content
+        assert "![[all_bases.base#Dots]]" in content
+
+        # Efforts/Projects should embed #Projects
+        projects_readme = tmp_path / "Efforts" / "Projects" / "_Readme.md"
+        content = projects_readme.read_text()
+        assert "![[all_bases.base#Projects]]" in content
 
     def test_all_bases_excludes_map_type(self, tmp_path: Path) -> None:
         """Test all_bases.base has filter to exclude map type."""
@@ -555,3 +559,53 @@ class TestFolderReadmeGeneration:
         base_file = tmp_path / "x" / "bases" / "all_bases.base"
         content = base_file.read_text()
         assert 'type != "map"' in content, "Missing map type exclusion filter"
+
+    def test_all_bases_has_subfolder_views(self, tmp_path: Path) -> None:
+        """Test all_bases.base has views for subfolders (LYT-ACE)."""
+        init_vault(tmp_path, "lyt-ace", dry_run=False, use_defaults=True)
+
+        base_file = tmp_path / "x" / "bases" / "all_bases.base"
+        content = base_file.read_text()
+
+        # Check subfolder views exist with correct filters
+        assert "name: Dots" in content, "Missing Dots view"
+        assert 'file.inFolder("Atlas/Dots")' in content, "Dots view has wrong filter"
+        assert "name: Projects" in content, "Missing Projects view"
+        assert 'file.inFolder("Efforts/Projects")' in content, "Projects view has wrong filter"
+
+
+class TestAutoResetOnMethodologyChange:
+    """Test that vault auto-resets when methodology changes."""
+
+    def test_auto_reset_removes_old_folders(self, tmp_path: Path) -> None:
+        """Test switching methodology removes old folders."""
+        # Init with PARA
+        init_vault(tmp_path, "para", dry_run=False, use_defaults=True)
+        assert (tmp_path / "Projects").exists()
+        assert (tmp_path / "Archives").exists()
+
+        # Switch to LYT-ACE - should auto-reset
+        init_vault(tmp_path, "lyt-ace", dry_run=False, use_defaults=True)
+
+        # Old PARA folders should be gone
+        assert not (tmp_path / "Projects").exists(), "Projects folder should be removed"
+        assert not (tmp_path / "Archives").exists(), "Archives folder should be removed"
+
+        # New LYT folders should exist
+        assert (tmp_path / "Atlas").exists()
+        assert (tmp_path / "Efforts").exists()
+
+    def test_same_methodology_no_reset(self, tmp_path: Path) -> None:
+        """Test re-init with same methodology doesn't reset."""
+        # Init with PARA
+        init_vault(tmp_path, "para", dry_run=False, use_defaults=True)
+
+        # Create a custom file
+        custom_file = tmp_path / "Projects" / "my_project.md"
+        custom_file.write_text("# My Project\n")
+
+        # Re-init with same methodology
+        init_vault(tmp_path, "para", dry_run=False, use_defaults=True)
+
+        # Custom file should still exist
+        assert custom_file.exists(), "Custom file should not be deleted"
