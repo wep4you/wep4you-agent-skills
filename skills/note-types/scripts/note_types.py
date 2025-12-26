@@ -213,9 +213,7 @@ class NoteTypesManager:
         # Create sample note
         self._create_sample_note(name, config, folder_path)
 
-    def _create_readme(
-        self, name: str, config: dict[str, Any], folder_path: Path
-    ) -> None:
+    def _create_readme(self, name: str, config: dict[str, Any], folder_path: Path) -> None:
         """Create _Readme.md in the folder (matches init skill format)
 
         Args:
@@ -232,7 +230,7 @@ class NoteTypesManager:
         display_name = folder_path.name
 
         # Match init skill's simple _Readme format
-        readme_content = f'''---
+        readme_content = f"""---
 type: map
 created: "{{{{date}}}}"
 ---
@@ -244,7 +242,7 @@ created: "{{{{date}}}}"
 ## Contents
 
 ![[all_bases.base#{display_name}]]
-'''
+"""
         readme_path.write_text(readme_content, encoding="utf-8")
         print(f"📄 Created _Readme.md in {folder_path.name}/")
 
@@ -360,9 +358,7 @@ created: "{{{{date}}}}"
         # Update config to reference the template
         config["template"] = f"{self.system_prefix}/templates/{name}.md"
 
-    def _create_sample_note(
-        self, name: str, config: dict[str, Any], folder_path: Path
-    ) -> None:
+    def _create_sample_note(self, name: str, config: dict[str, Any], folder_path: Path) -> None:
         """Create a sample note in the folder (matches template structure)
 
         Args:
@@ -901,9 +897,7 @@ created: "{{{{date}}}}"
         except OSError as e:
             print(f"❌ Failed to rename folder: {e}")
 
-    def _update_readme_folder(
-        self, readme_path: Path, old_folder: str, new_folder: str
-    ) -> None:
+    def _update_readme_folder(self, readme_path: Path, old_folder: str, new_folder: str) -> None:
         """Update folder references in _Readme.md
 
         Args:
@@ -1275,13 +1269,11 @@ CONFIG JSON FIELDS
         action="store_true",
         help="Use minimal defaults (for --add) or individual params (for --edit)",
     )
-    parser.add_argument(
-        "--yes", "-y", action="store_true", help="Skip confirmation (for --remove)"
-    )
+    parser.add_argument("--yes", "-y", action="store_true", help="Skip confirmation (for --remove)")
     parser.add_argument(
         "--config",
         metavar="JSON",
-        help='Full JSON config for --add/--edit (RECOMMENDED)',
+        help="Full JSON config for --add/--edit (RECOMMENDED)",
     )
     # Individual edit parameters (alternative to --config)
     parser.add_argument("--description", help="Note type description")

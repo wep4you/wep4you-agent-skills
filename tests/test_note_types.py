@@ -676,8 +676,7 @@ class TestMainFunction:
     def test_main_edit_with_config(self, temp_vault):
         """Test main with --edit --config"""
         config_json = (
-            '{"description": "Edited via config", '
-            '"required_props": ["priority"], "icon": "star"}'
+            '{"description": "Edited via config", "required_props": ["priority"], "icon": "star"}'
         )
 
         with patch(
@@ -1289,9 +1288,7 @@ class TestEditWithFolderRename:
 
         # Create a note without the new property
         note_path = folder_path / "Test Note.md"
-        note_path.write_text(
-            '---\ntype: meeting\nup: "[[]]"\ncreated: 2024-01-01\n---\n\n# Test\n'
-        )
+        note_path.write_text('---\ntype: meeting\nup: "[[]]"\ncreated: 2024-01-01\n---\n\n# Test\n')
 
         # Edit to add new property
         manager.edit_type(
