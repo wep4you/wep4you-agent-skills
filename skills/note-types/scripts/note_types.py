@@ -658,11 +658,26 @@ created: "{{{{date}}}}"
         print(f"\n✅ Added note type '{name}'")
         self.show_type(name)
 
-    def edit_type(self, name: str) -> None:
+    def edit_type(
+        self,
+        name: str,
+        interactive: bool = True,
+        description: str | None = None,
+        folder: str | None = None,
+        required_props: list[str] | None = None,
+        optional_props: list[str] | None = None,
+        icon: str | None = None,
+    ) -> None:
         """Edit an existing note type
 
         Args:
             name: Name of the note type
+            interactive: Whether to prompt for details interactively
+            description: New description (non-interactive mode)
+            folder: New folder hint (non-interactive mode)
+            required_props: New required properties (non-interactive mode)
+            optional_props: New optional properties (non-interactive mode)
+            icon: New icon (non-interactive mode)
         """
         if name not in self.note_types:
             print(f"❌ Note type '{name}' not found")
@@ -671,7 +686,31 @@ created: "{{{{date}}}}"
         print(f"📝 Editing note type: {name}\n")
         self.show_type(name)
 
-        config = self._interactive_type_definition(name, self.note_types[name])
+        if interactive:
+            config = self._interactive_type_definition(name, self.note_types[name])
+        else:
+            # Non-interactive: only update provided fields
+            config = self.note_types[name].copy()
+
+            if description is not None:
+                config["description"] = description
+
+            if folder is not None:
+                config["folder_hints"] = [folder if folder.endswith("/") else f"{folder}/"]
+
+            if required_props is not None or optional_props is not None:
+                props = config.get("properties", {})
+                if not isinstance(props, dict):
+                    props = {"additional_required": [], "optional": []}
+                if required_props is not None:
+                    props["additional_required"] = required_props
+                if optional_props is not None:
+                    props["optional"] = optional_props
+                config["properties"] = props
+
+            if icon is not None:
+                config["icon"] = icon
+
         self.note_types[name] = config
         self._save_settings()
         print(f"✅ Updated note type '{name}'")
@@ -841,11 +880,21 @@ Examples:
     parser.add_argument("--remove", metavar="NAME", help="Remove a note type")
     parser.add_argument("--wizard", action="store_true", help="Interactive wizard mode")
     parser.add_argument(
-        "--non-interactive", action="store_true", help="Non-interactive mode for --add"
+        "--non-interactive", action="store_true", help="Non-interactive mode for --add/--edit"
     )
     parser.add_argument(
         "--yes", "-y", action="store_true", help="Skip confirmation prompts (for --remove)"
     )
+    # Non-interactive edit parameters
+    parser.add_argument("--description", help="Note type description (for --edit)")
+    parser.add_argument("--folder", help="Folder hint (for --edit)")
+    parser.add_argument(
+        "--required-props", help="Comma-separated required properties (for --edit)"
+    )
+    parser.add_argument(
+        "--optional-props", help="Comma-separated optional properties (for --edit)"
+    )
+    parser.add_argument("--icon", help="Icon name (for --edit)")
 
     args = parser.parse_args()
 
@@ -863,7 +912,23 @@ Examples:
     elif args.add:
         manager.add_type(args.add, interactive=not args.non_interactive)
     elif args.edit:
-        manager.edit_type(args.edit)
+        # Parse comma-separated properties if provided
+        required_props = None
+        optional_props = None
+        if args.required_props:
+            required_props = [p.strip() for p in args.required_props.split(",")]
+        if args.optional_props:
+            optional_props = [p.strip() for p in args.optional_props.split(",")]
+
+        manager.edit_type(
+            args.edit,
+            interactive=not args.non_interactive,
+            description=args.description,
+            folder=args.folder,
+            required_props=required_props,
+            optional_props=optional_props,
+            icon=args.icon,
+        )
     elif args.remove:
         manager.remove_type(args.remove, skip_confirm=args.yes)
     elif args.wizard:

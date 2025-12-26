@@ -1,6 +1,6 @@
 ---
 name: note-types
-version: "0.4.0"
+version: "0.44.0"
 license: MIT
 description: "Manage Obsidian note type definitions including folders, properties, and templates. Use when the user wants to (1) define new note types, (2) manage note type configurations, (3) set up folder and property mappings, (4) create note type templates, or (5) view existing note types. Triggers on keywords like note types, note type config, manage note types, define note type, note type wizard."
 ---
@@ -16,9 +16,10 @@ Manage note type definitions for your Obsidian vault. Define folders, required p
 | `obsidian:note-types --list` | List all note types |
 | `obsidian:note-types --show <name>` | Show details for a note type |
 | `obsidian:note-types --add <name> --non-interactive` | Add a new note type |
+| `obsidian:note-types --edit <name> --non-interactive [options]` | Edit a note type |
 | `obsidian:note-types --remove <name> --yes` | Remove a note type |
 
-**IMPORTANT for Claude Code**: Always use `--non-interactive` with `--add` and `--yes` with `--remove`. Interactive modes (`--wizard`, `--edit`) require terminal input and cannot be used. For customization, edit `.claude/settings.yaml` directly.
+**IMPORTANT for Claude Code**: Always use `--non-interactive` with `--add` and `--edit`, and `--yes` with `--remove`. Interactive mode (`--wizard`) requires terminal input and cannot be used.
 
 ## Quick Start
 
@@ -183,6 +184,27 @@ Creates a note type with minimal defaults:
 
 ### Edit Note Type
 
+**Non-interactive (for Claude Code):**
+```bash
+# Update description
+uv run skills/note-types/scripts/note_types.py --edit project --non-interactive --description "New description"
+
+# Update folder
+uv run skills/note-types/scripts/note_types.py --edit project --non-interactive --folder "NewFolder/"
+
+# Update properties
+uv run skills/note-types/scripts/note_types.py --edit project --non-interactive --required-props "status,priority"
+uv run skills/note-types/scripts/note_types.py --edit project --non-interactive --optional-props "deadline,notes"
+
+# Update icon
+uv run skills/note-types/scripts/note_types.py --edit project --non-interactive --icon "target"
+
+# Combine multiple updates
+uv run skills/note-types/scripts/note_types.py --edit project --non-interactive \
+  --description "Updated description" --folder "Projects/" --icon "rocket"
+```
+
+**Interactive (terminal only):**
 ```bash
 uv run skills/note-types/scripts/note_types.py --edit project
 ```

@@ -252,6 +252,50 @@ class TestNoteTypesManager:
 
         assert manager.note_types["project"]["icon"] == "rocket"
 
+    def test_edit_type_non_interactive(self, temp_vault):
+        """Test editing note type non-interactively (for Claude Code)"""
+        manager = NoteTypesManager(str(temp_vault))
+
+        # Edit with specific parameters
+        manager.edit_type(
+            "project",
+            interactive=False,
+            description="Updated description",
+            folder="NewProjects/",
+            required_props=["status", "priority"],
+            optional_props=["deadline"],
+            icon="rocket",
+        )
+
+        config = manager.note_types["project"]
+        assert config["description"] == "Updated description"
+        assert config["folder_hints"] == ["NewProjects/"]
+        assert config["properties"]["additional_required"] == ["status", "priority"]
+        assert config["properties"]["optional"] == ["deadline"]
+        assert config["icon"] == "rocket"
+
+    def test_edit_type_non_interactive_partial(self, temp_vault):
+        """Test non-interactive edit only updates provided fields"""
+        manager = NoteTypesManager(str(temp_vault))
+
+        original_folder = manager.note_types["project"]["folder_hints"]
+        original_props = manager.note_types["project"]["properties"]
+
+        # Only update description and icon
+        manager.edit_type(
+            "project",
+            interactive=False,
+            description="Just updated",
+            icon="star",
+        )
+
+        config = manager.note_types["project"]
+        assert config["description"] == "Just updated"
+        assert config["icon"] == "star"
+        # These should remain unchanged
+        assert config["folder_hints"] == original_folder
+        assert config["properties"] == original_props
+
     def test_remove_type_not_exists(self, temp_vault):
         """Test removing non-existent note type"""
         manager = NoteTypesManager(str(temp_vault))
@@ -443,6 +487,47 @@ class TestMainFunction:
                 from note_types import main
 
                 main()
+
+    def test_main_edit_non_interactive(self, temp_vault):
+        """Test main with --edit --non-interactive and parameters"""
+        with patch(
+            "sys.argv",
+            [
+                "note_types.py",
+                "--vault",
+                str(temp_vault),
+                "--edit",
+                "project",
+                "--non-interactive",
+                "--description",
+                "New description",
+                "--folder",
+                "NewFolder/",
+                "--required-props",
+                "status,priority",
+                "--optional-props",
+                "deadline,notes",
+                "--icon",
+                "rocket",
+            ],
+        ):
+            from note_types import main
+
+            main()
+
+        # Verify the settings were updated
+        import yaml
+
+        settings_path = temp_vault / ".claude" / "settings.yaml"
+        with open(settings_path) as f:
+            settings = yaml.safe_load(f)
+
+        project = settings["note_types"]["project"]
+        assert project["description"] == "New description"
+        assert project["folder_hints"] == ["NewFolder/"]
+        assert project["properties"]["additional_required"] == ["status", "priority"]
+        assert project["properties"]["optional"] == ["deadline", "notes"]
+        assert project["icon"] == "rocket"
 
     def test_main_remove(self, temp_vault):
         """Test main with --remove"""
