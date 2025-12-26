@@ -850,6 +850,13 @@ created: "{{{{date}}}}"
         if old_folder != new_folder:
             self._rename_folder(name, old_folder, new_folder)
 
+        # Update template with new properties
+        self._update_template_properties(name, final_config)
+
+        # Update existing notes' frontmatter with new properties
+        folder_path = self.vault_path / new_folder
+        self._update_notes_frontmatter(name, final_config, folder_path)
+
         print(f"✅ Updated note type '{name}'")
         self.show_type(name)
 
@@ -912,9 +919,153 @@ created: "{{{{date}}}}"
             updated = updated.replace(f"#{old_view_name}]]", f"#{new_view_name}]]")
             if updated != content:
                 readme_path.write_text(updated, encoding="utf-8")
-                print(f"📝 Updated _Readme.md references")
+                print("📝 Updated _Readme.md references")
         except OSError:
             pass  # Ignore errors updating readme
+
+    def _update_template_properties(self, name: str, config: dict[str, Any]) -> None:
+        """Update template file with new properties
+
+        Args:
+            name: Name of the note type
+            config: Note type configuration with new properties
+        """
+        template_path = self.templates_folder / f"{name}.md"
+        if not template_path.exists():
+            return
+
+        try:
+            content = template_path.read_text(encoding="utf-8")
+
+            # Parse existing frontmatter
+            if not content.startswith("---"):
+                return
+
+            parts = content.split("---", 2)
+            if len(parts) < 3:
+                return
+
+            # Get new properties
+            core_props = self._get_core_properties()
+            required, optional = self._get_additional_properties(config)
+            description = config.get("description", f"{name.capitalize()} notes")
+
+            # Build new frontmatter
+            lines = ["---"]
+            lines.append(f'type: "{name}"')
+
+            for prop in core_props:
+                if prop == "type":
+                    continue
+                elif prop == "up":
+                    lines.append('up: "[[]]"')
+                elif prop == "created":
+                    lines.append("created: {{date}}")
+                elif prop == "tags":
+                    lines.append("tags: []")
+                elif prop == "daily":
+                    lines.append("daily: ")
+                elif prop == "collection":
+                    lines.append("collection: ")
+                elif prop == "related":
+                    lines.append("related: []")
+                else:
+                    lines.append(f"{prop}: ")
+
+            for prop in required:
+                if prop not in core_props:
+                    if prop == "status":
+                        lines.append('status: "active"')
+                    else:
+                        lines.append(f"{prop}: ")
+
+            for prop in optional:
+                if prop not in core_props and prop not in required:
+                    lines.append(f"{prop}: ")
+
+            lines.append("---")
+
+            # Rebuild template with new frontmatter and updated description
+            body = parts[2].strip()
+            # Update description line if present
+            body_lines = body.split("\n")
+            for i, line in enumerate(body_lines):
+                if line.startswith("> Template for"):
+                    body_lines[i] = f"> Template for **{name.capitalize()}** notes: {description}"
+                    break
+
+            new_content = "\n".join(lines) + "\n\n" + "\n".join(body_lines) + "\n"
+            template_path.write_text(new_content, encoding="utf-8")
+            print(f"📝 Updated template: {self.system_prefix}/templates/{name}.md")
+
+        except OSError:
+            pass
+
+    def _update_notes_frontmatter(
+        self, name: str, config: dict[str, Any], folder_path: Path
+    ) -> None:
+        """Update frontmatter in existing notes to include new properties
+
+        Args:
+            name: Name of the note type
+            config: Note type configuration with new properties
+            folder_path: Path to the folder containing notes
+        """
+        if not folder_path.exists():
+            return
+
+        core_props = self._get_core_properties()
+        required, optional = self._get_additional_properties(config)
+        all_props = set(core_props) | set(required) | set(optional)
+
+        updated_count = 0
+        for note_path in folder_path.glob("*.md"):
+            if note_path.name == "_Readme.md":
+                continue
+
+            try:
+                content = note_path.read_text(encoding="utf-8")
+                if not content.startswith("---"):
+                    continue
+
+                parts = content.split("---", 2)
+                if len(parts) < 3:
+                    continue
+
+                frontmatter = parts[1].strip()
+                body = parts[2]
+
+                # Parse existing properties
+                existing_props = set()
+                for line in frontmatter.split("\n"):
+                    if ":" in line:
+                        prop_name = line.split(":")[0].strip()
+                        if not prop_name.startswith("#"):
+                            existing_props.add(prop_name)
+
+                # Find missing properties
+                missing = all_props - existing_props
+
+                if not missing:
+                    continue
+
+                # Add missing properties to frontmatter
+                new_lines = frontmatter.split("\n")
+                for prop in sorted(missing):
+                    if prop == "status":
+                        new_lines.append('status: ""')
+                    else:
+                        new_lines.append(f'{prop}: ""')
+
+                new_content = "---\n" + "\n".join(new_lines) + "\n---" + body
+                note_path.write_text(new_content, encoding="utf-8")
+                updated_count += 1
+
+            except OSError:
+                continue
+
+        if updated_count > 0:
+            print(f"📝 Updated frontmatter in {updated_count} note(s)")
 
     def remove_type(self, name: str, skip_confirm: bool = False) -> None:
         """Remove a note type
