@@ -98,12 +98,24 @@ def output_action_prompt(status: dict) -> None:
     print(json.dumps(prompt, indent=2))
 
 
-def output_methodology_prompt(vault_path: str) -> None:
-    """Output prompt for methodology selection."""
+def output_methodology_prompt(vault_path: str, action: str | None = None) -> None:
+    """Output prompt for methodology selection.
+
+    Args:
+        vault_path: Path to the vault
+        action: Previous action (continue/reset) to preserve in next command
+    """
+    # Build the next_step command - use wrapper to preserve action
+    if action:
+        next_cmd = f"python3 ${{CLAUDE_PLUGIN_ROOT}}/commands/init.py {vault_path} --action={action} -m <methodology>"
+    else:
+        next_cmd = f"python3 ${{CLAUDE_PLUGIN_ROOT}}/commands/init.py {vault_path} -m <methodology>"
+
     prompt = {
         "prompt_type": "methodology_required",
         "message": "Choose a PKM methodology for your vault",
         "vault_path": vault_path,
+        "previous_action": action,  # Include for Claude Code to track
         "question": "Which methodology would you like to use?",
         "options": [
             {
@@ -131,7 +143,7 @@ def output_methodology_prompt(vault_path: str) -> None:
                 "is_default": False,
             },
         ],
-        "next_step": "Call init_vault.py with: uv run init_vault.py <path> -m <method>",
+        "next_step": next_cmd,
     }
     print(json.dumps(prompt, indent=2))
 
@@ -249,7 +261,7 @@ def main() -> int:
         elif args.action in ("continue", "reset"):
             # Proceed to methodology selection
             if not args.methodology:
-                output_methodology_prompt(str(vault_path))
+                output_methodology_prompt(str(vault_path), action=args.action)
                 return 0
             else:
                 # Execute with methodology
