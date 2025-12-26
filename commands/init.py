@@ -266,8 +266,14 @@ def execute_init(
     if note_types:
         cmd.extend(["--note-types", ",".join(note_types)])
 
+    # Set environment variable to indicate we're calling from wrapper
+    import os
+
+    env = os.environ.copy()
+    env["INIT_FROM_WRAPPER"] = "1"
+
     # Run and stream output
-    result = subprocess.run(cmd)  # noqa: S603
+    result = subprocess.run(cmd, env=env)  # noqa: S603
     return result.returncode
 
 

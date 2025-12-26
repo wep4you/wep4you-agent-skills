@@ -470,10 +470,12 @@ class TestMainCLI:
         vault_path = tmp_path / "error-vault"
         args = [str(vault_path), "-m", "invalid"]
 
-        # argparse calls sys.exit(2) on invalid choice
-        with patch("sys.argv", ["init_vault.py", *args]):
-            with pytest.raises(SystemExit) as exc_info:
-                main()
+        # Set env to simulate wrapper call, so we get to argparse validation
+        with patch.dict("os.environ", {"INIT_FROM_WRAPPER": "1"}):
+            # argparse calls sys.exit(2) on invalid choice
+            with patch("sys.argv", ["init_vault.py", *args]):
+                with pytest.raises(SystemExit) as exc_info:
+                    main()
 
         assert exc_info.value.code == 2  # argparse error exit code
 

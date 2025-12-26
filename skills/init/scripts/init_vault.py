@@ -2083,6 +2083,32 @@ def is_interactive() -> bool:
 
 def main() -> int:  # pragma: no cover
     """Main entry point."""
+    import json
+    import os
+
+    # Check if called from wrapper (required for Claude Code integration)
+    # Allow: --list, --list-note-types, --check, --defaults (from wrapper)
+    # Block: direct calls with -m/--methodology without --defaults
+    from_wrapper = os.environ.get("INIT_FROM_WRAPPER") == "1"
+    raw_args = sys.argv[1:]
+
+    # If not from wrapper and trying to initialize (has -m but not --defaults)
+    has_methodology = "-m" in raw_args or "--methodology" in raw_args
+    has_defaults = "--defaults" in raw_args
+    is_query = "--list" in raw_args or "--list-note-types" in raw_args or "--check" in raw_args
+
+    if has_methodology and not has_defaults and not from_wrapper and not is_query:
+        error_msg = {
+            "error": "Direct call not allowed",
+            "message": (
+                "This script must be called through the wrapper. "
+                "Use: python3 ${CLAUDE_PLUGIN_ROOT}/commands/init.py"
+            ),
+            "hint": "The wrapper handles the interactive workflow and calls this script internally.",
+        }
+        print(json.dumps(error_msg, indent=2))
+        return 1
+
     parser = argparse.ArgumentParser(
         description="Initialize an Obsidian vault with a PKM methodology",
         formatter_class=argparse.RawDescriptionHelpFormatter,
