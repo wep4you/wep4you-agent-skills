@@ -1,6 +1,6 @@
 ---
 name: init
-version: "0.26.0"
+version: "0.27.0"
 license: MIT
 description: "Initialize a new Obsidian vault with a chosen PKM methodology (LYT-ACE, PARA, Zettelkasten, or Minimal). Creates folder structure, configuration files, and frontmatter standards. Use when the user wants to (1) create a new Obsidian vault, (2) set up a vault with a specific methodology, (3) initialize vault configuration, or (4) scaffold a new PKM system. Triggers on keywords like init vault, create vault, new obsidian vault, setup vault, scaffold vault."
 ---
@@ -20,12 +20,15 @@ Initialize a new Obsidian vault with a chosen Personal Knowledge Management (PKM
 
 ## Integration with Claude Code
 
-### CRITICAL RULES
+### ⚠️ CRITICAL RULES ⚠️
 
-1. **ALWAYS use the wrapper**: `python3 "${CLAUDE_PLUGIN_ROOT}/commands/init.py"`
-2. **NEVER call init_vault.py directly** - the wrapper handles execution internally
-3. **Parse JSON output** and use AskUserQuestion for each `prompt_type`
-4. **Keep ALL previous flags** when calling the wrapper again
+1. **ONLY use this command**: `python3 "${CLAUDE_PLUGIN_ROOT}/commands/init.py"`
+2. **NEVER use `uv run` or call any script in `skills/init/scripts/`**
+3. **After EVERY user selection**, call the wrapper AGAIN with accumulated flags
+4. **Parse JSON `next_step`** field to see the exact command to run next
+5. **Use AskUserQuestion** for each `prompt_type` in JSON output
+
+**The wrapper handles ALL execution internally. You NEVER need to call another script.**
 
 ### Workflow
 
@@ -91,9 +94,7 @@ Show what was created and suggest:
 
 ---
 
-## CLI Reference
-
-### Wrapper (commands/init.py) - USE THIS!
+## CLI Reference (commands/init.py)
 
 | Option | Description |
 |--------|-------------|
@@ -104,17 +105,7 @@ Show what was created and suggest:
 | `--check` | Output vault status as JSON (no changes) |
 | `--list` | List methodologies and exit |
 
-### Direct Script (init_vault.py) - FOR TESTING ONLY
-
-| Option | Description |
-|--------|-------------|
-| `<path>` | Path to vault (positional, required) |
-| `-m, --methodology` | Methodology: lyt-ace, para, zettelkasten, minimal |
-| `--note-types` | Comma-separated list of note types to include |
-| `--defaults` | Use default settings without prompts |
-| `--reset` | Delete existing content before init |
-| `--dry-run` | Preview without creating files |
-| `--list-note-types` | List note types for a methodology as JSON |
+⚠️ **DO NOT use init_vault.py directly** - it is an internal script called by the wrapper.
 
 ## What Gets Created
 
