@@ -1055,6 +1055,8 @@ def generate_sample_note(
     methodology: str,
     up_links: dict[str, str],
     core_properties_filter: list[str] | None = None,
+    custom_properties: list[str] | None = None,
+    per_type_properties: dict[str, list[str]] | None = None,
 ) -> str:
     """Generate sample note content dynamically.
 
@@ -1065,6 +1067,8 @@ def generate_sample_note(
         methodology: Selected methodology name
         up_links: UP link mappings for folders
         core_properties_filter: Optional filter for which properties to include
+        custom_properties: List of custom global properties to add
+        per_type_properties: Dict of type -> list of additional properties
 
     Returns:
         Complete markdown content with frontmatter and helpful body
@@ -1078,13 +1082,17 @@ def generate_sample_note(
 
     # Filter core properties if filter is provided
     # Always include 'type' and 'created' as mandatory
-    active_properties = core_properties
+    active_properties = list(core_properties)
     if core_properties_filter:
         mandatory = {"type", "created"}
         active_properties = [
             p for p in core_properties
             if p in core_properties_filter or p in mandatory
         ]
+
+    # Add custom properties
+    if custom_properties:
+        active_properties = list(active_properties) + custom_properties
 
     # Build frontmatter
     frontmatter_lines = [
@@ -1126,6 +1134,24 @@ def generate_sample_note(
             frontmatter_lines.append('source: ""')
         else:
             frontmatter_lines.append(f'{prop}: ""')
+
+    # Add per-type custom properties (if any)
+    if per_type_properties and note_type in per_type_properties:
+        for prop in per_type_properties[note_type]:
+            if prop not in additional_required:  # Avoid duplicates
+                frontmatter_lines.append(f'{prop}: ""')
+
+    # Add custom global properties
+    if custom_properties:
+        # Track properties already written to frontmatter
+        written_props = {"type", "up", "created", "daily", "tags", "collection", "related"}
+        written_props.update(additional_required)
+        if per_type_properties and note_type in per_type_properties:
+            written_props.update(per_type_properties[note_type])
+
+        for prop in custom_properties:
+            if prop not in written_props:
+                frontmatter_lines.append(f'{prop}: ""')
 
     # Add optional properties (commented)
     optional_props = note_type_config.get("properties", {}).get("optional", [])
@@ -1204,6 +1230,8 @@ def create_sample_notes(
     core_properties: list[str],
     dry_run: bool = False,
     core_properties_filter: list[str] | None = None,
+    custom_properties: list[str] | None = None,
+    per_type_properties: dict[str, list[str]] | None = None,
 ) -> list[Path]:
     """Create sample notes for each enabled note type.
 
@@ -1214,6 +1242,8 @@ def create_sample_notes(
         core_properties: List of core properties
         dry_run: If True, only print what would be created
         core_properties_filter: Optional filter for which properties to include
+        custom_properties: List of custom global properties to add
+        per_type_properties: Dict of type -> list of additional properties
 
     Returns:
         List of created file paths
@@ -1244,6 +1274,8 @@ def create_sample_notes(
         content = generate_sample_note(
             note_type, type_config, core_properties, methodology, up_links,
             core_properties_filter=core_properties_filter,
+            custom_properties=custom_properties,
+            per_type_properties=per_type_properties,
         )
 
         if dry_run:
@@ -1262,6 +1294,8 @@ def generate_template_note(
     type_config: dict[str, Any],
     core_properties: list[str],
     core_properties_filter: list[str] | None = None,
+    custom_properties: list[str] | None = None,
+    per_type_properties: dict[str, list[str]] | None = None,
 ) -> str:
     """Generate a template note for a specific note type.
 
@@ -1270,19 +1304,25 @@ def generate_template_note(
         type_config: Configuration for this note type
         core_properties: List of core properties
         core_properties_filter: Optional filter for which properties to include
+        custom_properties: List of custom global properties to add
+        per_type_properties: Dict of type -> list of additional properties
 
     Returns:
         Template content as string
     """
     # Filter core properties if filter is provided
     # Always include 'type' and 'created' as mandatory
-    active_properties = core_properties
+    active_properties = list(core_properties)
     if core_properties_filter:
         mandatory = {"type", "created"}
         active_properties = [
             p for p in core_properties
             if p in core_properties_filter or p in mandatory
         ]
+
+    # Add custom properties
+    if custom_properties:
+        active_properties = list(active_properties) + custom_properties
 
     # Build frontmatter with all properties as placeholders
     lines = ["---"]
@@ -1320,6 +1360,12 @@ def generate_template_note(
         else:
             lines.append(f"{prop}: ")
 
+    # Add per-type custom properties (if any)
+    if per_type_properties and note_type in per_type_properties:
+        for prop in per_type_properties[note_type]:
+            if prop not in additional_required:  # Avoid duplicates
+                lines.append(f"{prop}: ")
+
     # Add optional properties as comments
     optional = props.get("optional", [])
     for prop in optional:
@@ -1355,6 +1401,8 @@ def create_template_notes(
     core_properties: list[str],
     dry_run: bool = False,
     core_properties_filter: list[str] | None = None,
+    custom_properties: list[str] | None = None,
+    per_type_properties: dict[str, list[str]] | None = None,
 ) -> list[Path]:
     """Create template notes for each note type.
 
@@ -1365,6 +1413,8 @@ def create_template_notes(
         core_properties: List of core properties
         dry_run: If True, only print what would be created
         core_properties_filter: Optional filter for which properties to include
+        custom_properties: List of custom global properties to add
+        per_type_properties: Dict of type -> list of additional properties
 
     Returns:
         List of created file paths
@@ -1387,6 +1437,8 @@ def create_template_notes(
         content = generate_template_note(
             note_type, type_config, core_properties,
             core_properties_filter=core_properties_filter,
+            custom_properties=custom_properties,
+            per_type_properties=per_type_properties,
         )
 
         if dry_run:
@@ -1811,6 +1863,8 @@ def build_settings_yaml(
     config: WizardConfig | None = None,
     note_types_filter: list[str] | None = None,
     core_properties_filter: list[str] | None = None,
+    custom_properties: list[str] | None = None,
+    per_type_properties: dict[str, list[str]] | None = None,
 ) -> dict[str, Any]:
     """Build settings.yaml content for a methodology.
 
@@ -1819,6 +1873,8 @@ def build_settings_yaml(
         config: Optional WizardConfig with user customizations
         note_types_filter: List of note type names to include (None = all)
         core_properties_filter: List of core properties to include (None = all)
+        custom_properties: List of custom global properties to add
+        per_type_properties: Dict of type -> list of additional properties
 
     Returns:
         Dictionary representing the settings.yaml content
@@ -1828,7 +1884,23 @@ def build_settings_yaml(
     # Start with methodology defaults for note types
     note_types = dict(method_config["note_types"])
 
-    # Apply per-type property customizations if provided
+    # Apply per-type property customizations from direct parameter
+    if per_type_properties:
+        for type_name, props_list in per_type_properties.items():
+            if type_name in note_types:
+                note_types[type_name] = dict(note_types[type_name])
+                # Merge with existing properties
+                existing_props = note_types[type_name].get("properties", {})
+                existing_required = existing_props.get("additional_required", [])
+                existing_optional = existing_props.get("optional", [])
+                # Add new props as additional_required
+                new_required = list(set(existing_required + props_list))
+                note_types[type_name]["properties"] = {
+                    "additional_required": new_required,
+                    "optional": existing_optional,
+                }
+
+    # Apply per-type property customizations if provided via config
     if config and config.per_type_properties:
         for type_name, props in config.per_type_properties.items():
             if type_name in note_types:
@@ -1877,14 +1949,24 @@ def build_settings_yaml(
         "all": all_core_properties,
     }
 
-    # Add mandatory/optional classification if customized
+    # Add custom properties from direct parameter
+    if custom_properties:
+        core_properties_config["custom"] = custom_properties
+        # Add custom properties to the 'all' list
+        all_core_properties = list(all_core_properties) + custom_properties
+        core_properties_config["all"] = all_core_properties
+
+    # Add mandatory/optional classification if customized via config
     if config:
         if config.mandatory_properties:
             core_properties_config["mandatory"] = config.mandatory_properties
         if config.optional_properties:
             core_properties_config["optional"] = config.optional_properties
         if config.custom_properties:
-            core_properties_config["custom"] = config.custom_properties
+            # Merge with directly passed custom properties
+            existing_custom = core_properties_config.get("custom", [])
+            all_custom = list(set(existing_custom + config.custom_properties))
+            core_properties_config["custom"] = all_custom
             # Add custom properties to the 'all' list
             base_props = list(method_config["core_properties"])
             if core_properties_filter:
@@ -1893,7 +1975,7 @@ def build_settings_yaml(
                     p for p in base_props
                     if p in core_properties_filter or p in mandatory
                 ]
-            core_properties_config["all"] = base_props + config.custom_properties
+            core_properties_config["all"] = base_props + all_custom
 
     settings: dict[str, Any] = {
         "version": "1.0",
@@ -1937,6 +2019,8 @@ def create_settings_yaml(
     config: WizardConfig | None = None,
     note_types_filter: list[str] | None = None,
     core_properties_filter: list[str] | None = None,
+    custom_properties: list[str] | None = None,
+    per_type_properties: dict[str, list[str]] | None = None,
 ) -> None:
     """Create settings.yaml for the vault.
 
@@ -1949,8 +2033,14 @@ def create_settings_yaml(
         config: Optional WizardConfig with user customizations
         note_types_filter: List of note type names to include (None = all)
         core_properties_filter: List of core properties to include (None = all)
+        custom_properties: List of custom global properties to add
+        per_type_properties: Dict of type -> list of additional properties
     """
-    settings = build_settings_yaml(methodology, config, note_types_filter, core_properties_filter)
+    settings = build_settings_yaml(
+        methodology, config, note_types_filter, core_properties_filter,
+        custom_properties=custom_properties,
+        per_type_properties=per_type_properties,
+    )
     settings_path = vault_path / ".claude" / "settings.yaml"
 
     # Build YAML with header comments
@@ -2104,6 +2194,8 @@ def init_vault(
     use_defaults: bool = False,
     note_types_filter: list[str] | None = None,
     core_properties_filter: list[str] | None = None,
+    custom_properties: list[str] | None = None,
+    per_type_properties: dict[str, list[str]] | None = None,
 ) -> None:
     """Initialize an Obsidian vault with chosen methodology.
 
@@ -2115,6 +2207,8 @@ def init_vault(
         use_defaults: If True, skip confirmations and use defaults
         note_types_filter: List of note type names to include (None = all)
         core_properties_filter: List of core properties to include (None = all)
+        custom_properties: List of custom global properties to add
+        per_type_properties: Dict of type -> list of additional properties
     """
     # Check for existing vault first
     detection = detect_existing_vault(vault_path)
@@ -2181,7 +2275,9 @@ def init_vault(
 
     # Create settings.yaml (PRIMARY configuration) with user customizations
     create_settings_yaml(
-        vault_path, methodology, dry_run, config, note_types_filter, core_properties_filter
+        vault_path, methodology, dry_run, config, note_types_filter, core_properties_filter,
+        custom_properties=custom_properties,
+        per_type_properties=per_type_properties,
     )
 
     # Create README
@@ -2195,12 +2291,16 @@ def init_vault(
         create_sample_notes(
             vault_path, methodology, note_types, core_properties, dry_run,
             core_properties_filter=core_properties_filter,
+            custom_properties=custom_properties,
+            per_type_properties=per_type_properties,
         )
 
     # Create template notes for each note type
     create_template_notes(
         vault_path, methodology, note_types, core_properties, dry_run,
         core_properties_filter=core_properties_filter,
+        custom_properties=custom_properties,
+        per_type_properties=per_type_properties,
     )
 
     # Create all_bases.base for Obsidian Bases plugin
@@ -2341,6 +2441,14 @@ Examples:
         "--core-properties",
         help="Comma-separated list of core properties to include (default: all)",
     )
+    parser.add_argument(
+        "--custom-properties",
+        help="Comma-separated list of custom properties to add globally",
+    )
+    parser.add_argument(
+        "--per-type-props",
+        help="Per-type properties in format: type1:prop1,prop2;type2:prop3,prop4",
+    )
 
     args = parser.parse_args()
 
@@ -2445,6 +2553,24 @@ Examples:
     if args.core_properties:
         core_properties_filter = [p.strip() for p in args.core_properties.split(",") if p.strip()]
 
+    # Parse custom properties
+    custom_properties_list = None
+    if args.custom_properties:
+        custom_properties_list = [
+            p.strip() for p in args.custom_properties.split(",") if p.strip()
+        ]
+
+    # Parse per-type properties (format: type1:prop1,prop2;type2:prop3)
+    per_type_properties: dict[str, list[str]] = {}
+    if args.per_type_props:
+        for type_spec in args.per_type_props.split(";"):
+            if ":" in type_spec:
+                type_name, props = type_spec.split(":", 1)
+                type_name = type_name.strip()
+                prop_list = [p.strip() for p in props.split(",") if p.strip()]
+                if type_name and prop_list:
+                    per_type_properties[type_name] = prop_list
+
     try:
         init_vault(
             vault_path,
@@ -2454,6 +2580,8 @@ Examples:
             use_defaults=args.defaults,
             note_types_filter=note_types_filter,
             core_properties_filter=core_properties_filter,
+            custom_properties=custom_properties_list,
+            per_type_properties=per_type_properties if per_type_properties else None,
         )
         return 0
     except ValueError as e:

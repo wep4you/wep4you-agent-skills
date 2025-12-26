@@ -1163,3 +1163,279 @@ class TestFilteredSampleAndTemplateGeneration:
 
         # tags should NOT be present
         assert "tags:" not in content
+
+
+class TestCustomPropertiesGlobal:
+    """Test custom global properties feature."""
+
+    def test_custom_properties_in_settings(self, tmp_path: Path) -> None:
+        """Test custom properties are added to settings.yaml."""
+        init_vault(
+            tmp_path,
+            "para",
+            dry_run=False,
+            use_defaults=True,
+            custom_properties=["myCustomProp", "anotherProp"],
+        )
+
+        settings = load_settings(tmp_path)
+
+        # Custom properties should be in core_properties
+        assert "myCustomProp" in settings.core_properties
+        assert "anotherProp" in settings.core_properties
+
+    def test_custom_properties_in_sample_notes(self, tmp_path: Path) -> None:
+        """Test custom properties appear in sample notes."""
+        init_vault(
+            tmp_path,
+            "para",
+            dry_run=False,
+            use_defaults=True,
+            custom_properties=["myOwnProp", "specialField"],
+        )
+
+        # Check sample note
+        sample_note = tmp_path / "Projects" / "Getting Started with Projects.md"
+        content = sample_note.read_text()
+
+        # Custom properties should be present in frontmatter
+        assert "myOwnProp:" in content
+        assert "specialField:" in content
+
+    def test_custom_properties_in_templates(self, tmp_path: Path) -> None:
+        """Test custom properties appear in template notes."""
+        init_vault(
+            tmp_path,
+            "para",
+            dry_run=False,
+            use_defaults=True,
+            custom_properties=["customField1", "customField2"],
+        )
+
+        # Check template
+        template = tmp_path / "x" / "templates" / "project.md"
+        content = template.read_text()
+
+        # Custom properties should be present
+        assert "customField1:" in content
+        assert "customField2:" in content
+
+    def test_custom_properties_combined_with_filter(self, tmp_path: Path) -> None:
+        """Test custom properties work with core_properties_filter."""
+        init_vault(
+            tmp_path,
+            "para",
+            dry_run=False,
+            use_defaults=True,
+            core_properties_filter=["type", "created"],  # Minimal core props
+            custom_properties=["myProp"],
+        )
+
+        settings = load_settings(tmp_path)
+
+        # Only filtered core + custom should be present
+        assert "type" in settings.core_properties
+        assert "created" in settings.core_properties
+        assert "myProp" in settings.core_properties
+        # Filtered out properties should be absent
+        assert "tags" not in settings.core_properties
+
+
+class TestPerTypeProperties:
+    """Test per-note-type additional properties feature."""
+
+    def test_per_type_properties_in_settings(self, tmp_path: Path) -> None:
+        """Test per-type properties are added to settings.yaml note_types."""
+        init_vault(
+            tmp_path,
+            "para",
+            dry_run=False,
+            use_defaults=True,
+            per_type_properties={"project": ["deadline", "priority"]},
+        )
+
+        settings = load_settings(tmp_path)
+
+        # Per-type properties should be in the note type's required_properties
+        project_type = settings.note_types.get("project")
+        assert project_type is not None
+
+        # NoteTypeConfig has required_properties which includes additional_required
+        assert "deadline" in project_type.required_properties
+        assert "priority" in project_type.required_properties
+
+    def test_per_type_properties_in_sample_notes(self, tmp_path: Path) -> None:
+        """Test per-type properties appear in the corresponding sample notes."""
+        init_vault(
+            tmp_path,
+            "para",
+            dry_run=False,
+            use_defaults=True,
+            per_type_properties={"project": ["deadline", "budget"]},
+        )
+
+        # Check project sample note
+        sample_note = tmp_path / "Projects" / "Getting Started with Projects.md"
+        content = sample_note.read_text()
+
+        # Per-type properties for project should be present
+        assert "deadline:" in content
+        assert "budget:" in content
+
+        # Check that other note types don't have these properties
+        area_note = tmp_path / "Areas" / "Getting Started with Areas.md"
+        area_content = area_note.read_text()
+        assert "deadline:" not in area_content
+        assert "budget:" not in area_content
+
+    def test_per_type_properties_in_templates(self, tmp_path: Path) -> None:
+        """Test per-type properties appear in the corresponding templates."""
+        init_vault(
+            tmp_path,
+            "para",
+            dry_run=False,
+            use_defaults=True,
+            per_type_properties={"resource": ["category", "rating"]},
+        )
+
+        # Check resource template
+        template = tmp_path / "x" / "templates" / "resource.md"
+        content = template.read_text()
+
+        # Per-type properties for resource should be present
+        assert "category:" in content
+        assert "rating:" in content
+
+        # Check that project template doesn't have these
+        project_template = tmp_path / "x" / "templates" / "project.md"
+        project_content = project_template.read_text()
+        assert "category:" not in project_content
+        assert "rating:" not in project_content
+
+    def test_per_type_properties_multiple_types(self, tmp_path: Path) -> None:
+        """Test per-type properties for multiple note types."""
+        init_vault(
+            tmp_path,
+            "para",
+            dry_run=False,
+            use_defaults=True,
+            per_type_properties={
+                "project": ["deadline"],
+                "area": ["importance"],
+                "resource": ["source_url"],
+            },
+        )
+
+        # Check project
+        project_note = tmp_path / "Projects" / "Getting Started with Projects.md"
+        assert "deadline:" in project_note.read_text()
+
+        # Check area
+        area_note = tmp_path / "Areas" / "Getting Started with Areas.md"
+        assert "importance:" in area_note.read_text()
+
+        # Check resource
+        resource_note = tmp_path / "Resources" / "Getting Started with Resources.md"
+        assert "source_url:" in resource_note.read_text()
+
+    def test_per_type_merges_with_existing_required(self, tmp_path: Path) -> None:
+        """Test per-type properties merge with existing additional_required."""
+        # Project type already has 'status' as additional_required
+        init_vault(
+            tmp_path,
+            "para",
+            dry_run=False,
+            use_defaults=True,
+            per_type_properties={"project": ["priority"]},
+        )
+
+        settings = load_settings(tmp_path)
+        project_type = settings.note_types.get("project")
+        assert project_type is not None
+
+        # Both original and new should be present in required_properties
+        assert "status" in project_type.required_properties
+        assert "priority" in project_type.required_properties
+
+
+class TestCombinedCustomAndPerType:
+    """Test custom properties and per-type properties work together."""
+
+    def test_both_custom_and_per_type_in_sample_notes(self, tmp_path: Path) -> None:
+        """Test both global custom and per-type properties in sample notes."""
+        init_vault(
+            tmp_path,
+            "para",
+            dry_run=False,
+            use_defaults=True,
+            custom_properties=["globalProp"],
+            per_type_properties={"project": ["projectOnly"]},
+        )
+
+        # Project should have both global and per-type
+        project_note = tmp_path / "Projects" / "Getting Started with Projects.md"
+        project_content = project_note.read_text()
+        assert "globalProp:" in project_content
+        assert "projectOnly:" in project_content
+
+        # Area should only have global
+        area_note = tmp_path / "Areas" / "Getting Started with Areas.md"
+        area_content = area_note.read_text()
+        assert "globalProp:" in area_content
+        assert "projectOnly:" not in area_content
+
+    def test_both_custom_and_per_type_in_templates(self, tmp_path: Path) -> None:
+        """Test both global custom and per-type properties in templates."""
+        init_vault(
+            tmp_path,
+            "para",
+            dry_run=False,
+            use_defaults=True,
+            custom_properties=["globalField"],
+            per_type_properties={"resource": ["resourceSpecific"]},
+        )
+
+        # Resource template should have both
+        resource_template = tmp_path / "x" / "templates" / "resource.md"
+        resource_content = resource_template.read_text()
+        assert "globalField:" in resource_content
+        assert "resourceSpecific:" in resource_content
+
+        # Project template should only have global
+        project_template = tmp_path / "x" / "templates" / "project.md"
+        project_content = project_template.read_text()
+        assert "globalField:" in project_content
+        assert "resourceSpecific:" not in project_content
+
+    def test_full_combination_settings(self, tmp_path: Path) -> None:
+        """Test settings.yaml with note type filter, core filter, custom, and per-type."""
+        init_vault(
+            tmp_path,
+            "para",
+            dry_run=False,
+            use_defaults=True,
+            note_types_filter=["project", "area"],
+            core_properties_filter=["type", "created", "up"],
+            custom_properties=["myGlobalProp"],
+            per_type_properties={"project": ["projectProp"]},
+        )
+
+        settings = load_settings(tmp_path)
+
+        # Check note types filtered
+        assert "project" in settings.note_types
+        assert "area" in settings.note_types
+        assert "resource" not in settings.note_types
+        assert "archive" not in settings.note_types
+
+        # Check core properties filtered + custom
+        assert "type" in settings.core_properties
+        assert "created" in settings.core_properties
+        assert "up" in settings.core_properties
+        assert "myGlobalProp" in settings.core_properties
+        assert "tags" not in settings.core_properties
+
+        # Check per-type properties
+        project_type = settings.note_types.get("project")
+        assert project_type is not None
+        assert "projectProp" in project_type.required_properties

@@ -411,6 +411,147 @@ def output_properties_select_prompt(
     print(json.dumps(prompt, indent=2))
 
 
+def output_custom_properties_prompt(
+    vault_path: str,
+    methodology: str,
+    note_types: str,
+    core_properties: str,
+    action: str | None = None,
+) -> None:
+    """Output prompt for custom property input.
+
+    Args:
+        vault_path: Path to the vault
+        methodology: Selected methodology
+        note_types: Comma-separated list of selected note types
+        core_properties: Comma-separated list of selected core properties
+        action: Previous action (continue/reset)
+    """
+    # Build the next_step command
+    cmd_parts = [f"python3 ${{CLAUDE_PLUGIN_ROOT}}/commands/init.py {vault_path}"]
+    if action:
+        cmd_parts.append(f"--action={action}")
+    cmd_parts.append(f"-m {methodology}")
+    cmd_parts.append(f"--note-types={note_types}")
+    cmd_parts.append(f"--core-properties={core_properties}")
+    cmd_parts.append("--custom-properties=<custom_props_or_none>")
+    next_cmd = " ".join(cmd_parts)
+
+    prompt = {
+        "prompt_type": "custom_properties_input",
+        "message": "Add custom properties",
+        "vault_path": vault_path,
+        "methodology": methodology,
+        "note_types": note_types,
+        "core_properties": core_properties,
+        "previous_action": action,
+        "question": (
+            "Enter custom property names (comma-separated) or 'none' to skip:"
+        ),
+        "input_type": "text",
+        "placeholder": "myProp1, myProp2",
+        "next_step": next_cmd,
+        "hint": (
+            "Custom properties will be added to all notes. "
+            "Leave empty or enter 'none' to skip."
+        ),
+    }
+    print(json.dumps(prompt, indent=2))
+
+
+def output_per_type_properties_prompt(
+    vault_path: str,
+    methodology: str,
+    note_types: str,
+    core_properties: str,
+    custom_properties: str,
+    current_type: str,
+    remaining_types: list[str],
+    action: str | None = None,
+    per_type_properties: dict[str, str] | None = None,
+) -> None:
+    """Output prompt for per-note-type additional properties.
+
+    Args:
+        vault_path: Path to the vault
+        methodology: Selected methodology
+        note_types: Comma-separated list of selected note types
+        core_properties: Comma-separated list of core properties
+        custom_properties: Comma-separated list of custom properties
+        current_type: The note type to configure
+        remaining_types: List of remaining types to configure
+        action: Previous action
+        per_type_properties: Already configured per-type properties
+    """
+    # Get the type's predefined additional_required properties
+    type_data = get_note_types_for_methodology(methodology)
+    type_config = type_data.get(current_type, {})
+    props = type_config.get("properties", {})
+    additional_required = props.get("additional_required", [])
+    optional = props.get("optional", [])
+
+    # Build options
+    options = []
+    for prop in additional_required:
+        options.append({
+            "id": prop,
+            "label": prop.capitalize(),
+            "description": "Required for this type",
+            "selected": True,
+            "disabled": True,  # Required can't be deselected
+        })
+    for prop in optional:
+        options.append({
+            "id": prop,
+            "label": prop.capitalize(),
+            "description": "Optional",
+            "selected": False,
+        })
+
+    # Build per_type_props string for next command
+    per_type_str = ""
+    if per_type_properties:
+        per_type_str = ";".join(f"{k}:{v}" for k, v in per_type_properties.items())
+
+    # Build the next_step command
+    cmd_parts = [f"python3 ${{CLAUDE_PLUGIN_ROOT}}/commands/init.py {vault_path}"]
+    if action:
+        cmd_parts.append(f"--action={action}")
+    cmd_parts.append(f"-m {methodology}")
+    cmd_parts.append(f"--note-types={note_types}")
+    cmd_parts.append(f"--core-properties={core_properties}")
+    if custom_properties and custom_properties.lower() != "none":
+        cmd_parts.append(f"--custom-properties={custom_properties}")
+    cmd_parts.append(f"--per-type-props={current_type}:<selected>")
+    if per_type_str:
+        cmd_parts[-1] = f"--per-type-props={per_type_str};{current_type}:<selected>"
+    next_cmd = " ".join(cmd_parts)
+
+    prompt = {
+        "prompt_type": "per_type_properties",
+        "message": f"Configure properties for '{current_type}' notes",
+        "vault_path": vault_path,
+        "methodology": methodology,
+        "note_types": note_types,
+        "core_properties": core_properties,
+        "custom_properties": custom_properties,
+        "current_type": current_type,
+        "remaining_types": remaining_types,
+        "previous_action": action,
+        "question": f"Select additional properties for {current_type} notes:",
+        "multi_select": True,
+        "options": options,
+        "allow_custom_input": True,
+        "custom_input_hint": "Or add custom properties (comma-separated):",
+        "next_step": next_cmd,
+        "hint": (
+            f"These properties will only apply to '{current_type}' notes. "
+            "You can also add custom properties specific to this type."
+        ),
+    }
+    print(json.dumps(prompt, indent=2))
+
+
 def output_abort() -> None:
     """Output abort confirmation."""
     result = {
@@ -436,6 +577,8 @@ def execute_init(
     reset: bool = False,
     note_types: list[str] | None = None,
     core_properties: list[str] | None = None,
+    custom_properties: list[str] | None = None,
+    per_type_properties: dict[str, list[str]] | None = None,
 ) -> int:
     """Execute the actual vault initialization.
 
@@ -445,6 +588,8 @@ def execute_init(
         reset: Whether to reset the vault
         note_types: List of note types to include (None = all)
         core_properties: List of core properties to include (None = all)
+        custom_properties: List of custom properties to add globally
+        per_type_properties: Dict of type -> list of additional properties
     """
     script = get_script_path()
 
@@ -455,6 +600,14 @@ def execute_init(
         cmd.extend(["--note-types", ",".join(note_types)])
     if core_properties:
         cmd.extend(["--core-properties", ",".join(core_properties)])
+    if custom_properties:
+        cmd.extend(["--custom-properties", ",".join(custom_properties)])
+    if per_type_properties:
+        # Format: type1:prop1,prop2;type2:prop3,prop4
+        per_type_str = ";".join(
+            f"{k}:{','.join(v)}" for k, v in per_type_properties.items()
+        )
+        cmd.extend(["--per-type-props", per_type_str])
 
     # Set environment variable to indicate we're calling from wrapper
     import os
@@ -505,6 +658,16 @@ def main() -> int:
     )
 
     parser.add_argument(
+        "--custom-properties",
+        help="Comma-separated list of custom properties to add (global)",
+    )
+
+    parser.add_argument(
+        "--per-type-props",
+        help="Per-type properties in format: type1:prop1,prop2;type2:prop3,prop4",
+    )
+
+    parser.add_argument(
         "--defaults",
         action="store_true",
         help="Use all defaults (skip note type and property selection)",
@@ -546,6 +709,25 @@ def main() -> int:
             core_properties = None  # None means all properties
         else:
             core_properties = [p.strip() for p in args.core_properties.split(",") if p.strip()]
+
+    # Parse custom properties if provided
+    custom_properties: list[str] | None = None
+    if args.custom_properties:
+        if args.custom_properties.lower() not in ("none", "skip", ""):
+            custom_properties = [
+                p.strip() for p in args.custom_properties.split(",") if p.strip()
+            ]
+
+    # Parse per-type properties if provided (format: type1:prop1,prop2;type2:prop3)
+    per_type_properties: dict[str, list[str]] = {}
+    if args.per_type_props:
+        for type_spec in args.per_type_props.split(";"):
+            if ":" in type_spec:
+                type_name, props = type_spec.split(":", 1)
+                type_name = type_name.strip()
+                prop_list = [p.strip() for p in props.split(",") if p.strip()]
+                if type_name and prop_list:
+                    per_type_properties[type_name] = prop_list
 
     # Pass-through: --list
     if args.list:
@@ -622,15 +804,60 @@ def main() -> int:
                         args.action,
                     )
                     return 0
-                # core_properties_is_all or explicit list - continue to execution
+                # core_properties_is_all or explicit list - continue to custom props
 
-            # Execute with methodology, note types, and core properties
+            # Core properties specified - check for custom properties
+            if not args.defaults and args.custom_properties is None:
+                output_custom_properties_prompt(
+                    str(vault_path),
+                    args.methodology,
+                    args.note_types or "all",
+                    args.core_properties or "all",
+                    args.action,
+                )
+                return 0
+
+            # Custom properties handled - check for per-type properties
+            # Get the selected note types to check if we need per-type config
+            selected_types = note_types or list(
+                get_note_types_for_methodology(args.methodology).keys()
+            )
+            types_needing_config = []
+            for type_name in selected_types:
+                if type_name not in per_type_properties:
+                    type_data = get_note_types_for_methodology(args.methodology)
+                    type_config = type_data.get(type_name, {})
+                    props = type_config.get("properties", {})
+                    # Check if type has additional_required or optional properties
+                    if (props.get("additional_required") or props.get("optional")):
+                        types_needing_config.append(type_name)
+
+            # If there are types that need per-type configuration
+            if not args.defaults and types_needing_config:
+                current_type = types_needing_config[0]
+                remaining = types_needing_config[1:]
+                output_per_type_properties_prompt(
+                    str(vault_path),
+                    args.methodology,
+                    args.note_types or "all",
+                    args.core_properties or "all",
+                    args.custom_properties or "none",
+                    current_type,
+                    remaining,
+                    args.action,
+                    {k: ",".join(v) for k, v in per_type_properties.items()},
+                )
+                return 0
+
+            # Execute with all parameters
             return execute_init(
                 vault_path,
                 args.methodology,
                 reset=(args.action == "reset"),
                 note_types=note_types,
                 core_properties=core_properties,
+                custom_properties=custom_properties,
+                per_type_properties=per_type_properties,
             )
 
     # STEP 3: New/empty vault - prompt for methodology
@@ -668,14 +895,54 @@ def main() -> int:
                 args.note_types or "all",
             )
             return 0
-        # core_properties_is_all or explicit list - continue to execution
+        # core_properties_is_all or explicit list - continue to custom props
 
-    # STEP 6: Execute initialization
+    # STEP 6: Core properties specified - check for custom properties
+    if not args.defaults and args.custom_properties is None:
+        output_custom_properties_prompt(
+            str(vault_path),
+            args.methodology,
+            args.note_types or "all",
+            args.core_properties or "all",
+        )
+        return 0
+
+    # STEP 7: Custom properties handled - check for per-type properties
+    selected_types = note_types or list(
+        get_note_types_for_methodology(args.methodology).keys()
+    )
+    types_needing_config = []
+    for type_name in selected_types:
+        if type_name not in per_type_properties:
+            type_data = get_note_types_for_methodology(args.methodology)
+            type_config = type_data.get(type_name, {})
+            props = type_config.get("properties", {})
+            if (props.get("additional_required") or props.get("optional")):
+                types_needing_config.append(type_name)
+
+    if not args.defaults and types_needing_config:
+        current_type = types_needing_config[0]
+        remaining = types_needing_config[1:]
+        output_per_type_properties_prompt(
+            str(vault_path),
+            args.methodology,
+            args.note_types or "all",
+            args.core_properties or "all",
+            args.custom_properties or "none",
+            current_type,
+            remaining,
+            per_type_properties={k: ",".join(v) for k, v in per_type_properties.items()},
+        )
+        return 0
+
+    # STEP 8: Execute initialization
     return execute_init(
         vault_path,
         args.methodology,
         note_types=note_types,
         core_properties=core_properties,
+        custom_properties=custom_properties,
+        per_type_properties=per_type_properties,
     )
 
 

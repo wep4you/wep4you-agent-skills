@@ -1,6 +1,6 @@
 ---
 name: init
-version: "0.32.0"
+version: "0.33.0"
 license: MIT
 description: "Initialize a new Obsidian vault with a chosen PKM methodology (LYT-ACE, PARA, Zettelkasten, or Minimal). Creates folder structure, configuration files, and frontmatter standards. Use when the user wants to (1) create a new Obsidian vault, (2) set up a vault with a specific methodology, (3) initialize vault configuration, or (4) scaffold a new PKM system. Triggers on keywords like init vault, create vault, new obsidian vault, setup vault, scaffold vault."
 ---
@@ -83,7 +83,23 @@ python3 "${CLAUDE_PLUGIN_ROOT}/commands/init.py" <vault_path> --action=continue 
 python3 "${CLAUDE_PLUGIN_ROOT}/commands/init.py" <vault_path> --action=continue -m para --note-types=all --core-properties=type,created,up,tags
 ```
 
-#### Step 6: Execution
+#### Step 6: `prompt_type: "custom_properties_input"`
+→ Allow user to enter custom global properties (free text)
+→ These properties apply to ALL note types
+→ If user provides input, join with comma in `--custom-properties`
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/commands/init.py" <vault_path> --action=continue -m para --note-types=all --core-properties=all --custom-properties=myProp1,myProp2
+```
+
+#### Step 7: `prompt_type: "per_type_properties"` (for each note type)
+→ For each note type, prompt for additional properties specific to that type
+→ Shows available optional properties from methodology definition
+→ Format: `--per-type-props=type1:prop1,prop2;type2:prop3`
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/commands/init.py" <vault_path> --action=continue -m para --note-types=all --core-properties=all --custom-properties=priority --per-type-props=project:deadline,budget;area:importance
+```
+
+#### Step 8: Execution
 The wrapper automatically executes when all parameters are provided.
 
 ### Complete Example (with Custom selection)
@@ -152,6 +168,8 @@ Show what was created and suggest:
 | `-m, --methodology` | Methodology: lyt-ace, para, zettelkasten, minimal |
 | `--note-types` | Comma-separated list of note types to include |
 | `--core-properties` | Comma-separated list of core properties to include |
+| `--custom-properties` | Comma-separated list of custom global properties |
+| `--per-type-props` | Per-type properties: `type1:prop1,prop2;type2:prop3` |
 | `--defaults` | Skip note type and property selection (use all) |
 | `--check` | Output vault status as JSON (no changes) |
 | `--list` | List methodologies and exit |
