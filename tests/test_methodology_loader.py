@@ -270,9 +270,7 @@ class TestInvalidYaml:
             yaml_path = Path(tmpdir) / "invalid.yaml"
             yaml_path.write_text("name: Test\n")  # Missing other required fields
 
-            with patch(
-                "config.methodologies.loader.METHODOLOGIES_DIR", Path(tmpdir)
-            ):
+            with patch("config.methodologies.loader.METHODOLOGIES_DIR", Path(tmpdir)):
                 clear_cache()
                 with pytest.raises(MethodologyParseError) as exc_info:
                     load_methodology("invalid")
@@ -284,9 +282,7 @@ class TestInvalidYaml:
             yaml_path = Path(tmpdir) / "empty.yaml"
             yaml_path.write_text("")
 
-            with patch(
-                "config.methodologies.loader.METHODOLOGIES_DIR", Path(tmpdir)
-            ):
+            with patch("config.methodologies.loader.METHODOLOGIES_DIR", Path(tmpdir)):
                 clear_cache()
                 with pytest.raises(MethodologyParseError) as exc_info:
                     load_methodology("empty")
@@ -298,9 +294,7 @@ class TestInvalidYaml:
             yaml_path = Path(tmpdir) / "broken.yaml"
             yaml_path.write_text("name: [unclosed bracket")
 
-            with patch(
-                "config.methodologies.loader.METHODOLOGIES_DIR", Path(tmpdir)
-            ):
+            with patch("config.methodologies.loader.METHODOLOGIES_DIR", Path(tmpdir)):
                 clear_cache()
                 with pytest.raises(MethodologyParseError) as exc_info:
                     load_methodology("broken")
@@ -329,9 +323,7 @@ class TestNoteTypeValidation:
             with yaml_path.open("w") as f:
                 yaml.dump(invalid_data, f)
 
-            with patch(
-                "config.methodologies.loader.METHODOLOGIES_DIR", Path(tmpdir)
-            ):
+            with patch("config.methodologies.loader.METHODOLOGIES_DIR", Path(tmpdir)):
                 clear_cache()
                 with pytest.raises(MethodologyParseError) as exc_info:
                     load_methodology("incomplete")
@@ -351,9 +343,7 @@ class TestNoteTypeValidation:
             with yaml_path.open("w") as f:
                 yaml.dump(invalid_data, f)
 
-            with patch(
-                "config.methodologies.loader.METHODOLOGIES_DIR", Path(tmpdir)
-            ):
+            with patch("config.methodologies.loader.METHODOLOGIES_DIR", Path(tmpdir)):
                 clear_cache()
                 with pytest.raises(MethodologyParseError) as exc_info:
                     load_methodology("badfolders")
@@ -374,9 +364,7 @@ class TestNoteTypeValidation:
             with yaml_path.open("w") as f:
                 yaml.dump(invalid_data, f)
 
-            with patch(
-                "config.methodologies.loader.METHODOLOGIES_DIR", Path(tmpdir)
-            ):
+            with patch("config.methodologies.loader.METHODOLOGIES_DIR", Path(tmpdir)):
                 clear_cache()
                 with pytest.raises(MethodologyParseError) as exc_info:
                     load_methodology("badprops")
@@ -405,9 +393,7 @@ class TestNoteTypeValidation:
             with yaml_path.open("w") as f:
                 yaml.dump(invalid_data, f)
 
-            with patch(
-                "config.methodologies.loader.METHODOLOGIES_DIR", Path(tmpdir)
-            ):
+            with patch("config.methodologies.loader.METHODOLOGIES_DIR", Path(tmpdir)):
                 clear_cache()
                 with pytest.raises(MethodologyParseError) as exc_info:
                     load_methodology("noadditional")
@@ -435,9 +421,7 @@ class TestNoteTypeValidation:
             with yaml_path.open("w") as f:
                 yaml.dump(invalid_data, f)
 
-            with patch(
-                "config.methodologies.loader.METHODOLOGIES_DIR", Path(tmpdir)
-            ):
+            with patch("config.methodologies.loader.METHODOLOGIES_DIR", Path(tmpdir)):
                 clear_cache()
                 with pytest.raises(MethodologyParseError) as exc_info:
                     load_methodology("nooptional")
@@ -487,9 +471,7 @@ class TestLoadAllMethodologiesErrors:
             invalid_path = Path(tmpdir) / "invalid.yaml"
             invalid_path.write_text("name: [broken")
 
-            with patch(
-                "config.methodologies.loader.METHODOLOGIES_DIR", Path(tmpdir)
-            ):
+            with patch("config.methodologies.loader.METHODOLOGIES_DIR", Path(tmpdir)):
                 clear_cache()
                 result = load_all_methodologies()
                 # Should have loaded the valid one

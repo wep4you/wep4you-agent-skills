@@ -97,8 +97,7 @@ def load_methodology(name: str, use_cache: bool = True) -> dict[str, Any]:
     if not yaml_path.exists():
         available = get_methodology_names()
         raise MethodologyNotFoundError(
-            f"Methodology '{name}' not found. "
-            f"Available: {', '.join(available)}"
+            f"Methodology '{name}' not found. Available: {', '.join(available)}"
         )
 
     try:
@@ -143,21 +142,15 @@ def _validate_and_transform(raw: dict[str, Any], name: str) -> dict[str, Any]:
 
     missing = [f for f in required_fields if f not in raw]
     if missing:
-        raise MethodologyParseError(
-            f"Methodology '{name}' missing required fields: {missing}"
-        )
+        raise MethodologyParseError(f"Methodology '{name}' missing required fields: {missing}")
 
     # Validate folders is a list
     if not isinstance(raw["folders"], list):
-        raise MethodologyParseError(
-            f"Methodology '{name}': 'folders' must be a list"
-        )
+        raise MethodologyParseError(f"Methodology '{name}': 'folders' must be a list")
 
     # Validate core_properties is a list
     if not isinstance(raw["core_properties"], list):
-        raise MethodologyParseError(
-            f"Methodology '{name}': 'core_properties' must be a list"
-        )
+        raise MethodologyParseError(f"Methodology '{name}': 'core_properties' must be a list")
 
     # Validate and transform note_types
     note_types = {}
@@ -206,8 +199,7 @@ def _validate_note_type(
     props = config.get("properties", {})
     if "additional_required" not in props:
         raise MethodologyParseError(
-            f"Note type '{nt_name}' in '{methodology_name}' missing "
-            "properties.additional_required"
+            f"Note type '{nt_name}' in '{methodology_name}' missing properties.additional_required"
         )
     if "optional" not in props:
         raise MethodologyParseError(
