@@ -19,7 +19,15 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "skills" / "init" / "scrip
 sys.path.insert(0, str(Path(__file__).parent.parent / "skills" / "validate" / "scripts"))
 sys.path.insert(0, str(Path(__file__).parent.parent / "skills" / "config" / "scripts"))
 
-from init_vault import METHODOLOGIES, init_vault, generate_template_note, create_template_notes
+from init_vault import (
+    METHODOLOGIES,
+    init_vault,
+    generate_template_note,
+    create_template_notes,
+    get_content_folders,
+    generate_all_bases_content,
+    create_all_bases_file,
+)
 from settings_loader import load_settings
 from validator import VaultValidator
 
@@ -372,3 +380,78 @@ class TestTemplateGeneration:
         assert "priority:" in content
         assert "# deadline:" in content
         assert "{{title}}" in content
+
+
+class TestAllBasesFileGeneration:
+    """Test that init generates all_bases.base for Obsidian Bases plugin."""
+
+    @pytest.mark.parametrize("methodology", list(METHODOLOGIES.keys()))
+    def test_all_bases_file_created(self, tmp_path: Path, methodology: str) -> None:
+        """Test that all_bases.base file is created."""
+        init_vault(tmp_path, methodology, dry_run=False, use_defaults=True)
+
+        base_file = tmp_path / "x" / "bases" / "all_bases.base"
+        assert base_file.exists(), f"all_bases.base not created for {methodology}"
+
+    @pytest.mark.parametrize("methodology", list(METHODOLOGIES.keys()))
+    def test_all_bases_has_global_filters(self, tmp_path: Path, methodology: str) -> None:
+        """Test that all_bases.base has correct global filters."""
+        init_vault(tmp_path, methodology, dry_run=False, use_defaults=True)
+
+        base_file = tmp_path / "x" / "bases" / "all_bases.base"
+        content = base_file.read_text()
+
+        # Check global filters
+        assert 'file.inFolder("+")' in content, "Missing + folder exclusion"
+        assert 'file.inFolder("x")' in content, "Missing x folder exclusion"
+        assert 'file.folder != "/"' in content, "Missing root files exclusion"
+
+    @pytest.mark.parametrize("methodology", list(METHODOLOGIES.keys()))
+    def test_all_bases_has_all_view_grouped(self, tmp_path: Path, methodology: str) -> None:
+        """Test that all_bases.base has All view grouped by folder."""
+        init_vault(tmp_path, methodology, dry_run=False, use_defaults=True)
+
+        base_file = tmp_path / "x" / "bases" / "all_bases.base"
+        content = base_file.read_text()
+
+        # Check All view exists with groupBy
+        assert "name: All" in content, "Missing All view"
+        assert "groupBy:" in content, "All view should have groupBy"
+        assert "file.folder" in content, "All view should group by file.folder"
+
+    def test_para_has_four_folder_views(self, tmp_path: Path) -> None:
+        """Test PARA methodology creates views for Projects, Areas, Resources, Archives."""
+        init_vault(tmp_path, "para", dry_run=False, use_defaults=True)
+
+        base_file = tmp_path / "x" / "bases" / "all_bases.base"
+        content = base_file.read_text()
+
+        # Check folder-specific views
+        expected_folders = ["Projects", "Areas", "Resources", "Archives"]
+        for folder in expected_folders:
+            assert f'name: {folder}' in content, f"Missing {folder} view"
+            assert f'file.inFolder("{folder}")' in content, f"Missing {folder} filter"
+
+    def test_lyt_ace_has_top_level_views(self, tmp_path: Path) -> None:
+        """Test LYT-ACE creates views for Atlas, Calendar, Efforts (top-level)."""
+        init_vault(tmp_path, "lyt-ace", dry_run=False, use_defaults=True)
+
+        base_file = tmp_path / "x" / "bases" / "all_bases.base"
+        content = base_file.read_text()
+
+        # Check top-level folder views
+        expected_folders = ["Atlas", "Calendar", "Efforts"]
+        for folder in expected_folders:
+            assert f'name: {folder}' in content, f"Missing {folder} view"
+            assert f'file.inFolder("{folder}")' in content, f"Missing {folder} filter"
+
+    def test_folder_views_have_no_groupby(self, tmp_path: Path) -> None:
+        """Test folder-specific views don't have groupBy (flat listing)."""
+        init_vault(tmp_path, "para", dry_run=False, use_defaults=True)
+
+        base_file = tmp_path / "x" / "bases" / "all_bases.base"
+        content = base_file.read_text()
+
+        # Parse views - All should have groupBy, others shouldn't
+        # Count occurrences - should be exactly 1 (for All view)
+        assert content.count("groupBy:") == 1, "Only All view should have groupBy"

@@ -1,6 +1,6 @@
 ---
 name: init
-version: "0.16.0"
+version: "0.17.0"
 license: MIT
 description: "Initialize a new Obsidian vault with a chosen PKM methodology (LYT-ACE, PARA, Zettelkasten, or Minimal). Creates folder structure, configuration files, and frontmatter standards. Use when the user wants to (1) create a new Obsidian vault, (2) set up a vault with a specific methodology, (3) initialize vault configuration, or (4) scaffold a new PKM system. Triggers on keywords like init vault, create vault, new obsidian vault, setup vault, scaffold vault."
 ---
@@ -132,8 +132,10 @@ uv run init_vault.py --list
 1. **Folder Structure** - Based on chosen methodology
 2. **Configuration** - `.claude/settings.yaml` with validation rules
 3. **Sample Notes** - Getting started notes for each note type
-4. **Home.md** - Vault home page with navigation
-5. **README.md** - Vault documentation
+4. **Template Notes** - Templates for each note type in `x/templates/`
+5. **all_bases.base** - Obsidian Bases views in `x/bases/` for folder navigation
+6. **Home.md** - Vault home page with navigation
+7. **README.md** - Vault documentation
 
 ## Exit Codes
 

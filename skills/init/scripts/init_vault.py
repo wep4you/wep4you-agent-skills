@@ -1243,7 +1243,7 @@ def generate_template_note(
     description = type_config.get("description", f"{note_type.title()} note")
     type_title = note_type.replace("_", " ").title()
 
-    lines.append(f"# {{{{title}}}}")
+    lines.append("# {{title}}")
     lines.append("")
     lines.append(f"> Template for **{type_title}** notes: {description}")
     lines.append("")
@@ -1304,6 +1304,116 @@ def create_template_notes(
             created_files.append(template_file)
 
     return created_files
+
+
+def get_content_folders(methodology: str) -> list[str]:
+    """Get top-level content folders for a methodology (excluding + and x).
+
+    Args:
+        methodology: Methodology key
+
+    Returns:
+        List of top-level folder names for views
+    """
+    method_config = METHODOLOGIES[methodology]
+    folders = method_config["folders"]
+
+    # Extract unique top-level folders, excluding + and x
+    content_folders = set()
+    for folder in folders:
+        # Skip inbox and system folders
+        if folder.startswith("+") or folder.startswith("x"):
+            continue
+        # Get top-level folder name
+        top_level = folder.split("/")[0]
+        content_folders.add(top_level)
+
+    # Return sorted list for consistent ordering
+    return sorted(content_folders)
+
+
+def generate_all_bases_content(methodology: str) -> str:
+    """Generate the all_bases.base file content for a methodology.
+
+    Args:
+        methodology: Methodology key
+
+    Returns:
+        YAML content for the .base file
+    """
+    content_folders = get_content_folders(methodology)
+
+    # Build the YAML structure manually for proper formatting
+    lines = [
+        "filters:",
+        "  and:",
+        '    - \'!file.inFolder("+")\'',
+        '    - \'!file.inFolder("x")\'',
+        '    - file.folder != "/"',
+        "views:",
+        "  - type: table",
+        "    name: All",
+        "    groupBy:",
+        "      property: file.folder",
+        "      direction: ASC",
+        "    order:",
+        "      - file.name",
+        "      - type",
+        "      - up",
+    ]
+
+    # Add a view for each content folder
+    for folder in content_folders:
+        lines.extend([
+            "  - type: table",
+            f"    name: {folder}",
+            "    filters:",
+            "      and:",
+            f'        - file.inFolder("{folder}")',
+            "    order:",
+            "      - file.name",
+            "      - type",
+            "      - up",
+        ])
+
+    return "\n".join(lines) + "\n"
+
+
+def create_all_bases_file(
+    vault_path: Path,
+    methodology: str,
+    dry_run: bool = False,
+) -> Path | None:
+    """Create the all_bases.base file for the vault.
+
+    Args:
+        vault_path: Path to the vault root
+        methodology: Methodology key
+        dry_run: If True, only print what would be created
+
+    Returns:
+        Path to created file, or None if dry run
+    """
+    # Create in x/bases/ folder
+    bases_folder = vault_path / "x" / "bases"
+    base_file = bases_folder / "all_bases.base"
+
+    content = generate_all_bases_content(methodology)
+
+    print("\nCreating all_bases.base (Obsidian Bases views)...")
+
+    if dry_run:
+        print(f"  [DRY RUN] Would create: {base_file}")
+        print("  [DRY RUN] Content preview:")
+        for line in content.split("\n")[:10]:
+            print(f"    {line}")
+        print("    ...")
+        return None
+    else:
+        bases_folder.mkdir(parents=True, exist_ok=True)
+        base_file.write_text(content)
+        print(f"  ✓ Created: {base_file}")
+        return base_file
 
 
 def show_migration_hint(has_existing_content: bool) -> None:
@@ -1735,6 +1845,9 @@ def init_vault(
 
     # Create template notes for each note type
     create_template_notes(vault_path, methodology, note_types, core_properties, dry_run)
+
+    # Create all_bases.base for Obsidian Bases plugin
+    create_all_bases_file(vault_path, methodology, dry_run)
 
     # Show migration hint if there was existing content
     if has_existing:
