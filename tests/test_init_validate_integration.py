@@ -674,12 +674,32 @@ class TestNoteTypeFiltering:
         areas_notes = list((tmp_path / "Areas").glob("Getting Started*.md"))
         assert len(areas_notes) == 1
 
-        # Resources and Archives should NOT have getting started notes
-        resources_notes = list((tmp_path / "Resources").glob("Getting Started*.md"))
-        assert len(resources_notes) == 0
+        # Resources and Archives folders should NOT exist at all
+        assert not (tmp_path / "Resources").exists(), "Resources folder should not exist"
+        assert not (tmp_path / "Archives").exists(), "Archives folder should not exist"
 
-        archives_notes = list((tmp_path / "Archives").glob("Getting Started*.md"))
-        assert len(archives_notes) == 0
+    def test_filter_note_types_folders(self, tmp_path: Path) -> None:
+        """Test that filtered note types don't get folders created."""
+        # Init with only project and area
+        init_vault(
+            tmp_path,
+            "para",
+            dry_run=False,
+            use_defaults=True,
+            note_types_filter=["project", "area"],
+        )
+
+        # Selected folders should exist
+        assert (tmp_path / "Projects").exists(), "Projects folder should exist"
+        assert (tmp_path / "Areas").exists(), "Areas folder should exist"
+
+        # Deselected folders should NOT exist
+        assert not (tmp_path / "Resources").exists(), "Resources folder should not exist"
+        assert not (tmp_path / "Archives").exists(), "Archives folder should not exist"
+
+        # System folders should always exist
+        assert (tmp_path / "+").exists(), "Inbox folder should exist"
+        assert (tmp_path / "x" / "templates").exists(), "Templates folder should exist"
 
     def test_empty_filter_uses_all_types(self, tmp_path: Path) -> None:
         """Test that None filter uses all note types."""

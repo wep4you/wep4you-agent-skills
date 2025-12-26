@@ -1581,6 +1581,7 @@ def create_folder_readmes(
     vault_path: Path,
     methodology: str,
     dry_run: bool = False,
+    note_types_filter: list[str] | None = None,
 ) -> list[Path]:
     """Create _Readme.md files in each content folder.
 
@@ -1588,17 +1589,38 @@ def create_folder_readmes(
         vault_path: Path to the vault root
         methodology: Methodology key
         dry_run: If True, only print what would be created
+        note_types_filter: List of note type names to include (None = all)
 
     Returns:
         List of created file paths
     """
+    # Get folders that should exist based on note type filter
+    selected_folders = set(get_folders_for_note_types(methodology, note_types_filter))
     content_folders = get_all_content_folders(methodology)
     created_files: list[Path] = []
 
     print("\nCreating folder _Readme.md files (MAPs)...")
 
     for folder in content_folders:
-        readme_path = vault_path / folder / "_Readme.md"
+        # Skip folders that weren't created due to filtering
+        folder_created = folder in selected_folders
+        # For subfolders, check if parent is in selected folders
+        if "/" in folder and not folder_created:
+            parent = folder.split("/")[0]
+            # Check if any subfolder of this parent is in selected_folders
+            folder_created = any(
+                sf.startswith(parent + "/") or sf == parent for sf in selected_folders
+            )
+
+        if not folder_created and note_types_filter is not None:
+            continue
+
+        folder_path = vault_path / folder
+        # Also skip if folder doesn't actually exist (double check)
+        if not dry_run and not folder_path.exists():
+            continue
+
+        readme_path = folder_path / "_Readme.md"
         content = generate_folder_readme_content(folder, methodology)
 
         if dry_run:
@@ -1652,20 +1674,79 @@ def choose_methodology_interactive() -> str:  # pragma: no cover
         print(f"Invalid choice: {choice}. Please try again.")
 
 
-def create_folder_structure(vault_path: Path, methodology: str, dry_run: bool = False) -> None:
-    """Create folder structure based on methodology.
+def get_folders_for_note_types(
+    methodology: str,
+    note_types_filter: list[str] | None = None,
+) -> list[str]:
+    """Get list of folders to create based on selected note types.
+
+    Args:
+        methodology: Methodology key (e.g., 'lyt-ace', 'para')
+        note_types_filter: List of note type names to include (None = all)
+
+    Returns:
+        List of folder paths to create
+    """
+    method_config = METHODOLOGIES[methodology]
+    all_folders = method_config["folders"]
+    note_types = method_config.get("note_types", {})
+
+    # System folders always included (inbox, templates, bases)
+    system_folders = ["+", "x/templates", "x/bases"]
+
+    if note_types_filter is None:
+        # No filter - return all folders
+        return all_folders
+
+    # Build set of folders for selected note types
+    selected_folders: set[str] = set()
+
+    for type_name in note_types_filter:
+        if type_name in note_types:
+            hints = note_types[type_name].get("folder_hints", [])
+            for hint in hints:
+                # folder_hint is like "Projects/" - strip trailing slash
+                folder = hint.rstrip("/")
+                selected_folders.add(folder)
+
+    # Add system folders and filter main folders list
+    result = []
+    for folder in all_folders:
+        # Always include system folders
+        if folder in system_folders or folder.startswith("x/"):
+            result.append(folder)
+        # Include if it matches a selected note type's folder
+        elif folder in selected_folders:
+            result.append(folder)
+        # For LYT-ACE nested folders like "Atlas/Maps", check parent too
+        elif "/" in folder:
+            parent = folder.split("/")[0]
+            if folder in selected_folders or parent in selected_folders:
+                result.append(folder)
+
+    return result
+
+
+def create_folder_structure(
+    vault_path: Path,
+    methodology: str,
+    dry_run: bool = False,
+    note_types_filter: list[str] | None = None,
+) -> None:
+    """Create folder structure based on methodology and selected note types.
 
     Args:
         vault_path: Path to the vault root
         methodology: Methodology key (e.g., 'lyt-ace', 'para')
         dry_run: If True, only print what would be created without creating
+        note_types_filter: List of note type names to include (None = all)
     """
     if methodology not in METHODOLOGIES:
         available = ", ".join(METHODOLOGIES.keys())
         raise ValueError(f"Unknown methodology: {methodology}. Available: {available}")
 
     method_config = METHODOLOGIES[methodology]
-    folders = method_config["folders"]
+    folders = get_folders_for_note_types(methodology, note_types_filter)
 
     print(f"\nCreating {method_config['name']} folder structure...")
 
@@ -2034,8 +2115,8 @@ def init_vault(
     if dry_run:
         print("\n*** DRY RUN MODE - No files will be created ***\n")
 
-    # Create folder structure
-    create_folder_structure(vault_path, methodology, dry_run)
+    # Create folder structure (filtered by selected note types)
+    create_folder_structure(vault_path, methodology, dry_run, note_types_filter)
 
     # Create settings.yaml (PRIMARY configuration) with user customizations
     create_settings_yaml(vault_path, methodology, dry_run, config, note_types_filter)
@@ -2057,7 +2138,7 @@ def init_vault(
     create_all_bases_file(vault_path, methodology, dry_run)
 
     # Create _Readme.md (MOC) in each content folder
-    create_folder_readmes(vault_path, methodology, dry_run)
+    create_folder_readmes(vault_path, methodology, dry_run, note_types_filter)
 
     # Show migration hint if there was existing content
     if has_existing:
