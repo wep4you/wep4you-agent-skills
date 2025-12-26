@@ -47,11 +47,15 @@ class NoteTypesManager:
         self.note_types: dict[str, dict[str, Any]] = {}
         self._load_settings()
 
-        # Determine methodology prefix for system folders
-        methodology = self.settings.get("methodology", "para").lower()
-        self.system_prefix = "x" if methodology in ("lyt-ace", "lyt") else "_system"
-        self.bases_folder = self.vault_path / self.system_prefix / "bases"
-        self.templates_folder = self.vault_path / self.system_prefix / "templates"
+        # Read folder paths from folder_structure (single source of truth)
+        folder_structure = self.settings.get("folder_structure", {})
+        templates_path = folder_structure.get("templates", "x/templates/").rstrip("/")
+        bases_path = folder_structure.get("bases", "x/bases/").rstrip("/")
+
+        # Extract system prefix from templates path (e.g., "x" from "x/templates")
+        self.system_prefix = templates_path.split("/")[0] if "/" in templates_path else "x"
+        self.templates_folder = self.vault_path / templates_path
+        self.bases_folder = self.vault_path / bases_path
         self.all_bases_file = self.bases_folder / "all_bases.base"
 
     def _load_settings(self) -> None:
