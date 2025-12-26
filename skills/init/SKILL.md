@@ -1,6 +1,6 @@
 ---
 name: init
-version: "0.25.0"
+version: "0.26.0"
 license: MIT
 description: "Initialize a new Obsidian vault with a chosen PKM methodology (LYT-ACE, PARA, Zettelkasten, or Minimal). Creates folder structure, configuration files, and frontmatter standards. Use when the user wants to (1) create a new Obsidian vault, (2) set up a vault with a specific methodology, (3) initialize vault configuration, or (4) scaffold a new PKM system. Triggers on keywords like init vault, create vault, new obsidian vault, setup vault, scaffold vault."
 ---
@@ -20,123 +20,91 @@ Initialize a new Obsidian vault with a chosen Personal Knowledge Management (PKM
 
 ## Integration with Claude Code
 
-**This skill uses a wrapper script that enforces correct workflow order.**
+### CRITICAL RULES
 
-### Workflow: Use the Wrapper Script
+1. **ALWAYS use the wrapper**: `python3 "${CLAUDE_PLUGIN_ROOT}/commands/init.py"`
+2. **NEVER call init_vault.py directly** - the wrapper handles execution internally
+3. **Parse JSON output** and use AskUserQuestion for each `prompt_type`
+4. **Keep ALL previous flags** when calling the wrapper again
 
-Run the wrapper script which outputs structured JSON prompts:
+### Workflow
 
+The wrapper outputs JSON with `prompt_type`. Handle each type sequentially:
+
+#### Step 1: Start
 ```bash
 python3 "${CLAUDE_PLUGIN_ROOT}/commands/init.py" <vault_path>
 ```
 
-### Parse JSON Output
-
-The wrapper outputs JSON with a `prompt_type` field. Handle each type:
-
-**`prompt_type: "action_required"`** (Existing vault detected)
-
-Use AskUserQuestion with these options:
-- **Abort** (Default) - Cancel initialization
-- **Continue** - Add methodology structure to existing content
-- **Reset** - Delete all content and start fresh (DESTRUCTIVE)
-- **Migrate** - Migration feature (coming soon)
-
-Then call wrapper with chosen action:
+#### Step 2: `prompt_type: "action_required"` (existing vault)
+→ Use AskUserQuestion with options from JSON
+→ Call wrapper again WITH `--action=<chosen>`:
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/commands/init.py" <vault_path> --action=<chosen>
+python3 "${CLAUDE_PLUGIN_ROOT}/commands/init.py" <vault_path> --action=continue
 ```
 
-**`prompt_type: "methodology_required"`** (Ready for methodology)
-
-Use AskUserQuestion with methodology options:
-- lyt-ace (LYT + ACE Framework)
-- para (PARA Method)
-- zettelkasten (Traditional Zettelkasten)
-- minimal (Simple starter)
-
-Then call wrapper with chosen methodology (preserving the previous action if any):
+#### Step 3: `prompt_type: "methodology_required"`
+→ Use AskUserQuestion with methodology options
+→ Call wrapper again WITH `-m <methodology>` AND keep `--action`:
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/commands/init.py" <vault_path> --action=<previous_action> -m <methodology>
+python3 "${CLAUDE_PLUGIN_ROOT}/commands/init.py" <vault_path> --action=continue -m para
 ```
 
-**IMPORTANT:** If the previous step was `--action=reset`, you MUST include it again!
-
-**`prompt_type: "note_types_required"`** (Select note types)
-
-Use AskUserQuestion with multi-select for note types. The JSON includes:
-- `multi_select: true` - Allow multiple selections
-- `options` - List of note types with `id`, `label`, `description`, `selected`
-
-Then call wrapper with selected note types:
+#### Step 4: `prompt_type: "note_types_required"`
+→ Use AskUserQuestion with multi-select (all types selected by default)
+→ Join selected IDs with comma
+→ Call wrapper again WITH `--note-types=<types>` AND keep ALL previous flags:
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/commands/init.py" <vault_path> --action=<action> -m <methodology> --note-types=<type1,type2,...>
+python3 "${CLAUDE_PLUGIN_ROOT}/commands/init.py" <vault_path> --action=continue -m para --note-types=project,area
 ```
 
-To skip note type selection and use all defaults, add `--defaults`:
-```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/commands/init.py" <vault_path> -m <methodology> --defaults
-```
+#### Step 5: Execution
+The wrapper automatically executes when all parameters are provided.
 
-### Example Flow
+### Complete Example
 
 ```
 1. User: /obsidian:init
 
-2. Run wrapper:
-   python3 "${CLAUDE_PLUGIN_ROOT}/commands/init.py" /path/to/vault
+2. Run: python3 .../commands/init.py /vault
+   → JSON: {"prompt_type": "action_required", ...}
+   → AskUserQuestion → User: "continue"
 
-3. If JSON shows "action_required":
-   → AskUserQuestion: "What to do with existing vault?"
-   → User selects "reset"
-   → Run: python3 ... --action=reset
-   → This returns "methodology_required"
+3. Run: python3 .../commands/init.py /vault --action=continue
+   → JSON: {"prompt_type": "methodology_required", ...}
+   → AskUserQuestion → User: "para"
 
-4. If JSON shows "methodology_required":
-   → AskUserQuestion: "Which methodology?"
-   → User selects "para"
-   → Run: python3 ... --action=reset -m para
-   → This returns "note_types_required"
+4. Run: python3 .../commands/init.py /vault --action=continue -m para
+   → JSON: {"prompt_type": "note_types_required", "options": [...], ...}
+   → AskUserQuestion (multi-select) → User: "project,area,resource"
 
-5. If JSON shows "note_types_required":
-   → AskUserQuestion: "Which note types?" (multi-select)
-   → User selects "project, area"
-   → Run: python3 ... --action=reset -m para --note-types=project,area
-   → (IMPORTANT: Keep --action AND -m from previous steps!)
-
-6. Show results and next steps
-```
-
-**Quick initialization** (skip note type selection):
-```
-python3 "${CLAUDE_PLUGIN_ROOT}/commands/init.py" /path/to/vault -m para --defaults
+5. Run: python3 .../commands/init.py /vault --action=continue -m para --note-types=project,area,resource
+   → Initialization runs! Show results.
 ```
 
 ### After Initialization
 
-Show what was created and suggest next steps:
+Show what was created and suggest:
 1. Open the vault in Obsidian
-2. Explore the sample notes in each folder
-3. Run `/obsidian:validate` to check frontmatter
-4. Run `/obsidian:config-show` to view settings
+2. Run `/obsidian:validate` to check frontmatter
+3. Run `/obsidian:config-show` to view settings
 
 ---
 
 ## CLI Reference
 
-### Wrapper (commands/init.py)
+### Wrapper (commands/init.py) - USE THIS!
 
 | Option | Description |
 |--------|-------------|
 | `<path>` | Path to vault (positional, required) |
-| `-m, --methodology` | Methodology: lyt-ace, para, zettelkasten, minimal |
 | `--action` | Action for existing vault: abort, continue, reset, migrate |
+| `-m, --methodology` | Methodology: lyt-ace, para, zettelkasten, minimal |
 | `--note-types` | Comma-separated list of note types to include |
-| `--defaults` | Skip note type selection (use all defaults) |
 | `--check` | Output vault status as JSON (no changes) |
 | `--list` | List methodologies and exit |
 
-### Direct Script (init_vault.py)
+### Direct Script (init_vault.py) - FOR TESTING ONLY
 
 | Option | Description |
 |--------|-------------|
@@ -144,37 +112,9 @@ Show what was created and suggest next steps:
 | `-m, --methodology` | Methodology: lyt-ace, para, zettelkasten, minimal |
 | `--note-types` | Comma-separated list of note types to include |
 | `--defaults` | Use default settings without prompts |
-| `--check` | Output vault status as JSON (no changes) |
 | `--reset` | Delete existing content before init |
 | `--dry-run` | Preview without creating files |
-| `--list` | List methodologies and exit |
 | `--list-note-types` | List note types for a methodology as JSON |
-| `--wizard` | Full interactive wizard (terminal only) |
-
-## Examples
-
-```bash
-# Check vault status (JSON output)
-uv run init_vault.py /path/to/vault --check
-
-# Initialize with PARA methodology (all note types)
-uv run init_vault.py /path/to/vault -m para --defaults
-
-# Initialize with specific note types only
-uv run init_vault.py /path/to/vault -m para --note-types=project,area --defaults
-
-# Reset and reinitialize
-uv run init_vault.py /path/to/vault -m lyt-ace --defaults --reset
-
-# Preview what would be created
-uv run init_vault.py /path/to/vault -m zettelkasten --dry-run
-
-# List available methodologies
-uv run init_vault.py --list
-
-# List note types for a methodology
-uv run init_vault.py --list-note-types para
-```
 
 ## What Gets Created
 
