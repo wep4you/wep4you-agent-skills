@@ -568,7 +568,10 @@ class TestMainFunction:
 
     def test_main_add_with_config(self, temp_vault):
         """Test main with --add --config (wizard alternative)"""
-        config_json = '{"description": "Meeting notes", "folder": "Meetings/", "required_props": ["date"], "icon": "calendar"}'
+        config_json = (
+            '{"description": "Meeting notes", "folder": "Meetings/", '
+            '"required_props": ["date"], "icon": "calendar"}'
+        )
 
         with patch(
             "sys.argv",
@@ -672,7 +675,10 @@ class TestMainFunction:
 
     def test_main_edit_with_config(self, temp_vault):
         """Test main with --edit --config"""
-        config_json = '{"description": "Edited via config", "required_props": ["priority"], "icon": "star"}'
+        config_json = (
+            '{"description": "Edited via config", '
+            '"required_props": ["priority"], "icon": "star"}'
+        )
 
         with patch(
             "sys.argv",
@@ -1186,3 +1192,215 @@ class TestEdgeCases:
         with patch("pathlib.Path.cwd", return_value=temp_vault):
             manager = NoteTypesManager()
             assert manager.vault_path == temp_vault
+
+
+class TestEditWithFolderRename:
+    """Test edit functionality with folder rename and frontmatter updates"""
+
+    def test_edit_renames_folder(self, temp_vault):
+        """Test that editing folder renames the folder on disk"""
+        manager = NoteTypesManager(str(temp_vault))
+
+        # First add a type with a folder
+        manager.add_type("meeting", interactive=False)
+        old_folder = temp_vault / "Meeting"
+        assert old_folder.exists()
+
+        # Edit to change folder
+        manager.edit_type(
+            "meeting",
+            interactive=False,
+            config={"folder": "Meetings/"},
+        )
+
+        new_folder = temp_vault / "Meetings"
+        assert new_folder.exists()
+        assert not old_folder.exists()
+
+    def test_edit_creates_folder_if_old_missing(self, temp_vault):
+        """Test that editing creates new folder if old doesn't exist"""
+        manager = NoteTypesManager(str(temp_vault))
+
+        # Edit project to new folder (project folder doesn't exist)
+        manager.edit_type(
+            "project",
+            interactive=False,
+            config={"folder": "NewProjects/"},
+        )
+
+        new_folder = temp_vault / "NewProjects"
+        assert new_folder.exists()
+
+    def test_edit_skips_rename_if_target_exists(self, temp_vault, capsys):
+        """Test that rename is skipped if target folder exists"""
+        manager = NoteTypesManager(str(temp_vault))
+
+        # Create both folders
+        (temp_vault / "OldFolder").mkdir()
+        (temp_vault / "NewFolder").mkdir()
+
+        # Set up note type with old folder
+        manager.note_types["custom"] = {
+            "description": "Test",
+            "folder_hints": ["OldFolder/"],
+            "properties": {"additional_required": [], "optional": []},
+            "validation": {},
+            "icon": "file",
+        }
+        manager._save_settings()
+
+        # Edit to change folder
+        manager.edit_type(
+            "custom",
+            interactive=False,
+            config={"folder": "NewFolder/"},
+        )
+
+        captured = capsys.readouterr()
+        assert "already exists" in captured.out
+        assert (temp_vault / "OldFolder").exists()
+
+    def test_edit_updates_template(self, temp_vault):
+        """Test that editing updates template with new properties"""
+        manager = NoteTypesManager(str(temp_vault))
+
+        # Add a type with template
+        manager.add_type("meeting", interactive=False)
+        template_path = temp_vault / "x" / "templates" / "meeting.md"
+        assert template_path.exists()
+
+        # Edit to add new properties
+        manager.edit_type(
+            "meeting",
+            interactive=False,
+            config={"required_props": ["attendees", "newprop"]},
+        )
+
+        content = template_path.read_text()
+        assert "newprop:" in content
+
+    def test_edit_updates_notes_frontmatter(self, temp_vault):
+        """Test that editing updates existing notes' frontmatter"""
+        manager = NoteTypesManager(str(temp_vault))
+
+        # Add a type
+        manager.add_type("meeting", interactive=False)
+        folder_path = temp_vault / "Meeting"
+
+        # Create a note without the new property
+        note_path = folder_path / "Test Note.md"
+        note_path.write_text(
+            '---\ntype: meeting\nup: "[[]]"\ncreated: 2024-01-01\n---\n\n# Test\n'
+        )
+
+        # Edit to add new property
+        manager.edit_type(
+            "meeting",
+            interactive=False,
+            config={"required_props": ["newprop"]},
+        )
+
+        content = note_path.read_text()
+        assert "newprop:" in content
+
+    def test_edit_preserves_existing_values(self, temp_vault):
+        """Test that editing preserves existing frontmatter values"""
+        manager = NoteTypesManager(str(temp_vault))
+
+        # Add a type
+        manager.add_type("meeting", interactive=False)
+        folder_path = temp_vault / "Meeting"
+
+        # Create a note with existing values
+        note_path = folder_path / "Test Note.md"
+        note_path.write_text(
+            '---\ntype: meeting\nup: "[[Parent]]"\ncreated: 2024-01-01\n---\n\n# Test\n'
+        )
+
+        # Edit to add new property
+        manager.edit_type(
+            "meeting",
+            interactive=False,
+            config={"required_props": ["newprop"]},
+        )
+
+        content = note_path.read_text()
+        assert 'up: "[[Parent]]"' in content
+        assert "created: 2024-01-01" in content
+
+    def test_edit_skips_readme(self, temp_vault):
+        """Test that editing skips _Readme.md when updating frontmatter"""
+        manager = NoteTypesManager(str(temp_vault))
+
+        # Add a type
+        manager.add_type("meeting", interactive=False)
+        folder_path = temp_vault / "Meeting"
+        readme_path = folder_path / "_Readme.md"
+
+        # Edit to add new property
+        manager.edit_type(
+            "meeting",
+            interactive=False,
+            config={"required_props": ["newprop"]},
+        )
+
+        # Readme should not have newprop added (it's type: map)
+        content = readme_path.read_text()
+        assert "newprop:" not in content
+
+    def test_edit_updates_bases_file_on_folder_rename(self, temp_vault):
+        """Test that all_bases.base is updated when folder is renamed"""
+        # Create bases file structure first
+        bases_dir = temp_vault / "x" / "bases"
+        bases_dir.mkdir(parents=True, exist_ok=True)
+        bases_file = bases_dir / "all_bases.base"
+        bases_file.write_text(
+            "---\nid: all_bases\nviews:\n  - type: table\n"
+            "    name: Meeting\n    filters:\n      and:\n"
+            '        - file.inFolder("Meeting")\n---\n'
+        )
+
+        manager = NoteTypesManager(str(temp_vault))
+
+        # Add a type (bases file already exists)
+        manager.add_type("meeting", interactive=False)
+
+        # Verify old folder in bases
+        content = bases_file.read_text()
+        assert "Meeting" in content
+
+        # Edit to rename folder
+        manager.edit_type(
+            "meeting",
+            interactive=False,
+            config={"folder": "Meetings/"},
+        )
+
+        # Verify new folder in bases
+        content = bases_file.read_text()
+        assert "Meetings" in content
+
+    def test_edit_updates_readme_reference_on_folder_rename(self, temp_vault):
+        """Test that _Readme.md embed reference is updated on folder rename"""
+        manager = NoteTypesManager(str(temp_vault))
+
+        # Add a type
+        manager.add_type("meeting", interactive=False)
+        old_folder = temp_vault / "Meeting"
+        readme_path = old_folder / "_Readme.md"
+
+        # Verify old reference
+        content = readme_path.read_text()
+        assert "#Meeting" in content
+
+        # Edit to rename folder
+        manager.edit_type(
+            "meeting",
+            interactive=False,
+            config={"folder": "Meetings/"},
+        )
+
+        # Verify new reference
+        new_readme_path = temp_vault / "Meetings" / "_Readme.md"
+        content = new_readme_path.read_text()
+        assert "#Meetings" in content

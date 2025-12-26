@@ -108,7 +108,8 @@ class NoteTypesManager:
         """
         core_props = self.settings.get("core_properties", {})
         if isinstance(core_props, dict):
-            return core_props.get("all", ["type", "up", "created"])
+            result = core_props.get("all", ["type", "up", "created"])
+            return list(result) if result else ["type", "up", "created"]
         elif isinstance(core_props, list):
             return core_props
         return ["type", "up", "created"]
@@ -1285,8 +1286,12 @@ CONFIG JSON FIELDS
     # Individual edit parameters (alternative to --config)
     parser.add_argument("--description", help="Note type description")
     parser.add_argument("--folder", help="Folder path (e.g., Meetings/)")
-    parser.add_argument("--required-props", metavar="PROPS", help="Comma-separated required properties")
-    parser.add_argument("--optional-props", metavar="PROPS", help="Comma-separated optional properties")
+    parser.add_argument(
+        "--required-props", metavar="PROPS", help="Comma-separated required properties"
+    )
+    parser.add_argument(
+        "--optional-props", metavar="PROPS", help="Comma-separated optional properties"
+    )
     parser.add_argument("--icon", help="Lucide icon name (e.g., calendar, file, target)")
 
     args = parser.parse_args()

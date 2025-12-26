@@ -14,8 +14,10 @@ A Claude Code skills marketplace following the open [Agent Skills](https://agent
 
 | Skill | Description | Version |
 |-------|-------------|---------|
-| [config](skills/config/) | Configuration loader and settings management | 0.3.0 |
-| [validate](skills/validate/) | Validate and auto-fix frontmatter against standards (ACE/LYT/PARA) | 1.2.0 |
+| [init](skills/init/) | Initialize Obsidian vault with methodology (PARA, LYT-ACE, Zettelkasten, Minimal) | 0.31.0 |
+| [config](skills/config/) | Configuration loader and settings management | 0.4.0 |
+| [note-types](skills/note-types/) | Manage note type definitions (folders, properties, templates) | 0.53.0 |
+| [validate](skills/validate/) | Validate and auto-fix frontmatter against standards | 1.2.0 |
 
 ### Slash Commands
 
@@ -23,9 +25,15 @@ After installing the plugin, these commands are available:
 
 | Command | Description |
 |---------|-------------|
+| `/obsidian:init` | Initialize vault with interactive wizard |
 | `/obsidian:config-show` | Show vault settings from `.claude/settings.yaml` |
 | `/obsidian:config-validate` | Validate settings.yaml structure |
 | `/obsidian:config-create` | Create default settings.yaml if missing |
+| `/obsidian:config-methodologies` | List available methodologies |
+| `/obsidian:note-types --list` | List all note types |
+| `/obsidian:note-types --add <name> --config '{...}'` | Add note type with JSON config |
+| `/obsidian:note-types --edit <name> --config '{...}'` | Edit note type (renames folders, updates frontmatter) |
+| `/obsidian:note-types --remove <name> --yes` | Remove a note type |
 | `/obsidian:validate` | Validate vault frontmatter against standards |
 
 > **Note**: Slash commands use the format `/<plugin-name>:<command-name>`
