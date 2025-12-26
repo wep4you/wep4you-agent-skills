@@ -1,13 +1,40 @@
 ---
 name: note-types
-version: "0.47.0"
+version: "0.48.0"
 license: MIT
 description: "Manage Obsidian note type definitions including folders, properties, and templates. Use when the user wants to (1) define new note types, (2) manage note type configurations, (3) set up folder and property mappings, (4) create note type templates, or (5) view existing note types. Triggers on keywords like note types, note type config, manage note types, define note type, note type wizard."
 ---
 
 # Obsidian Note Types Manager
 
-Manage note type definitions for your Obsidian vault. Define folders, required properties, and templates for different types of notes.
+## ⚠️ MANDATORY: Read Before Executing Any Command
+
+**NEVER use `--non-interactive` when user provides config details!**
+
+When user provides `--config '{...}'` in their command, you MUST pass that JSON directly to the script. DO NOT:
+- ❌ Use `--non-interactive` instead of `--config`
+- ❌ Create with defaults then edit settings.yaml
+- ❌ Rename folders after creation
+- ❌ Manually add properties to files
+
+**The `--config` parameter creates ALL artifacts correctly in ONE command.**
+
+Example - if user types:
+```
+/obsidian:note-types --add meeting --config '{"folder": "Meetings/", "required_props": ["date"]}'
+```
+
+You MUST execute EXACTLY:
+```bash
+uv run note_types.py --add meeting --config '{"folder": "Meetings/", "required_props": ["date"]}'
+```
+
+NOT:
+```bash
+uv run note_types.py --add meeting --non-interactive  # WRONG!
+```
+
+---
 
 ## Slash Commands
 
@@ -15,24 +42,9 @@ Manage note type definitions for your Obsidian vault. Define folders, required p
 |---------|-------------|
 | `obsidian:note-types --list` | List all note types |
 | `obsidian:note-types --show <name>` | Show details for a note type |
-| `obsidian:note-types --add <name> --config '{...}'` | Add with full JSON config (PREFERRED) |
-| `obsidian:note-types --add <name> --non-interactive` | Add with minimal defaults only |
+| `obsidian:note-types --add <name> --config '{...}'` | Add with full JSON config |
 | `obsidian:note-types --edit <name> --non-interactive [options]` | Edit a note type |
 | `obsidian:note-types --remove <name> --yes` | Remove a note type |
-
-## CRITICAL: Claude Code Usage
-
-**When user provides ANY configuration details (description, folder, properties, icon), ALWAYS use `--config` with the FULL JSON:**
-
-```bash
-# CORRECT - pass all config in one command:
-uv run note_types.py --add meeting --config '{"description": "Meeting notes", "folder": "Meetings/", "required_props": ["date"], "icon": "calendar"}'
-
-# WRONG - do NOT use --non-interactive and then edit settings.yaml:
-uv run note_types.py --add meeting --non-interactive  # Creates wrong defaults!
-```
-
-**Use `--non-interactive` ONLY when user wants minimal defaults with no customization.**
 
 ## Quick Start
 
