@@ -586,6 +586,252 @@ class TestVaultStructure:
         assert "Sample Blog" in content
 
 
+class TestCorePropertiesIntegration:
+    """Test that core properties are correctly applied to all generated files"""
+
+    def test_get_core_properties_dict_format(self, temp_vault):
+        """Test _get_core_properties with dict format"""
+        manager = NoteTypesManager(str(temp_vault))
+        core_props = manager._get_core_properties()
+        assert core_props == ["type", "up", "created", "tags"]
+
+    def test_get_core_properties_list_format(self, empty_dir):
+        """Test _get_core_properties with list format"""
+        settings_dir = empty_dir / ".claude"
+        settings_dir.mkdir(parents=True)
+        settings = {
+            "version": "1.0",
+            "methodology": "custom",
+            "core_properties": ["type", "up", "created"],  # List format
+            "note_types": {},
+        }
+        with open(settings_dir / "settings.yaml", "w") as f:
+            yaml.safe_dump(settings, f)
+
+        manager = NoteTypesManager(str(empty_dir))
+        core_props = manager._get_core_properties()
+        assert core_props == ["type", "up", "created"]
+
+    def test_get_core_properties_fallback(self, empty_dir):
+        """Test _get_core_properties with no core_properties defined"""
+        settings_dir = empty_dir / ".claude"
+        settings_dir.mkdir(parents=True)
+        settings = {
+            "version": "1.0",
+            "methodology": "custom",
+            "note_types": {},
+        }
+        with open(settings_dir / "settings.yaml", "w") as f:
+            yaml.safe_dump(settings, f)
+
+        manager = NoteTypesManager(str(empty_dir))
+        core_props = manager._get_core_properties()
+        assert core_props == ["type", "up", "created"]  # Default fallback
+
+    def test_build_frontmatter_includes_core_properties(self, temp_vault):
+        """Test _build_frontmatter includes all core properties"""
+        manager = NoteTypesManager(str(temp_vault))
+        config = {
+            "properties": {
+                "additional_required": ["status"],
+                "optional": ["deadline"],
+            }
+        }
+        frontmatter = manager._build_frontmatter("project", config, use_placeholders=False)
+
+        # All core properties should be present
+        assert "type: project" in frontmatter
+        assert "up:" in frontmatter
+        assert "created:" in frontmatter
+        assert "tags:" in frontmatter
+        # Additional required should be present
+        assert "status:" in frontmatter
+
+    def test_build_frontmatter_with_placeholders(self, temp_vault):
+        """Test _build_frontmatter with template placeholders"""
+        manager = NoteTypesManager(str(temp_vault))
+        config = {"properties": {"additional_required": [], "optional": []}}
+        frontmatter = manager._build_frontmatter("blog", config, use_placeholders=True)
+
+        assert "type: blog" in frontmatter
+        assert "{{date}}" in frontmatter
+        assert 'up: ""' in frontmatter
+        assert "tags: []" in frontmatter
+
+    def test_template_has_all_core_properties(self, temp_vault):
+        """Test that created template includes all core properties"""
+        bases_folder = temp_vault / "_system" / "bases"
+        bases_folder.mkdir(parents=True)
+        (bases_folder / "all_bases.base").write_text("# All\n")
+
+        manager = NoteTypesManager(str(temp_vault))
+        manager.add_type("blog", interactive=False)
+
+        template = temp_vault / "_system" / "templates" / "blog.md"
+        content = template.read_text()
+
+        # All core properties should be in template
+        assert "type: blog" in content
+        assert "up:" in content
+        assert "created:" in content or "{{date}}" in content
+        assert "tags:" in content
+
+    def test_sample_note_has_all_core_properties(self, temp_vault):
+        """Test that created sample note includes all core properties"""
+        bases_folder = temp_vault / "_system" / "bases"
+        bases_folder.mkdir(parents=True)
+        (bases_folder / "all_bases.base").write_text("# All\n")
+
+        manager = NoteTypesManager(str(temp_vault))
+        manager.add_type("blog", interactive=False)
+
+        sample = temp_vault / "Blog" / "Sample Blog.md"
+        content = sample.read_text()
+
+        # All core properties should be in sample
+        assert "type: blog" in content
+        assert "up:" in content
+        assert "created:" in content
+        assert "tags:" in content
+
+    def test_readme_has_all_core_properties(self, temp_vault):
+        """Test that created _Readme.md includes all core properties"""
+        bases_folder = temp_vault / "_system" / "bases"
+        bases_folder.mkdir(parents=True)
+        (bases_folder / "all_bases.base").write_text("# All\n")
+
+        manager = NoteTypesManager(str(temp_vault))
+        manager.add_type("blog", interactive=False)
+
+        readme = temp_vault / "Blog" / "_Readme.md"
+        content = readme.read_text()
+
+        # All core properties should be in readme
+        assert "type:" in content
+        assert "up:" in content
+        assert "created:" in content
+        assert "tags:" in content
+
+
+class TestCompleteAddRemoveCycle:
+    """Test full add/remove cycle verifies all artifacts are created and removed"""
+
+    def test_add_creates_all_artifacts(self, temp_vault):
+        """Test that add creates folder, readme, template, sample, and base view"""
+        bases_folder = temp_vault / "_system" / "bases"
+        bases_folder.mkdir(parents=True)
+        (bases_folder / "all_bases.base").write_text("# All Notes\n")
+
+        manager = NoteTypesManager(str(temp_vault))
+        manager.add_type("meeting", interactive=False)
+
+        # Check all artifacts exist
+        assert (temp_vault / "Meeting").exists(), "Folder not created"
+        assert (temp_vault / "Meeting" / "_Readme.md").exists(), "Readme not created"
+        assert (temp_vault / "Meeting" / "Sample Meeting.md").exists(), "Sample not created"
+        template = temp_vault / "_system" / "templates" / "meeting.md"
+        assert template.exists(), "Template not created"
+
+        # Check base view
+        bases_content = (bases_folder / "all_bases.base").read_text()
+        assert "# Meeting" in bases_content, "Base view header not created"
+        assert 'FROM "Meeting"' in bases_content, "Base view query not created"
+
+    def test_remove_removes_all_artifacts(self, temp_vault):
+        """Test that remove removes all created artifacts"""
+        bases_folder = temp_vault / "_system" / "bases"
+        bases_folder.mkdir(parents=True)
+        (bases_folder / "all_bases.base").write_text("# All Notes\n")
+
+        manager = NoteTypesManager(str(temp_vault))
+        manager.add_type("meeting", interactive=False)
+
+        # Verify artifacts exist before remove
+        assert (temp_vault / "Meeting" / "_Readme.md").exists()
+        assert (temp_vault / "Meeting" / "Sample Meeting.md").exists()
+        assert (temp_vault / "_system" / "templates" / "meeting.md").exists()
+
+        # Remove the type
+        manager.remove_type("meeting", skip_confirm=True)
+
+        # Check all artifacts are removed
+        template = temp_vault / "_system" / "templates" / "meeting.md"
+        assert not template.exists(), "Template not removed"
+        assert not (temp_vault / "Meeting" / "_Readme.md").exists(), "Readme not removed"
+        assert not (temp_vault / "Meeting" / "Sample Meeting.md").exists(), "Sample not removed"
+
+        # Folder should be removed if empty
+        assert not (temp_vault / "Meeting").exists(), "Empty folder not removed"
+
+        # Base view should be removed
+        bases_content = (bases_folder / "all_bases.base").read_text()
+        assert "# Meeting" not in bases_content, "Base view not removed"
+
+    def test_remove_keeps_folder_with_other_files(self, temp_vault):
+        """Test that remove keeps folder if it contains other files"""
+        bases_folder = temp_vault / "_system" / "bases"
+        bases_folder.mkdir(parents=True)
+        (bases_folder / "all_bases.base").write_text("# All Notes\n")
+
+        manager = NoteTypesManager(str(temp_vault))
+        manager.add_type("meeting", interactive=False)
+
+        # Add an extra file to the folder
+        (temp_vault / "Meeting" / "My Meeting.md").write_text("# My Meeting\n")
+
+        manager.remove_type("meeting", skip_confirm=True)
+
+        # Folder should still exist with the user's file
+        assert (temp_vault / "Meeting").exists(), "Folder with user files was removed"
+        assert (temp_vault / "Meeting" / "My Meeting.md").exists(), "User file was removed"
+        # But readme and sample should be gone
+        assert not (temp_vault / "Meeting" / "_Readme.md").exists()
+        assert not (temp_vault / "Meeting" / "Sample Meeting.md").exists()
+
+    def test_add_creates_bases_file_if_missing(self, temp_vault):
+        """Test that add creates all_bases.base if it doesn't exist"""
+        manager = NoteTypesManager(str(temp_vault))
+        manager.add_type("blog", interactive=False)
+
+        bases_file = temp_vault / "_system" / "bases" / "all_bases.base"
+        assert bases_file.exists(), "Bases file not created"
+        content = bases_file.read_text()
+        assert "# Blog" in content
+
+    def test_remove_from_bases_handles_code_blocks(self, temp_vault):
+        """Test that remove correctly handles code blocks in bases file"""
+        bases_folder = temp_vault / "_system" / "bases"
+        bases_folder.mkdir(parents=True)
+        bases_content = """# All Notes
+
+# Project
+
+```dataview
+TABLE WITHOUT ID file.link AS "Note"
+FROM "Projects"
+WHERE file.name != "_Readme"
+SORT file.name ASC
+```
+
+# Area
+
+```dataview
+TABLE WITHOUT ID file.link AS "Note"
+FROM "Areas"
+SORT file.name ASC
+```
+"""
+        (bases_folder / "all_bases.base").write_text(bases_content)
+
+        manager = NoteTypesManager(str(temp_vault))
+        manager._remove_from_bases_file("project")
+
+        content = (bases_folder / "all_bases.base").read_text()
+        assert "# Project" not in content
+        assert "# Area" in content
+        assert 'FROM "Areas"' in content
+
+
 class TestEdgeCases:
     """Test edge cases and error handling"""
 
