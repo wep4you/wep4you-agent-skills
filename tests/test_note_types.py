@@ -477,6 +477,85 @@ class TestMainFunction:
                 main()
 
 
+class TestVaultStructure:
+    """Test vault structure creation"""
+
+    def test_add_creates_folder(self, temp_vault):
+        """Test that add creates the folder"""
+        # Create bases folder and file
+        bases_folder = temp_vault / "_system" / "bases"
+        bases_folder.mkdir(parents=True)
+        (bases_folder / "all_bases.base").write_text("# All\n\nExisting content\n")
+
+        manager = NoteTypesManager(str(temp_vault))
+        manager.add_type("blog", interactive=False)
+
+        folder = temp_vault / "Blog"
+        assert folder.exists()
+
+    def test_add_creates_readme(self, temp_vault):
+        """Test that add creates _Readme.md in folder"""
+        bases_folder = temp_vault / "_system" / "bases"
+        bases_folder.mkdir(parents=True)
+        (bases_folder / "all_bases.base").write_text("# All\n")
+
+        manager = NoteTypesManager(str(temp_vault))
+        manager.add_type("blog", interactive=False)
+
+        readme = temp_vault / "Blog" / "_Readme.md"
+        assert readme.exists()
+        content = readme.read_text()
+        assert "type: map" in content
+        assert "Blog" in content
+
+    def test_add_updates_bases_file(self, temp_vault):
+        """Test that add updates all_bases.base"""
+        bases_folder = temp_vault / "_system" / "bases"
+        bases_folder.mkdir(parents=True)
+        (bases_folder / "all_bases.base").write_text("# All\n\nExisting\n")
+
+        manager = NoteTypesManager(str(temp_vault))
+        manager.add_type("blog", interactive=False)
+
+        content = (bases_folder / "all_bases.base").read_text()
+        assert "# Blog" in content
+        assert 'FROM "Blog"' in content
+
+    def test_remove_updates_bases_file(self, temp_vault):
+        """Test that remove updates all_bases.base"""
+        bases_folder = temp_vault / "_system" / "bases"
+        bases_folder.mkdir(parents=True)
+        (bases_folder / "all_bases.base").write_text(
+            "# All\n\n# Project\n\n```dataview\nFROM Projects\n```\n"
+        )
+
+        manager = NoteTypesManager(str(temp_vault))
+        manager.remove_type("project", skip_confirm=True)
+
+        content = (bases_folder / "all_bases.base").read_text()
+        assert "# Project" not in content
+
+    def test_lyt_methodology_uses_x_prefix(self, empty_dir):
+        """Test that LYT methodology uses x/ prefix"""
+        settings_dir = empty_dir / ".claude"
+        settings_dir.mkdir(parents=True)
+        settings = {
+            "version": "1.0",
+            "methodology": "lyt-ace",
+            "note_types": {"map": {"folder_hints": ["Atlas/Maps/"]}},
+        }
+        with open(settings_dir / "settings.yaml", "w") as f:
+            yaml.safe_dump(settings, f)
+
+        manager = NoteTypesManager(str(empty_dir))
+        assert manager.system_prefix == "x"
+
+    def test_para_methodology_uses_system_prefix(self, temp_vault):
+        """Test that PARA methodology uses _system/ prefix"""
+        manager = NoteTypesManager(str(temp_vault))
+        assert manager.system_prefix == "_system"
+
+
 class TestEdgeCases:
     """Test edge cases and error handling"""
 

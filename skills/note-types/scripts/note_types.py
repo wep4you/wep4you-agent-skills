@@ -46,6 +46,12 @@ class NoteTypesManager:
         self.note_types: dict[str, dict[str, Any]] = {}
         self._load_settings()
 
+        # Determine methodology prefix for system folders
+        methodology = self.settings.get("methodology", "para").lower()
+        self.system_prefix = "x" if methodology in ("lyt-ace", "lyt") else "_system"
+        self.bases_folder = self.vault_path / self.system_prefix / "bases"
+        self.all_bases_file = self.bases_folder / "all_bases.base"
+
     def _load_settings(self) -> None:
         """Load settings from .claude/settings.yaml"""
         if not self.settings_path.exists():
@@ -86,6 +92,126 @@ class NoteTypesManager:
         except OSError as e:
             print(f"❌ Error saving settings: {e}")
             sys.exit(1)
+
+    def _create_vault_structure(self, name: str, config: dict[str, Any]) -> None:
+        """Create vault folder structure for a new note type
+
+        Args:
+            name: Name of the note type
+            config: Note type configuration
+        """
+        folder_hints = config.get("folder_hints", [])
+        if not folder_hints:
+            return
+
+        folder = folder_hints[0].rstrip("/")
+        folder_path = self.vault_path / folder
+
+        # Create folder if it doesn't exist
+        if not folder_path.exists():
+            folder_path.mkdir(parents=True, exist_ok=True)
+            print(f"📁 Created folder: {folder}/")
+
+        # Create _Readme.md in the folder
+        readme_path = folder_path / "_Readme.md"
+        if not readme_path.exists():
+            description = config.get("description", f"{name.capitalize()} notes")
+            icon = config.get("icon", "file")
+            readme_content = f"""---
+type: map
+up: "[[Home]]"
+---
+
+# {icon} {name.capitalize()}
+
+{description}
+
+## Notes
+
+![[all_bases.base#{name.capitalize()}]]
+"""
+            readme_path.write_text(readme_content, encoding="utf-8")
+            print(f"📄 Created _Readme.md in {folder}/")
+
+        # Update all_bases.base with new view
+        self._update_bases_file(name, folder)
+
+    def _update_bases_file(self, name: str, folder: str) -> None:
+        """Add a new view section to all_bases.base
+
+        Args:
+            name: Name of the note type
+            folder: Folder path for the note type
+        """
+        if not self.all_bases_file.exists():
+            print(f"⚠️  Base file not found: {self.all_bases_file}")
+            return
+
+        content = self.all_bases_file.read_text(encoding="utf-8")
+
+        # Check if view already exists
+        view_header = f"# {name.capitalize()}"
+        if view_header in content:
+            print(f"ℹ️  View '{name.capitalize()}' already exists in all_bases.base")
+            return
+
+        # Create new view section
+        new_view = f"""
+
+{view_header}
+
+```dataview
+TABLE WITHOUT ID
+  file.link AS "Note",
+  type AS "Type"
+FROM "{folder}"
+WHERE file.name != "_Readme"
+SORT file.name ASC
+```
+"""
+        # Append to file
+        with open(self.all_bases_file, "a", encoding="utf-8") as f:
+            f.write(new_view)
+        print(f"📊 Added view '{name.capitalize()}' to all_bases.base")
+
+    def _remove_vault_structure(self, name: str, config: dict[str, Any]) -> None:
+        """Remove view from all_bases.base (folder is kept)
+
+        Args:
+            name: Name of the note type
+            config: Note type configuration
+        """
+        if not self.all_bases_file.exists():
+            return
+
+        content = self.all_bases_file.read_text(encoding="utf-8")
+
+        # Find and remove the view section
+        view_header = f"# {name.capitalize()}"
+        if view_header not in content:
+            return
+
+        # Simple removal: find the section and remove it
+        lines = content.split("\n")
+        new_lines = []
+        skip_until_next_header = False
+
+        for line in lines:
+            if line.strip() == view_header:
+                skip_until_next_header = True
+                continue
+            if skip_until_next_header and line.startswith("# "):
+                skip_until_next_header = False
+            if not skip_until_next_header:
+                new_lines.append(line)
+
+        # Remove trailing empty lines from removed section
+        while new_lines and new_lines[-1].strip() == "":
+            new_lines.pop()
+        new_lines.append("")  # Keep one trailing newline
+
+        self.all_bases_file.write_text("\n".join(new_lines), encoding="utf-8")
+        print(f"📊 Removed view '{name.capitalize()}' from all_bases.base")
 
     def _format_properties(self, nt_config: dict[str, Any]) -> list[str]:
         """Extract all properties from note type config
@@ -203,6 +329,7 @@ class NoteTypesManager:
 
         self.note_types[name] = config
         self._save_settings()
+        self._create_vault_structure(name, config)
         print(f"✅ Added note type '{name}'")
         self.show_type(name)
 
@@ -243,8 +370,10 @@ class NoteTypesManager:
                 print("Cancelled")
                 return
 
+        config = self.note_types[name]
         del self.note_types[name]
         self._save_settings()
+        self._remove_vault_structure(name, config)
         print(f"✅ Removed note type '{name}'")
 
     def _interactive_type_definition(
