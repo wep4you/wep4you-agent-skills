@@ -26,6 +26,7 @@ from init_vault import (
     generate_template_note,
     create_template_notes,
     get_content_folders,
+    get_all_content_folders,
     generate_all_bases_content,
     create_all_bases_file,
     generate_folder_readme_content,
@@ -474,15 +475,15 @@ class TestFolderReadmeGeneration:
             assert readme_file.exists(), f"_Readme.md not created in {folder}"
 
     @pytest.mark.parametrize("methodology", list(METHODOLOGIES.keys()))
-    def test_folder_readmes_have_moc_type(self, tmp_path: Path, methodology: str) -> None:
-        """Test that _Readme.md files have type: moc in frontmatter."""
+    def test_folder_readmes_have_map_type(self, tmp_path: Path, methodology: str) -> None:
+        """Test that _Readme.md files have type: map in frontmatter."""
         init_vault(tmp_path, methodology, dry_run=False, use_defaults=True)
 
         content_folders = get_content_folders(methodology)
         for folder in content_folders:
             readme_file = tmp_path / folder / "_Readme.md"
             content = readme_file.read_text()
-            assert 'type: moc' in content, f"_Readme.md in {folder} missing type: moc"
+            assert 'type: map' in content, f"_Readme.md in {folder} missing type: map"
 
     @pytest.mark.parametrize("methodology", list(METHODOLOGIES.keys()))
     def test_folder_readmes_embed_base_view(self, tmp_path: Path, methodology: str) -> None:
@@ -525,3 +526,32 @@ class TestFolderReadmeGeneration:
         efforts_readme = tmp_path / "Efforts" / "_Readme.md"
         content = efforts_readme.read_text()
         assert "Active work including projects" in content
+
+    def test_lyt_ace_subfolders_have_readmes(self, tmp_path: Path) -> None:
+        """Test LYT-ACE subfolders (Dots, Maps, Sources, etc.) have _Readme.md."""
+        init_vault(tmp_path, "lyt-ace", dry_run=False, use_defaults=True)
+
+        # Check subfolders have readmes
+        subfolders = ["Atlas/Dots", "Atlas/Maps", "Atlas/Sources",
+                      "Efforts/Projects", "Efforts/Areas", "Calendar/daily"]
+        for folder in subfolders:
+            readme_file = tmp_path / folder / "_Readme.md"
+            assert readme_file.exists(), f"_Readme.md not created in {folder}"
+
+    def test_subfolder_readme_embeds_top_level_view(self, tmp_path: Path) -> None:
+        """Test subfolder _Readme.md embeds top-level folder view."""
+        init_vault(tmp_path, "lyt-ace", dry_run=False, use_defaults=True)
+
+        # Atlas/Dots should embed ![[all_bases.base#Atlas]] not #Dots
+        dots_readme = tmp_path / "Atlas" / "Dots" / "_Readme.md"
+        content = dots_readme.read_text()
+        assert "![[all_bases.base#Atlas]]" in content
+        assert "![[all_bases.base#Dots]]" not in content
+
+    def test_all_bases_excludes_map_type(self, tmp_path: Path) -> None:
+        """Test all_bases.base has filter to exclude map type."""
+        init_vault(tmp_path, "para", dry_run=False, use_defaults=True)
+
+        base_file = tmp_path / "x" / "bases" / "all_bases.base"
+        content = base_file.read_text()
+        assert 'type != "map"' in content, "Missing map type exclusion filter"

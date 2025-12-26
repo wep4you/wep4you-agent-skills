@@ -1309,6 +1309,8 @@ def create_template_notes(
 def get_content_folders(methodology: str) -> list[str]:
     """Get top-level content folders for a methodology (excluding + and x).
 
+    Used for base views - returns only top-level folders.
+
     Args:
         methodology: Methodology key
 
@@ -1332,6 +1334,37 @@ def get_content_folders(methodology: str) -> list[str]:
     return sorted(content_folders)
 
 
+def get_all_content_folders(methodology: str) -> list[str]:
+    """Get all content folders including subfolders (excluding + and x).
+
+    Used for _Readme.md generation - returns all folders.
+
+    Args:
+        methodology: Methodology key
+
+    Returns:
+        List of all folder paths for readme generation
+    """
+    method_config = METHODOLOGIES[methodology]
+    folders = method_config["folders"]
+
+    # Get all folders excluding + and x, plus top-level folders
+    content_folders = set()
+    for folder in folders:
+        # Skip inbox and system folders
+        if folder.startswith("+") or folder.startswith("x"):
+            continue
+        # Add the folder itself
+        content_folders.add(folder.rstrip("/"))
+        # Also add top-level folder if it's a subfolder
+        if "/" in folder:
+            top_level = folder.split("/")[0]
+            content_folders.add(top_level)
+
+    # Return sorted list for consistent ordering
+    return sorted(content_folders)
+
+
 def generate_all_bases_content(methodology: str) -> str:
     """Generate the all_bases.base file content for a methodology.
 
@@ -1350,6 +1383,7 @@ def generate_all_bases_content(methodology: str) -> str:
         '    - \'!file.inFolder("+")\'',
         '    - \'!file.inFolder("x")\'',
         '    - file.folder != "/"',
+        '    - type != "map"',
         "views:",
         "  - type: table",
         "    name: All",
@@ -1420,8 +1454,14 @@ def create_all_bases_file(
 FOLDER_DESCRIPTIONS: dict[str, dict[str, str]] = {
     "lyt-ace": {
         "Atlas": "Knowledge repository containing Maps of Content, atomic concepts, and sources.",
+        "Atlas/Maps": "Maps of Content - Overview and navigation notes.",
+        "Atlas/Dots": "Atomic concepts and ideas - one idea per note.",
+        "Atlas/Sources": "External references, citations, and source materials.",
         "Calendar": "Time-based notes including daily journals and periodic reviews.",
+        "Calendar/daily": "Daily journal entries and reflections.",
         "Efforts": "Active work including projects and ongoing areas of responsibility.",
+        "Efforts/Projects": "Projects with defined outcomes and deadlines.",
+        "Efforts/Areas": "Ongoing areas of responsibility.",
     },
     "para": {
         "Projects": "Active projects with defined outcomes and deadlines.",
@@ -1443,33 +1483,39 @@ FOLDER_DESCRIPTIONS: dict[str, dict[str, str]] = {
 
 
 def generate_folder_readme_content(
-    folder_name: str,
+    folder_path: str,
     methodology: str,
 ) -> str:
     """Generate _Readme.md content for a folder.
 
     Args:
-        folder_name: Name of the folder (e.g., "Projects", "Atlas")
+        folder_path: Path of the folder (e.g., "Projects", "Atlas/Dots")
         methodology: Methodology key
 
     Returns:
         Markdown content for the _Readme.md
     """
     descriptions = FOLDER_DESCRIPTIONS.get(methodology, {})
-    description = descriptions.get(folder_name, f"Notes and content for {folder_name}.")
+    description = descriptions.get(folder_path, f"Notes and content for {folder_path}.")
+
+    # Get display name (last part of path)
+    display_name = folder_path.split("/")[-1] if "/" in folder_path else folder_path
+
+    # Get top-level folder for base view embed
+    top_level = folder_path.split("/")[0]
 
     content = f"""---
-type: moc
+type: map
 created: "{{{{date}}}}"
 ---
 
-# {folder_name}
+# {display_name}
 
 {description}
 
 ## Contents
 
-![[all_bases.base#{folder_name}]]
+![[all_bases.base#{top_level}]]
 """
     return content
 
@@ -1489,10 +1535,10 @@ def create_folder_readmes(
     Returns:
         List of created file paths
     """
-    content_folders = get_content_folders(methodology)
+    content_folders = get_all_content_folders(methodology)
     created_files: list[Path] = []
 
-    print("\nCreating folder _Readme.md files (MOCs)...")
+    print("\nCreating folder _Readme.md files (MAPs)...")
 
     for folder in content_folders:
         readme_path = vault_path / folder / "_Readme.md"
