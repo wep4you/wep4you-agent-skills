@@ -439,22 +439,21 @@ def output_custom_properties_prompt(
 
     prompt = {
         "prompt_type": "custom_properties_input",
-        "message": "Add custom properties",
+        "message": "Add custom global properties",
         "vault_path": vault_path,
         "methodology": methodology,
         "note_types": note_types,
         "core_properties": core_properties,
         "previous_action": action,
-        "question": (
-            "Enter custom property names (comma-separated) or 'none' to skip:"
-        ),
+        "question": "Do you want to add custom properties that apply to ALL note types?",
         "input_type": "text",
-        "placeholder": "myProp1, myProp2",
+        "placeholder": "priority, rating, source_url",
         "next_step": next_cmd,
         "hint": (
-            "Custom properties will be added to all notes. "
-            "Leave empty or enter 'none' to skip."
+            "Enter property names separated by commas (e.g., priority, rating). "
+            "These will be added to all notes. Enter 'none' or leave empty to skip."
         ),
+        "format_hint": "Comma-separated property names (e.g., myProp1, myProp2, anotherProp)",
     }
     print(json.dumps(prompt, indent=2))
 
@@ -527,6 +526,13 @@ def output_per_type_properties_prompt(
         cmd_parts[-1] = f"--per-type-props={per_type_str};{current_type}:<selected>"
     next_cmd = " ".join(cmd_parts)
 
+    # Count remaining types
+    types_remaining = len(remaining_types)
+    progress_msg = (
+        f"Type {len(note_types.split(',')) - types_remaining} of {len(note_types.split(','))}"
+        if note_types != "all" else ""
+    )
+
     prompt = {
         "prompt_type": "per_type_properties",
         "message": f"Configure properties for '{current_type}' notes",
@@ -537,17 +543,24 @@ def output_per_type_properties_prompt(
         "custom_properties": custom_properties,
         "current_type": current_type,
         "remaining_types": remaining_types,
+        "types_remaining_count": types_remaining,
+        "progress": progress_msg,
         "previous_action": action,
-        "question": f"Select additional properties for {current_type} notes:",
+        "question": f"Configure additional properties for '{current_type}' notes:",
         "multi_select": True,
         "options": options,
         "allow_custom_input": True,
-        "custom_input_hint": "Or add custom properties (comma-separated):",
+        "custom_input_hint": "Add custom properties (comma-separated, e.g., deadline, priority):",
         "next_step": next_cmd,
         "hint": (
-            f"These properties will only apply to '{current_type}' notes. "
-            "You can also add custom properties specific to this type."
+            f"Select predefined properties or add custom ones for '{current_type}' notes. "
+            "Enter 'none' to skip. "
+            f"({types_remaining} more note type(s) to configure after this.)"
+            if types_remaining > 0
+            else f"Select predefined properties or add custom ones for '{current_type}' notes. "
+            "Enter 'none' to skip. This is the last note type to configure."
         ),
+        "format_hint": "Comma-separated property names (e.g., deadline, budget, priority)",
     }
     print(json.dumps(prompt, indent=2))
 
@@ -719,14 +732,20 @@ def main() -> int:
             ]
 
     # Parse per-type properties if provided (format: type1:prop1,prop2;type2:prop3)
+    # Use "none" or empty string to mark a type as configured without properties
     per_type_properties: dict[str, list[str]] = {}
     if args.per_type_props:
         for type_spec in args.per_type_props.split(";"):
             if ":" in type_spec:
                 type_name, props = type_spec.split(":", 1)
                 type_name = type_name.strip()
-                prop_list = [p.strip() for p in props.split(",") if p.strip()]
-                if type_name and prop_list:
+                props = props.strip()
+                # Empty string or "none" means type is configured but with no extra props
+                if props.lower() in ("none", "skip", ""):
+                    prop_list = []
+                else:
+                    prop_list = [p.strip() for p in props.split(",") if p.strip()]
+                if type_name:
                     per_type_properties[type_name] = prop_list
 
     # Pass-through: --list

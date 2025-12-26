@@ -1153,10 +1153,15 @@ def generate_sample_note(
             if prop not in written_props:
                 frontmatter_lines.append(f'{prop}: ""')
 
-    # Add optional properties (commented)
+    # Add optional properties (commented) - skip if already added via per-type
     optional_props = note_type_config.get("properties", {}).get("optional", [])
+    per_type_props_for_this_type = (
+        per_type_properties.get(note_type, []) if per_type_properties else []
+    )
     for prop in optional_props:
-        frontmatter_lines.append(f"# {prop}: ")
+        # Skip if already added as per-type property
+        if prop not in per_type_props_for_this_type:
+            frontmatter_lines.append(f"# {prop}: ")
 
     frontmatter_lines.append("---")
     frontmatter = "\n".join(frontmatter_lines)
@@ -1366,10 +1371,15 @@ def generate_template_note(
             if prop not in additional_required:  # Avoid duplicates
                 lines.append(f"{prop}: ")
 
-    # Add optional properties as comments
+    # Add optional properties as comments - skip if already added via per-type
     optional = props.get("optional", [])
+    per_type_props_for_this_type = (
+        per_type_properties.get(note_type, []) if per_type_properties else []
+    )
     for prop in optional:
-        lines.append(f"# {prop}: ")
+        # Skip if already added as per-type property
+        if prop not in per_type_props_for_this_type:
+            lines.append(f"# {prop}: ")
 
     lines.append("---")
     lines.append("")
