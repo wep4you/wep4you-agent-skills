@@ -129,7 +129,7 @@ markers = [
 
 [tool.coverage.run]
 source = ["skills", "scripts"]
-omit = ["*/tests/*", "*/__pycache__/*"]
+omit = ["*/tests/*", "*/__pycache__/*", "commands/*"]
 branch = true
 
 [tool.coverage.report]
