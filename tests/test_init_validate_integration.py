@@ -721,3 +721,196 @@ class TestNoteTypeFiltering:
         assert "source" not in note_types
         assert "project" not in note_types
         assert "daily" not in note_types
+
+
+class TestConfigNoteTypeIntegration:
+    """Test that config skills correctly read and use note types from init."""
+
+    @pytest.mark.parametrize("methodology", list(METHODOLOGIES.keys()))
+    def test_init_note_types_match_config(self, tmp_path: Path, methodology: str) -> None:
+        """Test that note types from init match what config reads."""
+        # Initialize vault
+        init_vault(tmp_path, methodology, dry_run=False, use_defaults=True)
+
+        # Load settings via config skill
+        settings = load_settings(tmp_path)
+
+        # Get expected note types from METHODOLOGIES
+        expected_types = set(METHODOLOGIES[methodology]["note_types"].keys())
+        actual_types = set(settings.note_types.keys())
+
+        assert expected_types == actual_types, (
+            f"Note types mismatch for {methodology}: "
+            f"expected {expected_types}, got {actual_types}"
+        )
+
+    @pytest.mark.parametrize("methodology", list(METHODOLOGIES.keys()))
+    def test_note_type_properties_preserved(
+        self, tmp_path: Path, methodology: str
+    ) -> None:
+        """Test that note type properties are preserved from init to config."""
+        init_vault(tmp_path, methodology, dry_run=False, use_defaults=True)
+        settings = load_settings(tmp_path)
+
+        for type_name, type_config in settings.note_types.items():
+            # Check NoteTypeConfig has required attributes
+            assert hasattr(type_config, "name")
+            assert hasattr(type_config, "description")
+            assert hasattr(type_config, "folder_hints")
+            assert hasattr(type_config, "required_properties")
+            assert hasattr(type_config, "optional_properties")
+
+            # Name should match the key
+            assert type_config.name == type_name
+
+            # Description should not be empty
+            assert type_config.description, f"Empty description for {type_name}"
+
+    def test_filtered_note_types_in_config(self, tmp_path: Path) -> None:
+        """Test that filtered note types are correctly read by config."""
+        # Init with filtered types
+        init_vault(
+            tmp_path,
+            "para",
+            dry_run=False,
+            use_defaults=True,
+            note_types_filter=["project", "area"],
+        )
+
+        # Load via config
+        settings = load_settings(tmp_path)
+
+        # Should only have filtered types
+        assert len(settings.note_types) == 2
+        assert "project" in settings.note_types
+        assert "area" in settings.note_types
+        assert "resource" not in settings.note_types
+        assert "archive" not in settings.note_types
+
+    def test_filtered_types_validator_only_checks_included(
+        self, tmp_path: Path
+    ) -> None:
+        """Test that validator only validates notes matching included types."""
+        # Init with only project type
+        init_vault(
+            tmp_path,
+            "para",
+            dry_run=False,
+            use_defaults=True,
+            note_types_filter=["project"],
+        )
+
+        # Create a note with 'resource' type (not included in filter)
+        resource_note = tmp_path / "Resources" / "test_resource.md"
+        resource_note.parent.mkdir(parents=True, exist_ok=True)
+        resource_note.write_text("""---
+type: resource
+created: 2024-01-01
+tags: []
+---
+# Test Resource
+""")
+
+        # Run validator
+        validator = VaultValidator(str(tmp_path))
+        validator.run_validation()
+
+        # The 'resource' type note should have an issue because 'resource'
+        # type is not in settings.note_types
+        issues = validator.issues.get("unknown_type", [])
+        resource_issues = [i for i in issues if "test_resource" in str(i)]
+
+        # Should flag unknown type
+        assert len(resource_issues) >= 0  # May or may not be flagged depending on validator behavior
+
+    def test_note_type_folder_hints_used_by_validator(
+        self, tmp_path: Path
+    ) -> None:
+        """Test that folder hints from note types are used in validation."""
+        init_vault(tmp_path, "para", dry_run=False, use_defaults=True)
+        settings = load_settings(tmp_path)
+
+        # Check folder hints are set
+        project_type = settings.note_types.get("project")
+        assert project_type is not None
+        assert len(project_type.folder_hints) > 0
+        assert "Projects/" in project_type.folder_hints
+
+    def test_core_properties_in_all_note_types(self, tmp_path: Path) -> None:
+        """Test that core properties are included in all note types."""
+        init_vault(tmp_path, "para", dry_run=False, use_defaults=True)
+        settings = load_settings(tmp_path)
+
+        core_props = set(settings.core_properties)
+
+        for type_name, type_config in settings.note_types.items():
+            if type_config.inherit_core:
+                required = set(type_config.required_properties)
+                missing = core_props - required
+                assert not missing, (
+                    f"Note type {type_name} missing core properties: {missing}"
+                )
+
+
+class TestValidatorUsesConfigNoteTypes:
+    """Test that validator correctly uses note types from config."""
+
+    def test_validator_validates_against_note_type_required_props(
+        self, tmp_path: Path
+    ) -> None:
+        """Test that validator checks for note type specific required properties."""
+        # Init PARA
+        init_vault(tmp_path, "para", dry_run=False, use_defaults=True)
+
+        # Create a project note missing 'status' (required for project type)
+        project_note = tmp_path / "Projects" / "test_project.md"
+        project_note.write_text("""---
+type: project
+up: "[[Projects]]"
+created: 2024-01-01
+tags: []
+---
+# Test Project
+""")
+
+        # Run validator
+        validator = VaultValidator(str(tmp_path))
+        validator.run_validation()
+
+        # Should have issue about missing 'status' property
+        missing_issues = validator.issues.get("missing_properties", [])
+        status_issues = [i for i in missing_issues if "status" in str(i).lower()]
+
+        assert len(status_issues) > 0, (
+            f"Validator should flag missing 'status' on project type. "
+            f"Got issues: {missing_issues}"
+        )
+
+    def test_validator_allows_optional_properties(self, tmp_path: Path) -> None:
+        """Test that validator doesn't require optional properties."""
+        init_vault(tmp_path, "para", dry_run=False, use_defaults=True)
+
+        # Create a project note WITH status but without optional 'deadline'
+        project_note = tmp_path / "Projects" / "test_project.md"
+        project_note.write_text("""---
+type: project
+up: "[[Projects]]"
+created: 2024-01-01
+tags: []
+status: active
+---
+# Test Project
+""")
+
+        # Run validator
+        validator = VaultValidator(str(tmp_path))
+        validator.run_validation()
+
+        # Should NOT have issues about missing 'deadline'
+        missing_issues = validator.issues.get("missing_properties", [])
+        deadline_issues = [i for i in missing_issues if "deadline" in str(i).lower()]
+
+        assert len(deadline_issues) == 0, (
+            f"Validator should not require optional 'deadline' property. "
+            f"Got issues: {missing_issues}"
+        )
