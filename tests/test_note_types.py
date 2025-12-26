@@ -555,6 +555,36 @@ class TestVaultStructure:
         manager = NoteTypesManager(str(temp_vault))
         assert manager.system_prefix == "_system"
 
+    def test_add_creates_template(self, temp_vault):
+        """Test that add creates a template file"""
+        bases_folder = temp_vault / "_system" / "bases"
+        bases_folder.mkdir(parents=True)
+        (bases_folder / "all_bases.base").write_text("# All\n")
+
+        manager = NoteTypesManager(str(temp_vault))
+        manager.add_type("blog", interactive=False)
+
+        template = temp_vault / "_system" / "templates" / "blog.md"
+        assert template.exists()
+        content = template.read_text()
+        assert "type: blog" in content
+        assert "{{title}}" in content
+
+    def test_add_creates_sample_note(self, temp_vault):
+        """Test that add creates a sample note"""
+        bases_folder = temp_vault / "_system" / "bases"
+        bases_folder.mkdir(parents=True)
+        (bases_folder / "all_bases.base").write_text("# All\n")
+
+        manager = NoteTypesManager(str(temp_vault))
+        manager.add_type("blog", interactive=False)
+
+        sample = temp_vault / "Blog" / "Sample Blog.md"
+        assert sample.exists()
+        content = sample.read_text()
+        assert "type: blog" in content
+        assert "Sample Blog" in content
+
 
 class TestEdgeCases:
     """Test edge cases and error handling"""
