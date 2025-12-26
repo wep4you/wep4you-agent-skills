@@ -421,8 +421,8 @@ def create_vault_backup(vault_path: Path) -> Path | None:
     Returns:
         Path to the backup file, or None if backup failed
     """
-    from datetime import datetime
     import zipfile
+    from datetime import datetime
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     backup_name = f"vault_backup_{timestamp}.zip"
@@ -1691,12 +1691,14 @@ def create_folder_structure(vault_path: Path, methodology: str, dry_run: bool = 
 def build_settings_yaml(
     methodology: str,
     config: WizardConfig | None = None,
+    note_types_filter: list[str] | None = None,
 ) -> dict[str, Any]:
     """Build settings.yaml content for a methodology.
 
     Args:
         methodology: Methodology key
         config: Optional WizardConfig with user customizations
+        note_types_filter: List of note type names to include (None = all)
 
     Returns:
         Dictionary representing the settings.yaml content
@@ -1733,6 +1735,10 @@ def build_settings_yaml(
             for type_name, type_config in config.custom_note_types.items():
                 filtered_types[type_name] = type_config.to_dict()
         note_types = filtered_types
+
+    # Apply note types filter if provided (from --note-types argument)
+    if note_types_filter:
+        note_types = {k: v for k, v in note_types.items() if k in note_types_filter}
 
     # Build core properties configuration
     core_properties_config: dict[str, Any] = {
@@ -1791,6 +1797,7 @@ def create_settings_yaml(
     methodology: str,
     dry_run: bool = False,
     config: WizardConfig | None = None,
+    note_types_filter: list[str] | None = None,
 ) -> None:
     """Create settings.yaml for the vault.
 
@@ -1801,8 +1808,9 @@ def create_settings_yaml(
         methodology: Methodology key
         dry_run: If True, only print what would be created
         config: Optional WizardConfig with user customizations
+        note_types_filter: List of note type names to include (None = all)
     """
-    settings = build_settings_yaml(methodology, config)
+    settings = build_settings_yaml(methodology, config, note_types_filter)
     settings_path = vault_path / ".claude" / "settings.yaml"
 
     # Build YAML with header comments
@@ -1954,6 +1962,7 @@ def init_vault(
     dry_run: bool = False,
     use_wizard: bool = False,
     use_defaults: bool = False,
+    note_types_filter: list[str] | None = None,
 ) -> None:
     """Initialize an Obsidian vault with chosen methodology.
 
@@ -1963,6 +1972,7 @@ def init_vault(
         dry_run: If True, only show what would be created
         use_wizard: If True, run the full interactive wizard
         use_defaults: If True, skip confirmations and use defaults
+        note_types_filter: List of note type names to include (None = all)
     """
     # Check for existing vault first
     detection = detect_existing_vault(vault_path)
@@ -2012,6 +2022,10 @@ def init_vault(
         create_samples = True
         # NOTE: No auto-reset! Files are NEVER deleted except via explicit reset
 
+    # Apply note types filter if provided
+    if note_types_filter:
+        note_types = {k: v for k, v in note_types.items() if k in note_types_filter}
+
     print(f"\n{'=' * 60}")
     print(f"Initializing vault at: {vault_path}")
     print(f"Methodology: {METHODOLOGIES[methodology]['name']}")
@@ -2024,7 +2038,7 @@ def init_vault(
     create_folder_structure(vault_path, methodology, dry_run)
 
     # Create settings.yaml (PRIMARY configuration) with user customizations
-    create_settings_yaml(vault_path, methodology, dry_run, config)
+    create_settings_yaml(vault_path, methodology, dry_run, config, note_types_filter)
 
     # Create README
     create_readme(vault_path, methodology, dry_run)
@@ -2136,11 +2150,32 @@ Examples:
         action="store_true",
         help="Check if vault exists and show status (no changes made)",
     )
+    parser.add_argument(
+        "--list-note-types",
+        metavar="METHODOLOGY",
+        help="List note types for a methodology as JSON",
+    )
+    parser.add_argument(
+        "--note-types",
+        help="Comma-separated list of note types to include (default: all)",
+    )
 
     args = parser.parse_args()
 
     if args.list:
         print_methodologies()
+        return 0
+
+    # Handle --list-note-types
+    if args.list_note_types:
+        import json
+
+        methodology = args.list_note_types
+        if methodology not in METHODOLOGIES:
+            print(json.dumps({"error": f"Unknown methodology: {methodology}"}))
+            return 1
+        note_types = METHODOLOGIES[methodology].get("note_types", {})
+        print(json.dumps(note_types, indent=2))
         return 0
 
     # Handle backward compatibility for --vault
@@ -2218,6 +2253,11 @@ Examples:
     # Determine if wizard mode
     use_wizard = args.wizard or (args.methodology is None and not args.defaults)
 
+    # Parse note types filter
+    note_types_filter = None
+    if args.note_types:
+        note_types_filter = [t.strip() for t in args.note_types.split(",") if t.strip()]
+
     try:
         init_vault(
             vault_path,
@@ -2225,6 +2265,7 @@ Examples:
             args.dry_run,
             use_wizard=use_wizard,
             use_defaults=args.defaults,
+            note_types_filter=note_types_filter,
         )
         return 0
     except ValueError as e:

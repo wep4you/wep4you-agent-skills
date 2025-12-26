@@ -611,3 +611,113 @@ class TestNoAutoReset:
 
         # Custom file should still exist
         assert custom_file.exists(), "Custom file should not be deleted"
+
+
+class TestNoteTypeFiltering:
+    """Test note type filtering with --note-types parameter."""
+
+    def test_filter_note_types_settings(self, tmp_path: Path) -> None:
+        """Test that filtered note types appear in settings.yaml."""
+        # Init with only project and area
+        init_vault(
+            tmp_path,
+            "para",
+            dry_run=False,
+            use_defaults=True,
+            note_types_filter=["project", "area"],
+        )
+
+        # Load settings and check note types
+        settings = load_settings(tmp_path)
+        note_types = list(settings.note_types.keys())
+
+        assert "project" in note_types
+        assert "area" in note_types
+        assert "resource" not in note_types
+        assert "archive" not in note_types
+
+    def test_filter_note_types_templates(self, tmp_path: Path) -> None:
+        """Test that only filtered note types get templates."""
+        # Init with only project and area
+        init_vault(
+            tmp_path,
+            "para",
+            dry_run=False,
+            use_defaults=True,
+            note_types_filter=["project", "area"],
+        )
+
+        templates_dir = tmp_path / "x" / "templates"
+        template_files = [f.stem for f in templates_dir.glob("*.md")]
+
+        assert "project" in template_files
+        assert "area" in template_files
+        assert "resource" not in template_files
+        assert "archive" not in template_files
+
+    def test_filter_note_types_sample_notes(self, tmp_path: Path) -> None:
+        """Test that only filtered note types get sample notes."""
+        # Init with only project and area
+        init_vault(
+            tmp_path,
+            "para",
+            dry_run=False,
+            use_defaults=True,
+            note_types_filter=["project", "area"],
+        )
+
+        # Projects should have a getting started note
+        projects_notes = list((tmp_path / "Projects").glob("Getting Started*.md"))
+        assert len(projects_notes) == 1
+
+        # Areas should have a getting started note
+        areas_notes = list((tmp_path / "Areas").glob("Getting Started*.md"))
+        assert len(areas_notes) == 1
+
+        # Resources and Archives should NOT have getting started notes
+        resources_notes = list((tmp_path / "Resources").glob("Getting Started*.md"))
+        assert len(resources_notes) == 0
+
+        archives_notes = list((tmp_path / "Archives").glob("Getting Started*.md"))
+        assert len(archives_notes) == 0
+
+    def test_empty_filter_uses_all_types(self, tmp_path: Path) -> None:
+        """Test that None filter uses all note types."""
+        # Init with no filter (all types)
+        init_vault(
+            tmp_path,
+            "para",
+            dry_run=False,
+            use_defaults=True,
+            note_types_filter=None,
+        )
+
+        # Load settings and check all note types are present
+        settings = load_settings(tmp_path)
+        note_types = list(settings.note_types.keys())
+
+        assert "project" in note_types
+        assert "area" in note_types
+        assert "resource" in note_types
+        assert "archive" in note_types
+
+    def test_filter_with_lyt_ace(self, tmp_path: Path) -> None:
+        """Test note type filtering works with LYT-ACE methodology."""
+        # Init with only map and dot
+        init_vault(
+            tmp_path,
+            "lyt-ace",
+            dry_run=False,
+            use_defaults=True,
+            note_types_filter=["map", "dot"],
+        )
+
+        # Load settings and check note types
+        settings = load_settings(tmp_path)
+        note_types = list(settings.note_types.keys())
+
+        assert "map" in note_types
+        assert "dot" in note_types
+        assert "source" not in note_types
+        assert "project" not in note_types
+        assert "daily" not in note_types
