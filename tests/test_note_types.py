@@ -1,11 +1,10 @@
 """
 Tests for Note Types Manager
-Ensures 90%+ code coverage for CRUD operations and wizard functionality
+Tests CRUD operations against .claude/settings.yaml
 """
 
 from __future__ import annotations
 
-# Import the module - adjust path as needed
 import sys
 import tempfile
 from pathlib import Path
@@ -16,36 +15,58 @@ import yaml
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "skills" / "note-types" / "scripts"))
 
-from note_types import DEFAULT_NOTE_TYPES, NoteTypesManager
+from note_types import NoteTypesManager
 
 
 @pytest.fixture
-def temp_config():
-    """Create a temporary config file"""
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
-        config = {
+def temp_vault():
+    """Create a temporary vault with settings.yaml"""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        vault_path = Path(tmpdir)
+        settings_dir = vault_path / ".claude"
+        settings_dir.mkdir(parents=True)
+
+        settings = {
+            "version": "1.0",
+            "methodology": "para",
+            "core_properties": {
+                "all": ["type", "up", "created", "tags"],
+            },
             "note_types": {
-                "test": {"folder": "Test/", "properties": ["type", "up"]},
-                "demo": {
-                    "folder": "Demo/",
-                    "properties": ["type", "up", "status"],
-                    "template": "templates/demo.md",
+                "project": {
+                    "description": "Active projects",
+                    "folder_hints": ["Projects/"],
+                    "properties": {
+                        "additional_required": ["status"],
+                        "optional": ["deadline"],
+                    },
+                    "validation": {"allow_empty_up": False},
+                    "icon": "target",
                 },
-            }
+                "area": {
+                    "description": "Areas of responsibility",
+                    "folder_hints": ["Areas/"],
+                    "properties": {
+                        "additional_required": [],
+                        "optional": ["review_frequency"],
+                    },
+                    "validation": {"allow_empty_up": False},
+                    "icon": "home",
+                },
+            },
+            "validation": {"require_core_properties": True},
         }
-        yaml.safe_dump(config, f)
-        temp_path = Path(f.name)
 
-    yield temp_path
+        settings_file = settings_dir / "settings.yaml"
+        with open(settings_file, "w") as f:
+            yaml.safe_dump(settings, f)
 
-    # Cleanup
-    if temp_path.exists():
-        temp_path.unlink()
+        yield vault_path
 
 
 @pytest.fixture
-def temp_dir():
-    """Create a temporary directory for config tests"""
+def empty_dir():
+    """Create a temporary directory without settings.yaml"""
     with tempfile.TemporaryDirectory() as tmpdir:
         yield Path(tmpdir)
 
@@ -53,332 +74,319 @@ def temp_dir():
 class TestNoteTypesManager:
     """Test suite for NoteTypesManager class"""
 
-    def test_init_with_config(self, temp_config):
-        """Test initialization with existing config file"""
-        manager = NoteTypesManager(str(temp_config))
+    def test_init_with_vault(self, temp_vault):
+        """Test initialization with existing vault settings"""
+        manager = NoteTypesManager(str(temp_vault))
         assert len(manager.note_types) == 2
-        assert "test" in manager.note_types
-        assert "demo" in manager.note_types
+        assert "project" in manager.note_types
+        assert "area" in manager.note_types
+        assert manager.settings["methodology"] == "para"
 
-    def test_init_without_config(self, temp_dir):
-        """Test initialization without config file (uses defaults)"""
-        with patch("pathlib.Path.cwd", return_value=temp_dir):
-            manager = NoteTypesManager()
-            assert manager.note_types == DEFAULT_NOTE_TYPES
-            assert len(manager.note_types) == 5
+    def test_init_no_settings_file(self, empty_dir):
+        """Test initialization without settings.yaml exits"""
+        with pytest.raises(SystemExit) as exc_info:
+            NoteTypesManager(str(empty_dir))
+        assert exc_info.value.code == 1
 
-    def test_init_with_empty_config(self, temp_dir):
-        """Test initialization with empty config file"""
-        config_path = temp_dir / "empty.yaml"
-        config_path.write_text("note_types: {}\n")
+    def test_init_invalid_yaml(self, empty_dir):
+        """Test initialization with invalid YAML exits"""
+        settings_dir = empty_dir / ".claude"
+        settings_dir.mkdir(parents=True)
+        settings_file = settings_dir / "settings.yaml"
+        settings_file.write_text("invalid: yaml: content: [[[")
 
-        manager = NoteTypesManager(str(config_path))
-        assert manager.note_types == DEFAULT_NOTE_TYPES
+        with pytest.raises(SystemExit) as exc_info:
+            NoteTypesManager(str(empty_dir))
+        assert exc_info.value.code == 1
 
-    def test_init_with_invalid_config(self, temp_dir):
-        """Test initialization with invalid YAML"""
-        config_path = temp_dir / "invalid.yaml"
-        config_path.write_text("invalid: yaml: content: [[[")
+    def test_init_empty_note_types(self, empty_dir, capsys):
+        """Test initialization with empty note_types"""
+        settings_dir = empty_dir / ".claude"
+        settings_dir.mkdir(parents=True)
+        settings_file = settings_dir / "settings.yaml"
+        settings_file.write_text("version: '1.0'\nmethodology: custom\nnote_types: {}\n")
 
-        manager = NoteTypesManager(str(config_path))
-        assert manager.note_types == DEFAULT_NOTE_TYPES
+        manager = NoteTypesManager(str(empty_dir))
+        captured = capsys.readouterr()
+        assert "No note types found" in captured.out
+        assert manager.note_types == {}
 
-    def test_resolve_config_path_explicit(self, temp_config):
-        """Test config path resolution with explicit path"""
-        manager = NoteTypesManager(str(temp_config))
-        assert manager.config_path == temp_config
+    def test_save_settings(self, temp_vault):
+        """Test saving settings back to file"""
+        manager = NoteTypesManager(str(temp_vault))
+        manager.note_types["custom"] = {
+            "description": "Custom notes",
+            "folder_hints": ["Custom/"],
+            "properties": {"additional_required": [], "optional": []},
+            "validation": {"allow_empty_up": False},
+            "icon": "file",
+        }
+        manager._save_settings()
 
-    def test_resolve_config_path_default_locations(self, temp_dir):
-        """Test config path resolution checks standard locations"""
-        # Create .claude/config directory
-        claude_dir = temp_dir / ".claude" / "config"
-        claude_dir.mkdir(parents=True)
-        config_file = claude_dir / "note-types.yaml"
-        config_file.write_text("note_types: {}\n")
+        # Reload and verify
+        with open(temp_vault / ".claude" / "settings.yaml") as f:
+            saved = yaml.safe_load(f)
+        assert "custom" in saved["note_types"]
 
-        with patch("pathlib.Path.cwd", return_value=temp_dir):
-            manager = NoteTypesManager()
-            assert manager.config_path == config_file
+    def test_format_properties_list(self, temp_vault):
+        """Test _format_properties with list format"""
+        manager = NoteTypesManager(str(temp_vault))
+        config = {"properties": ["type", "up", "status"]}
+        result = manager._format_properties(config)
+        assert result == ["type", "up", "status"]
 
-    def test_save_note_types(self, temp_dir):
-        """Test saving note types to config file"""
-        config_path = temp_dir / ".claude" / "config" / "note-types.yaml"
-
-        with patch("pathlib.Path.cwd", return_value=temp_dir):
-            manager = NoteTypesManager()
-            manager.note_types["custom"] = {
-                "folder": "Custom/",
-                "properties": ["type", "up"],
+    def test_format_properties_dict(self, temp_vault):
+        """Test _format_properties with dict format"""
+        manager = NoteTypesManager(str(temp_vault))
+        config = {
+            "properties": {
+                "additional_required": ["status"],
+                "optional": ["deadline"],
             }
-            manager._save_note_types()
+        }
+        result = manager._format_properties(config)
+        assert result == ["status", "deadline"]
 
-            assert config_path.exists()
-            with open(config_path) as f:
-                saved = yaml.safe_load(f)
-                assert "custom" in saved["note_types"]
-
-    def test_list_types_empty(self, capsys):
-        """Test listing when no note types exist"""
-        with patch.object(NoteTypesManager, "_load_note_types", return_value={}):
-            manager = NoteTypesManager()
-            manager.list_types()
-            captured = capsys.readouterr()
-            assert "No note types defined" in captured.out
-
-    def test_list_types_with_data(self, temp_config, capsys):
+    def test_list_types(self, temp_vault, capsys):
         """Test listing note types"""
-        manager = NoteTypesManager(str(temp_config))
+        manager = NoteTypesManager(str(temp_vault))
         manager.list_types()
         captured = capsys.readouterr()
 
         assert "Note Types (2)" in captured.out
-        assert "test" in captured.out
-        assert "Test/" in captured.out
-        assert "demo" in captured.out
-        assert "templates/demo.md" in captured.out
+        assert "project" in captured.out
+        assert "area" in captured.out
+        assert "Core properties:" in captured.out
 
-    def test_show_type_exists(self, temp_config, capsys):
-        """Test showing details for an existing note type"""
-        manager = NoteTypesManager(str(temp_config))
-        manager.show_type("demo")
+    def test_list_types_empty(self, empty_dir, capsys):
+        """Test listing when no note types exist"""
+        settings_dir = empty_dir / ".claude"
+        settings_dir.mkdir(parents=True)
+        settings_file = settings_dir / "settings.yaml"
+        settings_file.write_text("version: '1.0'\nnote_types: {}\n")
+
+        manager = NoteTypesManager(str(empty_dir))
+        manager.list_types()
+        captured = capsys.readouterr()
+        assert "No note types defined" in captured.out
+
+    def test_show_type_exists(self, temp_vault, capsys):
+        """Test showing details for existing note type"""
+        manager = NoteTypesManager(str(temp_vault))
+        manager.show_type("project")
         captured = capsys.readouterr()
 
-        assert "Note Type: demo" in captured.out
-        assert "Demo/" in captured.out
-        assert "type, up, status" in captured.out
-        assert "templates/demo.md" in captured.out
+        assert "Note Type: project" in captured.out
+        assert "Active projects" in captured.out
+        assert "Projects/" in captured.out
+        assert "status" in captured.out
 
-    def test_show_type_not_exists(self, temp_config):
-        """Test showing details for non-existent note type"""
-        manager = NoteTypesManager(str(temp_config))
+    def test_show_type_not_exists(self, temp_vault, capsys):
+        """Test showing non-existent note type"""
+        manager = NoteTypesManager(str(temp_vault))
         with pytest.raises(SystemExit) as exc_info:
             manager.show_type("nonexistent")
         assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        assert "not found" in captured.out
+        assert "Available:" in captured.out
 
-    def test_add_type_already_exists(self, temp_config):
-        """Test adding a note type that already exists"""
-        manager = NoteTypesManager(str(temp_config))
+    def test_add_type_already_exists(self, temp_vault, capsys):
+        """Test adding note type that already exists"""
+        manager = NoteTypesManager(str(temp_vault))
         with pytest.raises(SystemExit) as exc_info:
-            manager.add_type("test", interactive=False)
+            manager.add_type("project", interactive=False)
         assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        assert "already exists" in captured.out
 
-    def test_add_type_non_interactive(self, temp_dir):
+    def test_add_type_non_interactive(self, temp_vault):
         """Test adding note type in non-interactive mode"""
-        config_path = temp_dir / "config.yaml"
-
-        manager = NoteTypesManager(str(config_path))
-        manager.note_types = {}  # Start empty
-
-        with patch.object(manager, "_save_note_types"):
-            manager.add_type("custom", interactive=False)
+        manager = NoteTypesManager(str(temp_vault))
+        manager.add_type("custom", interactive=False)
 
         assert "custom" in manager.note_types
-        assert manager.note_types["custom"]["folder"] == "Custom/"
-        assert manager.note_types["custom"]["properties"] == ["type", "up"]
+        assert manager.note_types["custom"]["folder_hints"] == ["Custom/"]
+        assert manager.note_types["custom"]["description"] == "Custom notes"
 
-    def test_add_type_interactive(self, temp_dir):
+    def test_add_type_interactive(self, temp_vault):
         """Test adding note type in interactive mode"""
-        config_path = temp_dir / "config.yaml"
-        manager = NoteTypesManager(str(config_path))
-        manager.note_types = {}
+        manager = NoteTypesManager(str(temp_vault))
 
-        # Mock user inputs
-        inputs = ["Custom/Folder/", "type, up, custom_prop", "templates/custom.md"]
+        inputs = [
+            "Blog posts",  # description
+            "Blog/Posts/",  # folder
+            "author, published",  # required
+            "featured",  # optional
+            "pencil",  # icon
+        ]
         with patch("builtins.input", side_effect=inputs):
-            with patch.object(manager, "_save_note_types"):
-                manager.add_type("custom", interactive=True)
+            manager.add_type("blog", interactive=True)
 
-        assert "custom" in manager.note_types
-        assert manager.note_types["custom"]["folder"] == "Custom/Folder/"
-        assert manager.note_types["custom"]["properties"] == ["type", "up", "custom_prop"]
-        assert manager.note_types["custom"]["template"] == "templates/custom.md"
+        assert "blog" in manager.note_types
+        assert manager.note_types["blog"]["folder_hints"] == ["Blog/Posts/"]
+        assert manager.note_types["blog"]["properties"]["additional_required"] == [
+            "author",
+            "published",
+        ]
 
-    def test_edit_type_not_exists(self, temp_config):
+    def test_edit_type_not_exists(self, temp_vault):
         """Test editing non-existent note type"""
-        manager = NoteTypesManager(str(temp_config))
+        manager = NoteTypesManager(str(temp_vault))
         with pytest.raises(SystemExit) as exc_info:
             manager.edit_type("nonexistent")
         assert exc_info.value.code == 1
 
-    def test_edit_type_interactive(self, temp_config):
+    def test_edit_type_interactive(self, temp_vault):
         """Test editing existing note type"""
-        manager = NoteTypesManager(str(temp_config))
+        manager = NoteTypesManager(str(temp_vault))
 
-        # Mock user inputs (press Enter to keep defaults, then change template)
-        inputs = ["", "", "templates/new-template.md"]
+        # Keep all defaults except icon
+        inputs = ["", "", "", "", "rocket"]
         with patch("builtins.input", side_effect=inputs):
-            with patch.object(manager, "_save_note_types"):
-                manager.edit_type("test")
+            manager.edit_type("project")
 
-        assert manager.note_types["test"]["template"] == "templates/new-template.md"
+        assert manager.note_types["project"]["icon"] == "rocket"
 
-    def test_remove_type_not_exists(self, temp_config):
+    def test_remove_type_not_exists(self, temp_vault):
         """Test removing non-existent note type"""
-        manager = NoteTypesManager(str(temp_config))
+        manager = NoteTypesManager(str(temp_vault))
         with pytest.raises(SystemExit) as exc_info:
             manager.remove_type("nonexistent")
         assert exc_info.value.code == 1
 
-    def test_remove_type_cancelled(self, temp_config):
+    def test_remove_type_cancelled(self, temp_vault):
         """Test removing note type but cancel"""
-        manager = NoteTypesManager(str(temp_config))
+        manager = NoteTypesManager(str(temp_vault))
         with patch("builtins.input", return_value="n"):
-            manager.remove_type("test")
-        assert "test" in manager.note_types
+            manager.remove_type("project")
+        assert "project" in manager.note_types
 
-    def test_remove_type_confirmed(self, temp_config):
+    def test_remove_type_confirmed(self, temp_vault):
         """Test removing note type with confirmation"""
-        manager = NoteTypesManager(str(temp_config))
+        manager = NoteTypesManager(str(temp_vault))
         with patch("builtins.input", return_value="y"):
-            with patch.object(manager, "_save_note_types"):
-                manager.remove_type("test")
-        assert "test" not in manager.note_types
+            manager.remove_type("project")
+        assert "project" not in manager.note_types
 
-    def test_interactive_type_definition_new(self):
+    def test_interactive_type_definition_new(self, temp_vault):
         """Test interactive type definition for new type"""
-        manager = NoteTypesManager()
+        manager = NoteTypesManager(str(temp_vault))
 
-        inputs = ["Custom/", "type, up, custom", "templates/custom.md"]
+        inputs = ["My custom notes", "Custom/Notes/", "author", "tags", "star"]
         with patch("builtins.input", side_effect=inputs):
             definition = manager._interactive_type_definition("custom")
 
-        assert definition["folder"] == "Custom/"
-        assert definition["properties"] == ["type", "up", "custom"]
-        assert definition["template"] == "templates/custom.md"
+        assert definition["description"] == "My custom notes"
+        assert definition["folder_hints"] == ["Custom/Notes/"]
+        assert definition["properties"]["additional_required"] == ["author"]
+        assert definition["properties"]["optional"] == ["tags"]
+        assert definition["icon"] == "star"
 
-    def test_interactive_type_definition_existing(self, temp_config):
-        """Test interactive type definition with existing values"""
-        manager = NoteTypesManager(str(temp_config))
-        existing = manager.note_types["demo"]
+    def test_interactive_type_definition_keep_defaults(self, temp_vault):
+        """Test interactive type definition keeping defaults"""
+        manager = NoteTypesManager(str(temp_vault))
+        existing = manager.note_types["project"]
 
         # Press Enter for all (keep defaults)
-        inputs = ["", "", ""]
+        inputs = ["", "", "", "", ""]
         with patch("builtins.input", side_effect=inputs):
-            definition = manager._interactive_type_definition("demo", existing)
+            definition = manager._interactive_type_definition("project", existing)
 
-        assert definition["folder"] == existing["folder"]
-        assert definition["properties"] == existing["properties"]
-        assert definition["template"] == existing["template"]
+        assert definition["description"] == existing["description"]
+        assert definition["folder_hints"] == existing["folder_hints"]
 
-    def test_interactive_type_definition_no_template(self):
-        """Test interactive type definition without template"""
-        manager = NoteTypesManager()
+    def test_interactive_type_definition_none_properties(self, temp_vault):
+        """Test interactive type definition with 'none' for properties"""
+        manager = NoteTypesManager(str(temp_vault))
 
-        inputs = ["Custom/", "type, up", ""]
+        inputs = ["Simple notes", "Simple/", "none", "none", "file"]
         with patch("builtins.input", side_effect=inputs):
-            definition = manager._interactive_type_definition("custom")
+            definition = manager._interactive_type_definition("simple")
 
-        assert definition["folder"] == "Custom/"
-        assert definition["properties"] == ["type", "up"]
-        assert "template" not in definition
+        assert definition["properties"]["additional_required"] == []
+        assert definition["properties"]["optional"] == []
 
-    def test_wizard_success(self, temp_dir):
+    def test_wizard_success(self, temp_vault):
         """Test wizard mode successful creation"""
-        config_path = temp_dir / "config.yaml"
-        manager = NoteTypesManager(str(config_path))
-        manager.note_types = {}
+        manager = NoteTypesManager(str(temp_vault))
 
         inputs = [
             "meeting",  # name
-            "Efforts/Meetings/",  # folder
-            "type, up, date, attendees",  # properties
-            "templates/meeting.md",  # template
+            "Meeting notes",  # description
+            "Meetings/",  # folder
+            "date, attendees",  # required
+            "action_items",  # optional
+            "calendar",  # icon
             "y",  # confirm
         ]
-
         with patch("builtins.input", side_effect=inputs):
-            with patch.object(manager, "_save_note_types"):
-                manager.wizard()
+            manager.wizard()
 
         assert "meeting" in manager.note_types
-        assert manager.note_types["meeting"]["folder"] == "Efforts/Meetings/"
-        assert manager.note_types["meeting"]["properties"] == ["type", "up", "date", "attendees"]
-        assert manager.note_types["meeting"]["template"] == "templates/meeting.md"
 
-    def test_wizard_cancelled(self, temp_dir):
+    def test_wizard_cancelled(self, temp_vault):
         """Test wizard mode cancellation"""
-        config_path = temp_dir / "config.yaml"
-        manager = NoteTypesManager(str(config_path))
-        manager.note_types = {}
+        manager = NoteTypesManager(str(temp_vault))
 
         inputs = [
             "meeting",  # name
-            "Efforts/Meetings/",  # folder
-            "type, up",  # properties
-            "",  # no template
+            "Meeting notes",  # description
+            "Meetings/",  # folder
+            "none",  # required
+            "none",  # optional
+            "file",  # icon
             "n",  # cancel
         ]
-
         with patch("builtins.input", side_effect=inputs):
             manager.wizard()
 
         assert "meeting" not in manager.note_types
 
-    def test_wizard_empty_name(self, temp_dir):
-        """Test wizard with empty name (retries)"""
-        config_path = temp_dir / "config.yaml"
-        manager = NoteTypesManager(str(config_path))
-        manager.note_types = {}
+    def test_wizard_empty_name_retry(self, temp_vault):
+        """Test wizard with empty name retries"""
+        manager = NoteTypesManager(str(temp_vault))
 
         inputs = [
-            "",  # empty name (retry)
+            "",  # empty (retry)
             "meeting",  # valid name
-            "",  # folder (use default)
-            "",  # properties (use default)
-            "",  # template (none)
+            "",  # description (default)
+            "",  # folder (default)
+            "",  # required (default)
+            "",  # optional (default)
+            "",  # icon (default)
             "y",  # confirm
         ]
-
         with patch("builtins.input", side_effect=inputs):
-            with patch.object(manager, "_save_note_types"):
-                manager.wizard()
+            manager.wizard()
 
         assert "meeting" in manager.note_types
 
-    def test_wizard_duplicate_name(self, temp_config):
-        """Test wizard with duplicate name (retries)"""
-        manager = NoteTypesManager(str(temp_config))
+    def test_wizard_duplicate_name_retry(self, temp_vault):
+        """Test wizard with duplicate name retries"""
+        manager = NoteTypesManager(str(temp_vault))
 
         inputs = [
-            "test",  # duplicate name (retry)
-            "custom",  # valid name
-            "",  # folder (use default)
-            "",  # properties (use default)
-            "",  # template (none)
-            "y",  # confirm
+            "project",  # duplicate (retry)
+            "meeting",  # valid name
+            "",
+            "",
+            "",
+            "",
+            "",
+            "y",
         ]
-
         with patch("builtins.input", side_effect=inputs):
-            with patch.object(manager, "_save_note_types"):
-                manager.wizard()
+            manager.wizard()
 
-        assert "custom" in manager.note_types
-
-    def test_default_note_types_structure(self):
-        """Test that default note types have correct structure"""
-        assert len(DEFAULT_NOTE_TYPES) == 5
-
-        for _name, definition in DEFAULT_NOTE_TYPES.items():
-            assert "folder" in definition
-            assert "properties" in definition
-            assert isinstance(definition["folder"], str)
-            assert isinstance(definition["properties"], list)
-            assert len(definition["properties"]) > 0
-
-    def test_config_path_resolution_fallback(self, temp_dir):
-        """Test config path fallback to default location"""
-        with patch("pathlib.Path.cwd", return_value=temp_dir):
-            with patch("pathlib.Path.home", return_value=temp_dir):
-                manager = NoteTypesManager()
-                expected_path = temp_dir / ".claude" / "config" / "note-types.yaml"
-                assert manager.config_path == expected_path
+        assert "meeting" in manager.note_types
 
 
 class TestMainFunction:
     """Test the main CLI function"""
 
     def test_main_no_args(self):
-        """Test main with no arguments (shows help)"""
+        """Test main with no arguments shows help"""
         with patch("sys.argv", ["note_types.py"]):
             with pytest.raises(SystemExit) as exc_info:
                 from note_types import main
@@ -386,89 +394,135 @@ class TestMainFunction:
                 main()
             assert exc_info.value.code == 1
 
-    def test_main_list(self, temp_dir):
+    def test_main_list(self, temp_vault):
         """Test main with --list"""
-        config_path = temp_dir / "config.yaml"
-        config_path.write_text("note_types:\n  test:\n    folder: Test/\n    properties: [type]\n")
-
-        with patch("sys.argv", ["note_types.py", "--config", str(config_path), "--list"]):
+        with patch("sys.argv", ["note_types.py", "--vault", str(temp_vault), "--list"]):
             from note_types import main
 
-            main()  # Should not raise
+            main()
 
-    def test_main_show(self, temp_dir):
+    def test_main_show(self, temp_vault):
         """Test main with --show"""
-        config_path = temp_dir / "config.yaml"
-        config_path.write_text("note_types:\n  test:\n    folder: Test/\n    properties: [type]\n")
-
-        with patch("sys.argv", ["note_types.py", "--config", str(config_path), "--show", "test"]):
+        with patch("sys.argv", ["note_types.py", "--vault", str(temp_vault), "--show", "project"]):
             from note_types import main
 
-            main()  # Should not raise
+            main()
 
-    def test_main_add_non_interactive(self, temp_dir):
+    def test_main_add_non_interactive(self, temp_vault):
         """Test main with --add --non-interactive"""
-        config_path = temp_dir / "config.yaml"
-
         with patch(
             "sys.argv",
-            ["note_types.py", "--config", str(config_path), "--add", "test", "--non-interactive"],
+            ["note_types.py", "--vault", str(temp_vault), "--add", "custom", "--non-interactive"],
         ):
             from note_types import main
 
             main()
 
-        # Verify file was created
-        assert config_path.exists()
-        with open(config_path) as f:
-            config = yaml.safe_load(f)
-            assert "test" in config["note_types"]
+        # Verify file was updated
+        with open(temp_vault / ".claude" / "settings.yaml") as f:
+            settings = yaml.safe_load(f)
+            assert "custom" in settings["note_types"]
 
-    def test_main_wizard(self, temp_dir):
-        """Test main with --wizard"""
-        config_path = temp_dir / "config.yaml"
-
-        inputs = ["custom", "", "", "", "y"]
+    def test_main_edit(self, temp_vault):
+        """Test main with --edit"""
+        inputs = ["", "", "", "", ""]  # Keep all defaults
         with patch("builtins.input", side_effect=inputs):
-            with patch("sys.argv", ["note_types.py", "--config", str(config_path), "--wizard"]):
+            with patch(
+                "sys.argv", ["note_types.py", "--vault", str(temp_vault), "--edit", "project"]
+            ):
                 from note_types import main
 
                 main()
 
-        assert config_path.exists()
+    def test_main_remove(self, temp_vault):
+        """Test main with --remove"""
+        with patch("builtins.input", return_value="y"):
+            with patch(
+                "sys.argv", ["note_types.py", "--vault", str(temp_vault), "--remove", "area"]
+            ):
+                from note_types import main
+
+                main()
+
+        with open(temp_vault / ".claude" / "settings.yaml") as f:
+            settings = yaml.safe_load(f)
+            assert "area" not in settings["note_types"]
+
+    def test_main_wizard(self, temp_vault):
+        """Test main with --wizard"""
+        inputs = ["custom", "", "", "", "", "", "y"]
+        with patch("builtins.input", side_effect=inputs):
+            with patch("sys.argv", ["note_types.py", "--vault", str(temp_vault), "--wizard"]):
+                from note_types import main
+
+                main()
 
 
 class TestEdgeCases:
     """Test edge cases and error handling"""
 
-    def test_properties_with_whitespace(self):
+    def test_properties_with_whitespace(self, temp_vault):
         """Test properties parsing with extra whitespace"""
-        manager = NoteTypesManager()
+        manager = NoteTypesManager(str(temp_vault))
 
-        inputs = ["Custom/", "  type  ,  up  ,  custom  ", ""]
+        inputs = ["Desc", "Folder/", "  type  ,  up  ", "  opt1  ,  opt2  ", "icon"]
         with patch("builtins.input", side_effect=inputs):
             definition = manager._interactive_type_definition("custom")
 
-        assert definition["properties"] == ["type", "up", "custom"]
+        assert definition["properties"]["additional_required"] == ["type", "up"]
+        assert definition["properties"]["optional"] == ["opt1", "opt2"]
 
-    def test_folder_with_trailing_slash(self):
-        """Test folder handling with and without trailing slash"""
-        manager = NoteTypesManager()
+    def test_core_properties_list_format(self, empty_dir):
+        """Test handling core_properties as list (old format)"""
+        settings_dir = empty_dir / ".claude"
+        settings_dir.mkdir(parents=True)
+        settings_file = settings_dir / "settings.yaml"
+        settings = {
+            "version": "1.0",
+            "methodology": "custom",
+            "core_properties": ["type", "up", "created"],  # Old list format
+            "note_types": {
+                "test": {
+                    "description": "Test",
+                    "folder_hints": ["Test/"],
+                    "properties": {"additional_required": [], "optional": []},
+                    "validation": {},
+                    "icon": "file",
+                }
+            },
+        }
+        with open(settings_file, "w") as f:
+            yaml.safe_dump(settings, f)
 
-        inputs = ["Custom", "type, up", ""]
-        with patch("builtins.input", side_effect=inputs):
-            definition = manager._interactive_type_definition("custom")
+        manager = NoteTypesManager(str(empty_dir))
+        manager.list_types()  # Should not crash
 
-        # Folder should be stored as provided by user
-        assert definition["folder"] == "Custom"
+    def test_show_type_with_template(self, temp_vault, capsys):
+        """Test showing note type that has a template"""
+        manager = NoteTypesManager(str(temp_vault))
+        manager.note_types["project"]["template"] = "templates/project.md"
 
-    def test_save_creates_parent_directories(self, temp_dir):
-        """Test that save creates parent directories if they don't exist"""
-        config_path = temp_dir / "deep" / "nested" / "config.yaml"
-        manager = NoteTypesManager(str(config_path))
-        manager.note_types["test"] = {"folder": "Test/", "properties": ["type"]}
+        manager.show_type("project")
+        captured = capsys.readouterr()
+        assert "templates/project.md" in captured.out
 
-        manager._save_note_types()
+    def test_show_type_properties_list_format(self, temp_vault, capsys):
+        """Test showing note type with properties as list"""
+        manager = NoteTypesManager(str(temp_vault))
+        manager.note_types["legacy"] = {
+            "description": "Legacy format",
+            "folder_hints": ["Legacy/"],
+            "properties": ["type", "up", "custom"],
+            "validation": {},
+            "icon": "file",
+        }
 
-        assert config_path.exists()
-        assert config_path.parent.exists()
+        manager.show_type("legacy")
+        captured = capsys.readouterr()
+        assert "type, up, custom" in captured.out
+
+    def test_uses_cwd_when_no_vault(self, temp_vault):
+        """Test that cwd is used when vault not specified"""
+        with patch("pathlib.Path.cwd", return_value=temp_vault):
+            manager = NoteTypesManager()
+            assert manager.vault_path == temp_vault

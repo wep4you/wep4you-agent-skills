@@ -5,14 +5,16 @@
 # ///
 """
 Note Types Manager - CRUD operations for Obsidian note types
-Manages note type definitions including folders, properties, and templates
+
+Manages note type definitions by reading from and writing to .claude/settings.yaml.
+This integrates with the init skill and settings_loader for a unified configuration.
 
 Usage:
     uv run scripts/note_types.py --list
     uv run scripts/note_types.py --show map
-    uv run scripts/note_types.py --add project
+    uv run scripts/note_types.py --add blog
     uv run scripts/note_types.py --edit project
-    uv run scripts/note_types.py --remove project
+    uv run scripts/note_types.py --remove custom
     uv run scripts/note_types.py --wizard
 """
 
@@ -25,92 +27,86 @@ from typing import Any
 
 import yaml
 
-# Default note types embedded in the script
-DEFAULT_NOTE_TYPES = {
-    "map": {"folder": "Atlas/Maps/", "properties": ["type", "up", "related"]},
-    "dot": {"folder": "Atlas/Dots/", "properties": ["type", "up"]},
-    "source": {"folder": "Atlas/Sources/", "properties": ["type", "author", "url"]},
-    "project": {"folder": "Efforts/Projects/", "properties": ["type", "status", "due"]},
-    "daily": {"folder": "Calendar/Daily/", "properties": ["type", "daily"]},
-}
+# Settings file path (relative to vault root)
+SETTINGS_FILE = ".claude/settings.yaml"
 
 
 class NoteTypesManager:
-    """Manages note type definitions for Obsidian vault"""
+    """Manages note type definitions in .claude/settings.yaml"""
 
-    def __init__(self, config_path: str | None = None) -> None:
+    def __init__(self, vault_path: str | None = None) -> None:
         """Initialize the note types manager
 
         Args:
-            config_path: Path to config file. If None, uses default location.
+            vault_path: Path to vault root. If None, uses current directory.
         """
-        self.config_path = self._resolve_config_path(config_path)
-        self.note_types = self._load_note_types()
+        self.vault_path = Path(vault_path) if vault_path else Path.cwd()
+        self.settings_path = self.vault_path / SETTINGS_FILE
+        self.settings: dict[str, Any] = {}
+        self.note_types: dict[str, dict[str, Any]] = {}
+        self._load_settings()
 
-    def _resolve_config_path(self, config_path: str | None) -> Path:
-        """Resolve the configuration file path
+    def _load_settings(self) -> None:
+        """Load settings from .claude/settings.yaml"""
+        if not self.settings_path.exists():
+            print(f"❌ Settings file not found: {self.settings_path}")
+            print("   Run 'obsidian:init' first to initialize your vault.")
+            sys.exit(1)
+
+        try:
+            with open(self.settings_path, encoding="utf-8") as f:
+                self.settings = yaml.safe_load(f) or {}
+        except yaml.YAMLError as e:
+            print(f"❌ Error parsing settings.yaml: {e}")
+            sys.exit(1)
+
+        # Extract note_types section
+        self.note_types = self.settings.get("note_types", {})
+        if not self.note_types:
+            print("⚠️  No note types found in settings.yaml")
+            print("   The vault may not be properly initialized.")
+        else:
+            methodology = self.settings.get("methodology", "unknown")
+            print(f"✅ Loaded {len(self.note_types)} note types ({methodology} methodology)\n")
+
+    def _save_settings(self) -> None:
+        """Save settings back to .claude/settings.yaml"""
+        self.settings["note_types"] = self.note_types
+
+        try:
+            with open(self.settings_path, "w", encoding="utf-8") as f:
+                yaml.safe_dump(
+                    self.settings,
+                    f,
+                    default_flow_style=False,
+                    sort_keys=False,
+                    allow_unicode=True,
+                )
+            print(f"✅ Saved settings to {self.settings_path}")
+        except OSError as e:
+            print(f"❌ Error saving settings: {e}")
+            sys.exit(1)
+
+    def _format_properties(self, nt_config: dict[str, Any]) -> list[str]:
+        """Extract all properties from note type config
 
         Args:
-            config_path: Optional path to config file
+            nt_config: Note type configuration dict
 
         Returns:
-            Path to the config file
+            List of all property names
         """
-        if config_path:
-            return Path(config_path)
+        props = nt_config.get("properties", {})
+        if isinstance(props, list):
+            return props
 
-        # Look for config in standard locations
-        candidates = [
-            Path.cwd() / ".claude" / "config" / "note-types.yaml",
-            Path.cwd() / ".obsidian" / "note-types.yaml",
-            Path.home() / ".config" / "obsidian" / "note-types.yaml",
-        ]
-
-        for candidate in candidates:
-            if candidate.exists():
-                return candidate
-
-        # Default to .claude config location
-        return Path.cwd() / ".claude" / "config" / "note-types.yaml"
-
-    def _load_note_types(self) -> dict[str, dict[str, Any]]:
-        """Load note types from config file or use defaults
-
-        Returns:
-            Dictionary of note type definitions
-        """
-        if not self.config_path.exists():
-            print(f"ℹ️  Config file not found: {self.config_path}")
-            print("   Using default note types\n")
-            return dict(DEFAULT_NOTE_TYPES)
-
-        try:
-            with open(self.config_path) as f:
-                config: dict[str, Any] = yaml.safe_load(f) or {}
-                note_types = config.get("note_types", {})
-                if not note_types:
-                    print("⚠️  No note types found in config, using defaults\n")
-                    return dict(DEFAULT_NOTE_TYPES)
-                print(f"✅ Loaded {len(note_types)} note types from {self.config_path}\n")
-                return note_types  # type: ignore[return-value]
-        except Exception as e:
-            print(f"⚠️  Error loading config: {e}")
-            print("   Using default note types\n")
-            return dict(DEFAULT_NOTE_TYPES)
-
-    def _save_note_types(self) -> None:
-        """Save note types to config file"""
-        self.config_path.parent.mkdir(parents=True, exist_ok=True)
-
-        config = {"note_types": self.note_types}
-
-        try:
-            with open(self.config_path, "w") as f:
-                yaml.safe_dump(config, f, default_flow_style=False, sort_keys=False)
-            print(f"✅ Saved note types to {self.config_path}")
-        except Exception as e:
-            print(f"❌ Error saving config: {e}")
-            sys.exit(1)
+        # Handle structured properties format
+        all_props: list[str] = []
+        if "additional_required" in props:
+            all_props.extend(props.get("additional_required", []))
+        if "optional" in props:
+            all_props.extend(props.get("optional", []))
+        return all_props
 
     def list_types(self) -> None:
         """List all note types"""
@@ -118,17 +114,25 @@ class NoteTypesManager:
             print("No note types defined.")
             return
 
-        print(f"📋 Note Types ({len(self.note_types)}):\n")
-        for name, definition in sorted(self.note_types.items()):
-            folder = definition.get("folder", "")
-            properties = definition.get("properties", [])
-            template = definition.get("template", "")
+        core_props = self.settings.get("core_properties", {})
+        if isinstance(core_props, dict):
+            core_props = core_props.get("all", [])
 
-            print(f"  {name}")
-            print(f"    Folder: {folder}")
-            print(f"    Properties: {', '.join(properties)}")
-            if template:
-                print(f"    Template: {template}")
+        print(f"📋 Note Types ({len(self.note_types)}):\n")
+        print(f"   Core properties: {', '.join(core_props)}\n")
+
+        for name, config in sorted(self.note_types.items()):
+            description = config.get("description", "")
+            folder_hints = config.get("folder_hints", [])
+            props = self._format_properties(config)
+            icon = config.get("icon", "")
+
+            print(f"  {icon} {name}")
+            if description:
+                print(f"    Description: {description}")
+            print(f"    Folders: {', '.join(folder_hints)}")
+            if props:
+                print(f"    Additional properties: {', '.join(props)}")
             print()
 
     def show_type(self, name: str) -> None:
@@ -139,14 +143,33 @@ class NoteTypesManager:
         """
         if name not in self.note_types:
             print(f"❌ Note type '{name}' not found")
+            print(f"   Available: {', '.join(self.note_types.keys())}")
             sys.exit(1)
 
-        definition = self.note_types[name]
-        print(f"📄 Note Type: {name}\n")
-        print(f"  Folder: {definition.get('folder', '')}")
-        print(f"  Properties: {', '.join(definition.get('properties', []))}")
-        if "template" in definition:
-            print(f"  Template: {definition['template']}")
+        config = self.note_types[name]
+        icon = config.get("icon", "📄")
+
+        print(f"{icon} Note Type: {name}\n")
+        print(f"  Description: {config.get('description', '-')}")
+        print(f"  Folders: {', '.join(config.get('folder_hints', []))}")
+
+        props = config.get("properties", {})
+        if isinstance(props, dict):
+            req = props.get("additional_required", [])
+            opt = props.get("optional", [])
+            if req:
+                print(f"  Required properties: {', '.join(req)}")
+            if opt:
+                print(f"  Optional properties: {', '.join(opt)}")
+        elif isinstance(props, list):
+            print(f"  Properties: {', '.join(props)}")
+
+        validation = config.get("validation", {})
+        if validation:
+            print(f"  Validation: {validation}")
+
+        if "template" in config:
+            print(f"  Template: {config['template']}")
         print()
 
     def add_type(self, name: str, interactive: bool = True) -> None:
@@ -162,16 +185,24 @@ class NoteTypesManager:
             sys.exit(1)
 
         if interactive:
-            definition = self._interactive_type_definition(name)
+            config = self._interactive_type_definition(name)
         else:
             # Non-interactive mode: use minimal defaults
-            definition = {
-                "folder": f"{name.capitalize()}/",
-                "properties": ["type", "up"],
+            config = {
+                "description": f"{name.capitalize()} notes",
+                "folder_hints": [f"{name.capitalize()}/"],
+                "properties": {
+                    "additional_required": [],
+                    "optional": [],
+                },
+                "validation": {
+                    "allow_empty_up": False,
+                },
+                "icon": "file",
             }
 
-        self.note_types[name] = definition
-        self._save_note_types()
+        self.note_types[name] = config
+        self._save_settings()
         print(f"✅ Added note type '{name}'")
         self.show_type(name)
 
@@ -188,9 +219,9 @@ class NoteTypesManager:
         print(f"📝 Editing note type: {name}\n")
         self.show_type(name)
 
-        definition = self._interactive_type_definition(name, self.note_types[name])
-        self.note_types[name] = definition
-        self._save_note_types()
+        config = self._interactive_type_definition(name, self.note_types[name])
+        self.note_types[name] = config
+        self._save_settings()
         print(f"✅ Updated note type '{name}'")
         self.show_type(name)
 
@@ -211,7 +242,7 @@ class NoteTypesManager:
             return
 
         del self.note_types[name]
-        self._save_note_types()
+        self._save_settings()
         print(f"✅ Removed note type '{name}'")
 
     def _interactive_type_definition(
@@ -231,35 +262,65 @@ class NoteTypesManager:
         print(f"Define note type: {name}")
         print("(Press Enter to keep current value or use default)\n")
 
-        # Folder
-        default_folder = existing.get("folder", f"{name.capitalize()}/")
-        folder = input(f"  Folder [{default_folder}]: ").strip()
-        folder = folder if folder else default_folder
+        # Description
+        default_desc = existing.get("description", f"{name.capitalize()} notes")
+        description = input(f"  Description [{default_desc}]: ").strip()
+        description = description if description else default_desc
+
+        # Folder hints
+        default_folders = existing.get("folder_hints", [f"{name.capitalize()}/"])
+        folders_str = ", ".join(default_folders)
+        folders_input = input(f"  Folders (comma-separated) [{folders_str}]: ").strip()
+        if folders_input:
+            folder_hints = [f.strip() for f in folders_input.split(",")]
+        else:
+            folder_hints = default_folders
 
         # Properties
-        default_props = existing.get("properties", ["type", "up"])
-        props_str = ", ".join(default_props)
-        properties_input = input(f"  Properties (comma-separated) [{props_str}]: ").strip()
-        if properties_input:
-            properties = [p.strip() for p in properties_input.split(",")]
+        existing_props = existing.get("properties", {})
+        if isinstance(existing_props, dict):
+            default_req = existing_props.get("additional_required", [])
+            default_opt = existing_props.get("optional", [])
         else:
-            properties = default_props
+            default_req = existing_props if isinstance(existing_props, list) else []
+            default_opt = []
 
-        # Template
-        default_template = existing.get("template", "")
-        template = input(f"  Template [{default_template or 'none'}]: ").strip()
-        template = template if template else default_template
+        req_str = ", ".join(default_req) if default_req else "none"
+        req_input = input(f"  Required properties [{req_str}]: ").strip()
+        if req_input and req_input.lower() != "none":
+            additional_required = [p.strip() for p in req_input.split(",")]
+        elif req_input.lower() == "none":
+            additional_required = []
+        else:
+            additional_required = default_req
 
-        # Build definition
-        definition: dict[str, Any] = {
-            "folder": folder,
-            "properties": properties,
+        opt_str = ", ".join(default_opt) if default_opt else "none"
+        opt_input = input(f"  Optional properties [{opt_str}]: ").strip()
+        if opt_input and opt_input.lower() != "none":
+            optional = [p.strip() for p in opt_input.split(",")]
+        elif opt_input.lower() == "none":
+            optional = []
+        else:
+            optional = default_opt
+
+        # Icon
+        default_icon = existing.get("icon", "file")
+        icon = input(f"  Icon [{default_icon}]: ").strip()
+        icon = icon if icon else default_icon
+
+        # Build config in settings.yaml format
+        config: dict[str, Any] = {
+            "description": description,
+            "folder_hints": folder_hints,
+            "properties": {
+                "additional_required": additional_required,
+                "optional": optional,
+            },
+            "validation": existing.get("validation", {"allow_empty_up": False}),
+            "icon": icon,
         }
 
-        if template:
-            definition["template"] = template
-
-        return definition
+        return config
 
     def wizard(self) -> None:
         """Interactive wizard to create a new note type"""
@@ -278,15 +339,20 @@ class NoteTypesManager:
             break
 
         # Build definition interactively
-        definition = self._interactive_type_definition(name)
+        config = self._interactive_type_definition(name)
 
         # Show summary
         print("\n📋 Summary:")
         print(f"  Name: {name}")
-        print(f"  Folder: {definition['folder']}")
-        print(f"  Properties: {', '.join(definition['properties'])}")
-        if "template" in definition:
-            print(f"  Template: {definition['template']}")
+        print(f"  Description: {config['description']}")
+        print(f"  Folders: {', '.join(config['folder_hints'])}")
+        req = config["properties"]["additional_required"]
+        opt = config["properties"]["optional"]
+        if req:
+            print(f"  Required: {', '.join(req)}")
+        if opt:
+            print(f"  Optional: {', '.join(opt)}")
+        print(f"  Icon: {config['icon']}")
 
         # Confirm
         response = input("\n✅ Create this note type? (Y/n): ").strip().lower()
@@ -294,28 +360,28 @@ class NoteTypesManager:
             print("Cancelled")
             return
 
-        self.note_types[name] = definition
-        self._save_note_types()
+        self.note_types[name] = config
+        self._save_settings()
         print(f"\n✅ Created note type '{name}'")
 
 
 def main() -> None:
     """Main entry point"""
     parser = argparse.ArgumentParser(
-        description="Manage Obsidian note types",
+        description="Manage Obsidian note types in settings.yaml",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
   %(prog)s --list
   %(prog)s --show map
-  %(prog)s --add project
+  %(prog)s --add blog
   %(prog)s --edit project
-  %(prog)s --remove project
+  %(prog)s --remove custom
   %(prog)s --wizard
         """,
     )
 
-    parser.add_argument("--config", help="Path to config file")
+    parser.add_argument("--vault", help="Path to vault root (default: current directory)")
     parser.add_argument("--list", action="store_true", help="List all note types")
     parser.add_argument("--show", metavar="NAME", help="Show details for a note type")
     parser.add_argument("--add", metavar="NAME", help="Add a new note type")
@@ -334,7 +400,7 @@ Examples:
         parser.print_help()
         sys.exit(1)
 
-    manager = NoteTypesManager(args.config)
+    manager = NoteTypesManager(args.vault)
 
     if args.list:
         manager.list_types()
