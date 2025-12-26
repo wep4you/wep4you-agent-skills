@@ -55,10 +55,12 @@ Use AskUserQuestion with methodology options:
 - zettelkasten (Traditional Zettelkasten)
 - minimal (Simple starter)
 
-Then execute initialization:
+Then call wrapper with chosen methodology (preserving the previous action if any):
 ```bash
-uv run init_vault.py <vault_path> -m <methodology> --defaults
+python3 "${CLAUDE_PLUGIN_ROOT}/commands/init.py" <vault_path> --action=<previous_action> -m <methodology>
 ```
+
+**IMPORTANT:** If the previous step was `--action=reset`, you MUST include it again!
 
 ### Example Flow
 
@@ -70,13 +72,15 @@ uv run init_vault.py <vault_path> -m <methodology> --defaults
 
 3. If JSON shows "action_required":
    → AskUserQuestion: "What to do with existing vault?"
-   → User selects "Continue"
-   → Run: python3 ... --action=continue
+   → User selects "reset"
+   → Run: python3 ... --action=reset
+   → This returns "methodology_required"
 
 4. If JSON shows "methodology_required":
    → AskUserQuestion: "Which methodology?"
    → User selects "para"
-   → Run: uv run init_vault.py /path -m para --defaults
+   → Run: python3 ... --action=reset -m para
+   → (IMPORTANT: Keep the --action from step 3!)
 
 5. Show results and next steps
 ```
