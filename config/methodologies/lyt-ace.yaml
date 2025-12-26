@@ -2,7 +2,7 @@
 # This file serves as the single source of truth for the LYT-ACE methodology.
 # Used by init_vault.py to create vaults and by validate to check notes.
 
-name: LYT-ACE
+name: LYT + ACE Framework
 description: Linking Your Thinking combined with Atlas/Calendar/Efforts structure
 author: Nick Milo
 version: "1.0"

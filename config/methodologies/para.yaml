@@ -2,7 +2,7 @@
 # This file serves as the single source of truth for the PARA methodology.
 # Used by init_vault.py to create vaults and by validate to check notes.
 
-name: PARA
+name: PARA Method
 description: Tiago Forte's Projects, Areas, Resources, Archives system
 author: Tiago Forte
 version: "1.0"
