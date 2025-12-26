@@ -729,6 +729,7 @@ created: "{{{{date}}}}"
         self,
         name: str,
         interactive: bool = True,
+        config: dict[str, Any] | None = None,
         description: str | None = None,
         folder: str | None = None,
         required_props: list[str] | None = None,
@@ -740,6 +741,7 @@ created: "{{{{date}}}}"
         Args:
             name: Name of the note type
             interactive: Whether to prompt for details interactively
+            config: Full config dict (replaces all settings from JSON)
             description: New description (non-interactive mode)
             folder: New folder hint (non-interactive mode)
             required_props: New required properties (non-interactive mode)
@@ -753,32 +755,86 @@ created: "{{{{date}}}}"
         print(f"📝 Editing note type: {name}\n")
         self.show_type(name)
 
-        if interactive:
-            config = self._interactive_type_definition(name, self.note_types[name])
+        if config:
+            # Full config provided - merge with existing, only update explicitly provided fields
+            final_config = self.note_types[name].copy()
+
+            # Only update fields that were explicitly provided in the config
+            if "description" in config:
+                final_config["description"] = config["description"]
+
+            if "folder" in config or "folder_hints" in config:
+                folder = config.get("folder", config.get("folder_hints", [None])[0])
+                if folder:
+                    final_config["folder_hints"] = [
+                        folder if folder.endswith("/") else f"{folder}/"
+                    ]
+
+            if "icon" in config:
+                final_config["icon"] = config["icon"]
+
+            if "allow_empty_up" in config:
+                final_config.setdefault("validation", {})["allow_empty_up"] = config[
+                    "allow_empty_up"
+                ]
+
+            # Handle properties
+            if (
+                "required_props" in config
+                or "required" in config
+                or "optional_props" in config
+                or "optional" in config
+                or "properties" in config
+            ):
+                props = final_config.get("properties", {})
+                if not isinstance(props, dict):
+                    props = {"additional_required": [], "optional": []}
+
+                if "required_props" in config or "required" in config:
+                    req = config.get("required_props", config.get("required", []))
+                    if isinstance(req, str):
+                        req = [p.strip() for p in req.split(",")]
+                    props["additional_required"] = req
+
+                if "optional_props" in config or "optional" in config:
+                    opt = config.get("optional_props", config.get("optional", []))
+                    if isinstance(opt, str):
+                        opt = [p.strip() for p in opt.split(",")]
+                    props["optional"] = opt
+
+                if "properties" in config and isinstance(config["properties"], dict):
+                    if "additional_required" in config["properties"]:
+                        props["additional_required"] = config["properties"]["additional_required"]
+                    if "optional" in config["properties"]:
+                        props["optional"] = config["properties"]["optional"]
+
+                final_config["properties"] = props
+        elif interactive:
+            final_config = self._interactive_type_definition(name, self.note_types[name])
         else:
-            # Non-interactive: only update provided fields
-            config = self.note_types[name].copy()
+            # Non-interactive with individual parameters
+            final_config = self.note_types[name].copy()
 
             if description is not None:
-                config["description"] = description
+                final_config["description"] = description
 
             if folder is not None:
-                config["folder_hints"] = [folder if folder.endswith("/") else f"{folder}/"]
+                final_config["folder_hints"] = [folder if folder.endswith("/") else f"{folder}/"]
 
             if required_props is not None or optional_props is not None:
-                props = config.get("properties", {})
+                props = final_config.get("properties", {})
                 if not isinstance(props, dict):
                     props = {"additional_required": [], "optional": []}
                 if required_props is not None:
                     props["additional_required"] = required_props
                 if optional_props is not None:
                     props["optional"] = optional_props
-                config["properties"] = props
+                final_config["properties"] = props
 
             if icon is not None:
-                config["icon"] = icon
+                final_config["icon"] = icon
 
-        self.note_types[name] = config
+        self.note_types[name] = final_config
         self._save_settings()
         print(f"✅ Updated note type '{name}'")
         self.show_type(name)
@@ -929,13 +985,52 @@ def main() -> None:
         description="Manage Obsidian note types in settings.yaml",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-Examples:
-  %(prog)s --list
-  %(prog)s --show map
-  %(prog)s --add blog
-  %(prog)s --edit project
-  %(prog)s --remove custom
-  %(prog)s --wizard
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+EXAMPLES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+List & Show:
+  %(prog)s --list                           # List all note types
+  %(prog)s --show project                   # Show details for 'project'
+
+Add with JSON config (RECOMMENDED):
+  %(prog)s --add meeting --config '{
+    "description": "Meeting notes",
+    "folder": "Meetings/",
+    "required_props": ["attendees", "date"],
+    "optional_props": ["action_items"],
+    "icon": "calendar"
+  }'
+
+Add with minimal defaults:
+  %(prog)s --add blog --non-interactive     # Creates Blog/ with defaults
+
+Edit with JSON config (RECOMMENDED):
+  %(prog)s --edit meeting --config '{
+    "description": "Updated description",
+    "required_props": ["attendees", "date", "location"]
+  }'
+
+Edit with individual parameters:
+  %(prog)s --edit project --non-interactive --description "New desc" --icon "rocket"
+  %(prog)s --edit project --non-interactive --required-props "status,priority"
+  %(prog)s --edit project --non-interactive --folder "NewFolder/"
+
+Remove:
+  %(prog)s --remove meeting --yes           # Remove without confirmation
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CONFIG JSON FIELDS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  description     : Note type description (string)
+  folder          : Folder path, e.g. "Meetings/" (string)
+  required_props  : Required properties (array or comma-separated string)
+  optional_props  : Optional properties (array or comma-separated string)
+  icon            : Lucide icon name, e.g. "calendar" (string)
+  allow_empty_up  : Allow empty up links (boolean, default: false)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         """,
     )
 
@@ -945,27 +1040,26 @@ Examples:
     parser.add_argument("--add", metavar="NAME", help="Add a new note type")
     parser.add_argument("--edit", metavar="NAME", help="Edit an existing note type")
     parser.add_argument("--remove", metavar="NAME", help="Remove a note type")
-    parser.add_argument("--wizard", action="store_true", help="Interactive wizard mode")
+    parser.add_argument("--wizard", action="store_true", help="Interactive wizard (terminal only)")
     parser.add_argument(
-        "--non-interactive", action="store_true", help="Non-interactive mode for --add/--edit"
+        "--non-interactive",
+        action="store_true",
+        help="Use minimal defaults (for --add) or individual params (for --edit)",
     )
     parser.add_argument(
-        "--yes", "-y", action="store_true", help="Skip confirmation prompts (for --remove)"
+        "--yes", "-y", action="store_true", help="Skip confirmation (for --remove)"
     )
-    # Non-interactive edit parameters
-    parser.add_argument("--description", help="Note type description (for --edit)")
-    parser.add_argument("--folder", help="Folder hint (for --edit)")
-    parser.add_argument(
-        "--required-props", help="Comma-separated required properties (for --edit)"
-    )
-    parser.add_argument(
-        "--optional-props", help="Comma-separated optional properties (for --edit)"
-    )
-    parser.add_argument("--icon", help="Icon name (for --edit)")
     parser.add_argument(
         "--config",
-        help='JSON config for --add (e.g., \'{"description": "...", "folder": "..."}\')',
+        metavar="JSON",
+        help='Full JSON config for --add/--edit (RECOMMENDED)',
     )
+    # Individual edit parameters (alternative to --config)
+    parser.add_argument("--description", help="Note type description")
+    parser.add_argument("--folder", help="Folder path (e.g., Meetings/)")
+    parser.add_argument("--required-props", metavar="PROPS", help="Comma-separated required properties")
+    parser.add_argument("--optional-props", metavar="PROPS", help="Comma-separated optional properties")
+    parser.add_argument("--icon", help="Lucide icon name (e.g., calendar, file, target)")
 
     args = parser.parse_args()
 
@@ -991,6 +1085,15 @@ Examples:
                 sys.exit(1)
         manager.add_type(args.add, interactive=not args.non_interactive, config=config)
     elif args.edit:
+        # Parse JSON config if provided
+        config = None
+        if args.config:
+            try:
+                config = json.loads(args.config)
+            except json.JSONDecodeError as e:
+                print(f"❌ Invalid JSON config: {e}")
+                sys.exit(1)
+
         # Parse comma-separated properties if provided
         required_props = None
         optional_props = None
@@ -1001,7 +1104,8 @@ Examples:
 
         manager.edit_type(
             args.edit,
-            interactive=not args.non_interactive,
+            interactive=not args.non_interactive and not config,
+            config=config,
             description=args.description,
             folder=args.folder,
             required_props=required_props,

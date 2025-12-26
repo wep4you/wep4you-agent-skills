@@ -350,6 +350,41 @@ class TestNoteTypesManager:
         assert config["folder_hints"] == original_folder
         assert config["properties"] == original_props
 
+    def test_edit_type_with_config(self, temp_vault):
+        """Test editing note type with full config dict"""
+        manager = NoteTypesManager(str(temp_vault))
+
+        config = {
+            "description": "Updated via config",
+            "required_props": ["new_required"],
+            "optional_props": ["new_optional"],
+            "icon": "rocket",
+        }
+        manager.edit_type("project", config=config)
+
+        updated = manager.note_types["project"]
+        assert updated["description"] == "Updated via config"
+        assert updated["properties"]["additional_required"] == ["new_required"]
+        assert updated["properties"]["optional"] == ["new_optional"]
+        assert updated["icon"] == "rocket"
+        # Folder should remain unchanged (not provided in config)
+        assert updated["folder_hints"] == ["Projects/"]
+
+    def test_edit_type_with_config_partial(self, temp_vault):
+        """Test that edit with config only updates provided fields"""
+        manager = NoteTypesManager(str(temp_vault))
+
+        original_icon = manager.note_types["project"]["icon"]
+
+        # Only update description
+        config = {"description": "Only description changed"}
+        manager.edit_type("project", config=config)
+
+        updated = manager.note_types["project"]
+        assert updated["description"] == "Only description changed"
+        # Icon should remain unchanged
+        assert updated["icon"] == original_icon
+
     def test_remove_type_not_exists(self, temp_vault):
         """Test removing non-existent note type"""
         manager = NoteTypesManager(str(temp_vault))
@@ -634,6 +669,34 @@ class TestMainFunction:
         assert project["properties"]["additional_required"] == ["status", "priority"]
         assert project["properties"]["optional"] == ["deadline", "notes"]
         assert project["icon"] == "rocket"
+
+    def test_main_edit_with_config(self, temp_vault):
+        """Test main with --edit --config"""
+        config_json = '{"description": "Edited via config", "required_props": ["priority"], "icon": "star"}'
+
+        with patch(
+            "sys.argv",
+            [
+                "note_types.py",
+                "--vault",
+                str(temp_vault),
+                "--edit",
+                "project",
+                "--config",
+                config_json,
+            ],
+        ):
+            from note_types import main
+
+            main()
+
+        # Verify the settings were updated
+        with open(temp_vault / ".claude" / "settings.yaml") as f:
+            settings = yaml.safe_load(f)
+            project = settings["note_types"]["project"]
+            assert project["description"] == "Edited via config"
+            assert project["properties"]["additional_required"] == ["priority"]
+            assert project["icon"] == "star"
 
     def test_main_remove(self, temp_vault):
         """Test main with --remove"""

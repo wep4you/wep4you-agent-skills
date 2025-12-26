@@ -1,6 +1,6 @@
 ---
 name: note-types
-version: "0.48.0"
+version: "0.49.0"
 license: MIT
 description: "Manage Obsidian note type definitions including folders, properties, and templates. Use when the user wants to (1) define new note types, (2) manage note type configurations, (3) set up folder and property mappings, (4) create note type templates, or (5) view existing note types. Triggers on keywords like note types, note type config, manage note types, define note type, note type wizard."
 ---
@@ -40,10 +40,11 @@ uv run note_types.py --add meeting --non-interactive  # WRONG!
 
 | Command | Description |
 |---------|-------------|
+| `obsidian:note-types --help` | Show all options with examples |
 | `obsidian:note-types --list` | List all note types |
 | `obsidian:note-types --show <name>` | Show details for a note type |
 | `obsidian:note-types --add <name> --config '{...}'` | Add with full JSON config |
-| `obsidian:note-types --edit <name> --non-interactive [options]` | Edit a note type |
+| `obsidian:note-types --edit <name> --config '{...}'` | Edit with JSON config |
 | `obsidian:note-types --remove <name> --yes` | Remove a note type |
 
 ## Quick Start
@@ -243,24 +244,31 @@ This is the **recommended approach for Claude Code** as it provides full wizard 
 
 ### Edit Note Type
 
-**Non-interactive (for Claude Code):**
+**With JSON config (RECOMMENDED for Claude Code):**
+```bash
+# Update multiple fields at once
+uv run skills/note-types/scripts/note_types.py --edit meeting --config '{
+  "description": "Updated meeting notes",
+  "required_props": ["attendees", "date", "location"],
+  "optional_props": ["action_items", "recording_link"],
+  "icon": "video"
+}'
+
+# Single line
+uv run skills/note-types/scripts/note_types.py --edit project --config '{"description": "New description", "icon": "rocket"}'
+```
+
+**With individual parameters:**
 ```bash
 # Update description
 uv run skills/note-types/scripts/note_types.py --edit project --non-interactive --description "New description"
 
-# Update folder
-uv run skills/note-types/scripts/note_types.py --edit project --non-interactive --folder "NewFolder/"
-
 # Update properties
 uv run skills/note-types/scripts/note_types.py --edit project --non-interactive --required-props "status,priority"
-uv run skills/note-types/scripts/note_types.py --edit project --non-interactive --optional-props "deadline,notes"
-
-# Update icon
-uv run skills/note-types/scripts/note_types.py --edit project --non-interactive --icon "target"
 
 # Combine multiple updates
 uv run skills/note-types/scripts/note_types.py --edit project --non-interactive \
-  --description "Updated description" --folder "Projects/" --icon "rocket"
+  --description "Updated" --folder "Projects/" --icon "rocket"
 ```
 
 **Interactive (terminal only):**
