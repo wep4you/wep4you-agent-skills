@@ -1773,6 +1773,7 @@ def build_settings_yaml(
     methodology: str,
     config: WizardConfig | None = None,
     note_types_filter: list[str] | None = None,
+    core_properties_filter: list[str] | None = None,
 ) -> dict[str, Any]:
     """Build settings.yaml content for a methodology.
 
@@ -1780,6 +1781,7 @@ def build_settings_yaml(
         methodology: Methodology key
         config: Optional WizardConfig with user customizations
         note_types_filter: List of note type names to include (None = all)
+        core_properties_filter: List of core properties to include (None = all)
 
     Returns:
         Dictionary representing the settings.yaml content
@@ -1822,8 +1824,17 @@ def build_settings_yaml(
         note_types = {k: v for k, v in note_types.items() if k in note_types_filter}
 
     # Build core properties configuration
+    all_core_properties = list(method_config["core_properties"])
+
+    # Apply core properties filter if provided (from --core-properties argument)
+    if core_properties_filter:
+        # Always include 'type' and 'created' as mandatory
+        mandatory = {"type", "created"}
+        filtered_props = [p for p in all_core_properties if p in core_properties_filter or p in mandatory]
+        all_core_properties = filtered_props
+
     core_properties_config: dict[str, Any] = {
-        "all": list(method_config["core_properties"]),
+        "all": all_core_properties,
     }
 
     # Add mandatory/optional classification if customized
@@ -1836,6 +1847,8 @@ def build_settings_yaml(
             core_properties_config["custom"] = config.custom_properties
             # Add custom properties to the 'all' list
             base_props = list(method_config["core_properties"])
+            if core_properties_filter:
+                base_props = [p for p in base_props if p in core_properties_filter or p in {"type", "created"}]
             core_properties_config["all"] = base_props + config.custom_properties
 
     settings: dict[str, Any] = {
@@ -1879,6 +1892,7 @@ def create_settings_yaml(
     dry_run: bool = False,
     config: WizardConfig | None = None,
     note_types_filter: list[str] | None = None,
+    core_properties_filter: list[str] | None = None,
 ) -> None:
     """Create settings.yaml for the vault.
 
@@ -1890,8 +1904,9 @@ def create_settings_yaml(
         dry_run: If True, only print what would be created
         config: Optional WizardConfig with user customizations
         note_types_filter: List of note type names to include (None = all)
+        core_properties_filter: List of core properties to include (None = all)
     """
-    settings = build_settings_yaml(methodology, config, note_types_filter)
+    settings = build_settings_yaml(methodology, config, note_types_filter, core_properties_filter)
     settings_path = vault_path / ".claude" / "settings.yaml"
 
     # Build YAML with header comments
@@ -2044,6 +2059,7 @@ def init_vault(
     use_wizard: bool = False,
     use_defaults: bool = False,
     note_types_filter: list[str] | None = None,
+    core_properties_filter: list[str] | None = None,
 ) -> None:
     """Initialize an Obsidian vault with chosen methodology.
 
@@ -2054,6 +2070,7 @@ def init_vault(
         use_wizard: If True, run the full interactive wizard
         use_defaults: If True, skip confirmations and use defaults
         note_types_filter: List of note type names to include (None = all)
+        core_properties_filter: List of core properties to include (None = all)
     """
     # Check for existing vault first
     detection = detect_existing_vault(vault_path)
@@ -2119,7 +2136,9 @@ def init_vault(
     create_folder_structure(vault_path, methodology, dry_run, note_types_filter)
 
     # Create settings.yaml (PRIMARY configuration) with user customizations
-    create_settings_yaml(vault_path, methodology, dry_run, config, note_types_filter)
+    create_settings_yaml(
+        vault_path, methodology, dry_run, config, note_types_filter, core_properties_filter
+    )
 
     # Create README
     create_readme(vault_path, methodology, dry_run)
@@ -2265,6 +2284,10 @@ Examples:
         "--note-types",
         help="Comma-separated list of note types to include (default: all)",
     )
+    parser.add_argument(
+        "--core-properties",
+        help="Comma-separated list of core properties to include (default: all)",
+    )
 
     args = parser.parse_args()
 
@@ -2364,6 +2387,11 @@ Examples:
     if args.note_types:
         note_types_filter = [t.strip() for t in args.note_types.split(",") if t.strip()]
 
+    # Parse core properties filter
+    core_properties_filter = None
+    if args.core_properties:
+        core_properties_filter = [p.strip() for p in args.core_properties.split(",") if p.strip()]
+
     try:
         init_vault(
             vault_path,
@@ -2372,6 +2400,7 @@ Examples:
             use_wizard=use_wizard,
             use_defaults=args.defaults,
             note_types_filter=note_types_filter,
+            core_properties_filter=core_properties_filter,
         )
         return 0
     except ValueError as e:

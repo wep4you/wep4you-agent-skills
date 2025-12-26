@@ -1,6 +1,6 @@
 ---
 name: init
-version: "0.30.0"
+version: "0.31.0"
 license: MIT
 description: "Initialize a new Obsidian vault with a chosen PKM methodology (LYT-ACE, PARA, Zettelkasten, or Minimal). Creates folder structure, configuration files, and frontmatter standards. Use when the user wants to (1) create a new Obsidian vault, (2) set up a vault with a specific methodology, (3) initialize vault configuration, or (4) scaffold a new PKM system. Triggers on keywords like init vault, create vault, new obsidian vault, setup vault, scaffold vault."
 ---
@@ -61,7 +61,15 @@ python3 "${CLAUDE_PLUGIN_ROOT}/commands/init.py" <vault_path> --action=continue 
 python3 "${CLAUDE_PLUGIN_ROOT}/commands/init.py" <vault_path> --action=continue -m para --note-types=project,area
 ```
 
-#### Step 5: Execution
+#### Step 5: `prompt_type: "properties_required"`
+→ Use AskUserQuestion with multi-select (all selected by default, type/created disabled)
+→ Join selected IDs with comma
+→ Call wrapper again WITH `--core-properties=<props>` AND keep ALL previous flags:
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/commands/init.py" <vault_path> --action=continue -m para --note-types=project,area --core-properties=type,created,up,tags
+```
+
+#### Step 6: Execution
 The wrapper automatically executes when all parameters are provided.
 
 ### Complete Example
@@ -78,10 +86,14 @@ The wrapper automatically executes when all parameters are provided.
    → AskUserQuestion → User: "para"
 
 4. Run: python3 .../commands/init.py /vault --action=continue -m para
-   → JSON: {"prompt_type": "note_types_required", "options": [...], ...}
+   → JSON: {"prompt_type": "note_types_required", ...}
    → AskUserQuestion (multi-select) → User: "project,area,resource"
 
 5. Run: python3 .../commands/init.py /vault --action=continue -m para --note-types=project,area,resource
+   → JSON: {"prompt_type": "properties_required", ...}
+   → AskUserQuestion (multi-select) → User: "type,created,up,tags"
+
+6. Run: python3 .../commands/init.py /vault --action=continue -m para --note-types=project,area,resource --core-properties=type,created,up,tags
    → Initialization runs! Show results.
 ```
 
@@ -102,6 +114,8 @@ Show what was created and suggest:
 | `--action` | Action for existing vault: abort, continue, reset, migrate |
 | `-m, --methodology` | Methodology: lyt-ace, para, zettelkasten, minimal |
 | `--note-types` | Comma-separated list of note types to include |
+| `--core-properties` | Comma-separated list of core properties to include |
+| `--defaults` | Skip note type and property selection (use all) |
 | `--check` | Output vault status as JSON (no changes) |
 | `--list` | List methodologies and exit |
 

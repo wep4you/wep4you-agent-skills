@@ -225,6 +225,93 @@ def output_note_types_prompt(
     print(json.dumps(prompt, indent=2))
 
 
+def get_core_properties_for_methodology(methodology: str) -> list[str]:
+    """Get core properties for a methodology by calling init_vault.py."""
+    script = get_script_path()
+
+    try:
+        cmd = ["uv", "run", str(script), "--list-note-types", methodology]
+        result = subprocess.run(  # noqa: S603
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+
+        if result.returncode == 0:
+            # The note types JSON doesn't include core_properties directly
+            # We need to get them from methodology config
+            # For now, call --list and parse or hardcode common ones
+            pass
+    except (subprocess.TimeoutExpired, OSError):
+        pass
+
+    # Fallback: common core properties (will be replaced with actual call)
+    # These are defined in METHODOLOGIES in init_vault.py
+    core_props_by_methodology = {
+        "lyt-ace": ["type", "up", "created", "daily", "tags", "collection", "related"],
+        "para": ["type", "up", "created", "tags"],
+        "zettelkasten": ["type", "up", "created", "tags", "source", "related"],
+        "minimal": ["type", "created", "tags"],
+    }
+    return core_props_by_methodology.get(methodology, ["type", "up", "created", "tags"])
+
+
+def output_properties_prompt(
+    vault_path: str,
+    methodology: str,
+    note_types: str,
+    action: str | None = None,
+) -> None:
+    """Output prompt for core property selection.
+
+    Args:
+        vault_path: Path to the vault
+        methodology: Selected methodology
+        note_types: Comma-separated list of selected note types
+        action: Previous action (continue/reset) to preserve in next command
+    """
+    core_properties = get_core_properties_for_methodology(methodology)
+
+    # Build options from core properties
+    # type and created are mandatory, others are optional
+    mandatory = {"type", "created"}
+    options = []
+    for prop in core_properties:
+        is_mandatory = prop in mandatory
+        options.append({
+            "id": prop,
+            "label": prop.capitalize(),
+            "description": f"{'Required' if is_mandatory else 'Optional'} property",
+            "selected": True,  # All selected by default
+            "disabled": is_mandatory,  # Can't deselect mandatory
+        })
+
+    # Build the next_step command
+    cmd_parts = [f"python3 ${{CLAUDE_PLUGIN_ROOT}}/commands/init.py {vault_path}"]
+    if action:
+        cmd_parts.append(f"--action={action}")
+    cmd_parts.append(f"-m {methodology}")
+    cmd_parts.append(f"--note-types={note_types}")
+    cmd_parts.append("--core-properties=<selected_properties>")
+    next_cmd = " ".join(cmd_parts)
+
+    prompt = {
+        "prompt_type": "properties_required",
+        "message": f"Select core properties for your notes",
+        "vault_path": vault_path,
+        "methodology": methodology,
+        "note_types": note_types,
+        "previous_action": action,
+        "question": "Which properties do you want to use?",
+        "multi_select": True,
+        "options": options,
+        "next_step": next_cmd,
+        "hint": "type and created are mandatory. Use --defaults to skip and include all.",
+    }
+    print(json.dumps(prompt, indent=2))
+
+
 def output_abort() -> None:
     """Output abort confirmation."""
     result = {
@@ -249,6 +336,7 @@ def execute_init(
     methodology: str,
     reset: bool = False,
     note_types: list[str] | None = None,
+    core_properties: list[str] | None = None,
 ) -> int:
     """Execute the actual vault initialization.
 
@@ -257,6 +345,7 @@ def execute_init(
         methodology: Selected methodology
         reset: Whether to reset the vault
         note_types: List of note types to include (None = all)
+        core_properties: List of core properties to include (None = all)
     """
     script = get_script_path()
 
@@ -265,6 +354,8 @@ def execute_init(
         cmd.append("--reset")
     if note_types:
         cmd.extend(["--note-types", ",".join(note_types)])
+    if core_properties:
+        cmd.extend(["--core-properties", ",".join(core_properties)])
 
     # Set environment variable to indicate we're calling from wrapper
     import os
@@ -310,9 +401,14 @@ def main() -> int:
     )
 
     parser.add_argument(
+        "--core-properties",
+        help="Comma-separated list of core properties to include",
+    )
+
+    parser.add_argument(
         "--defaults",
         action="store_true",
-        help="Use all default note types (skip note type selection)",
+        help="Use all defaults (skip note type and property selection)",
     )
 
     parser.add_argument(
@@ -334,6 +430,11 @@ def main() -> int:
     note_types = None
     if args.note_types:
         note_types = [t.strip() for t in args.note_types.split(",") if t.strip()]
+
+    # Parse core properties if provided
+    core_properties = None
+    if args.core_properties:
+        core_properties = [p.strip() for p in args.core_properties.split(",") if p.strip()]
 
     # Pass-through: --list
     if args.list:
@@ -380,12 +481,22 @@ def main() -> int:
             if not args.defaults and not note_types:
                 output_note_types_prompt(str(vault_path), args.methodology, args.action)
                 return 0
-            # Execute with methodology and note types
+            # Note types specified - check for core properties
+            if not args.defaults and not core_properties:
+                output_properties_prompt(
+                    str(vault_path),
+                    args.methodology,
+                    args.note_types or "",
+                    args.action,
+                )
+                return 0
+            # Execute with methodology, note types, and core properties
             return execute_init(
                 vault_path,
                 args.methodology,
                 reset=(args.action == "reset"),
                 note_types=note_types,
+                core_properties=core_properties,
             )
 
     # STEP 3: New/empty vault - prompt for methodology
@@ -398,8 +509,22 @@ def main() -> int:
         output_note_types_prompt(str(vault_path), args.methodology)
         return 0
 
-    # STEP 5: Execute initialization
-    return execute_init(vault_path, args.methodology, note_types=note_types)
+    # STEP 5: Note types specified - check for core properties
+    if not args.defaults and not core_properties:
+        output_properties_prompt(
+            str(vault_path),
+            args.methodology,
+            args.note_types or "",
+        )
+        return 0
+
+    # STEP 6: Execute initialization
+    return execute_init(
+        vault_path,
+        args.methodology,
+        note_types=note_types,
+        core_properties=core_properties,
+    )
 
 
 if __name__ == "__main__":

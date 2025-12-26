@@ -743,6 +743,92 @@ class TestNoteTypeFiltering:
         assert "daily" not in note_types
 
 
+class TestCorePropertiesFiltering:
+    """Test core properties filtering with --core-properties parameter."""
+
+    def test_filter_core_properties_settings(self, tmp_path: Path) -> None:
+        """Test that filtered core properties appear in settings.yaml."""
+        # Init with only type, created, and up
+        init_vault(
+            tmp_path,
+            "para",
+            dry_run=False,
+            use_defaults=True,
+            core_properties_filter=["type", "created", "up"],
+        )
+
+        # Load settings and check core properties
+        settings = load_settings(tmp_path)
+        core_props = settings.core_properties
+
+        assert "type" in core_props
+        assert "created" in core_props
+        assert "up" in core_props
+        assert "tags" not in core_props  # Should be filtered out
+
+    def test_mandatory_properties_always_included(self, tmp_path: Path) -> None:
+        """Test that type and created are always included even if not in filter."""
+        # Init with filter that doesn't include 'type' and 'created'
+        init_vault(
+            tmp_path,
+            "para",
+            dry_run=False,
+            use_defaults=True,
+            core_properties_filter=["up", "tags"],  # Missing type and created
+        )
+
+        # Load settings - type and created should still be there
+        settings = load_settings(tmp_path)
+        core_props = settings.core_properties
+
+        assert "type" in core_props  # Mandatory, always included
+        assert "created" in core_props  # Mandatory, always included
+        assert "up" in core_props
+        assert "tags" in core_props
+
+    def test_filter_core_properties_lyt_ace(self, tmp_path: Path) -> None:
+        """Test core property filtering with LYT-ACE methodology."""
+        # LYT-ACE has: type, up, created, daily, tags, collection, related
+        # Filter to just type, created, up, tags
+        init_vault(
+            tmp_path,
+            "lyt-ace",
+            dry_run=False,
+            use_defaults=True,
+            core_properties_filter=["type", "created", "up", "tags"],
+        )
+
+        settings = load_settings(tmp_path)
+        core_props = settings.core_properties
+
+        assert "type" in core_props
+        assert "created" in core_props
+        assert "up" in core_props
+        assert "tags" in core_props
+        assert "daily" not in core_props
+        assert "collection" not in core_props
+        assert "related" not in core_props
+
+    def test_no_filter_includes_all_properties(self, tmp_path: Path) -> None:
+        """Test that None filter includes all core properties."""
+        init_vault(
+            tmp_path,
+            "para",
+            dry_run=False,
+            use_defaults=True,
+            core_properties_filter=None,
+        )
+
+        settings = load_settings(tmp_path)
+        core_props = settings.core_properties
+
+        # PARA has: type, up, created, tags
+        assert "type" in core_props
+        assert "up" in core_props
+        assert "created" in core_props
+        assert "tags" in core_props
+
+
 class TestConfigNoteTypeIntegration:
     """Test that config skills correctly read and use note types from init."""
 
