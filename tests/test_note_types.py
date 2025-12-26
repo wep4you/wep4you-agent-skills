@@ -213,6 +213,60 @@ class TestNoteTypesManager:
         assert manager.note_types["custom"]["folder_hints"] == ["Custom/"]
         assert manager.note_types["custom"]["description"] == "Custom notes"
 
+    def test_add_type_with_config(self, temp_vault):
+        """Test adding note type with full config dict (wizard alternative)"""
+        bases_folder = temp_vault / "x" / "bases"
+        bases_folder.mkdir(parents=True)
+        (bases_folder / "all_bases.base").write_text("views:\n  - type: table\n    name: All\n")
+
+        manager = NoteTypesManager(str(temp_vault))
+        config = {
+            "description": "Meeting notes and action items",
+            "folder": "Meetings/",
+            "required_props": ["attendees", "date"],
+            "optional_props": ["action_items"],
+            "icon": "calendar",
+        }
+        manager.add_type("meeting", config=config)
+
+        assert "meeting" in manager.note_types
+        meeting = manager.note_types["meeting"]
+        assert meeting["description"] == "Meeting notes and action items"
+        assert meeting["folder_hints"] == ["Meetings/"]
+        assert meeting["properties"]["additional_required"] == ["attendees", "date"]
+        assert meeting["properties"]["optional"] == ["action_items"]
+        assert meeting["icon"] == "calendar"
+
+    def test_add_type_with_config_string_props(self, temp_vault):
+        """Test that config accepts comma-separated string for properties"""
+        manager = NoteTypesManager(str(temp_vault))
+        config = {
+            "description": "Blog posts",
+            "folder": "Blog",
+            "required_props": "status, published",
+            "optional_props": "tags, author",
+        }
+        manager.add_type("blog", config=config)
+
+        blog = manager.note_types["blog"]
+        assert blog["folder_hints"] == ["Blog/"]  # Trailing slash added
+        assert blog["properties"]["additional_required"] == ["status", "published"]
+        assert blog["properties"]["optional"] == ["tags", "author"]
+
+    def test_normalize_config_defaults(self, temp_vault):
+        """Test that normalize_config applies defaults correctly"""
+        manager = NoteTypesManager(str(temp_vault))
+
+        # Minimal config - should get all defaults
+        config = manager._normalize_config("test", {})
+
+        assert config["description"] == "Test notes"
+        assert config["folder_hints"] == ["Test/"]
+        assert config["properties"]["additional_required"] == []
+        assert config["properties"]["optional"] == []
+        assert config["icon"] == "file"
+        assert config["validation"]["allow_empty_up"] is False
+
     def test_add_type_interactive(self, temp_vault):
         """Test adding note type in interactive mode"""
         manager = NoteTypesManager(str(temp_vault))
@@ -476,6 +530,58 @@ class TestMainFunction:
         with open(temp_vault / ".claude" / "settings.yaml") as f:
             settings = yaml.safe_load(f)
             assert "custom" in settings["note_types"]
+
+    def test_main_add_with_config(self, temp_vault):
+        """Test main with --add --config (wizard alternative)"""
+        config_json = '{"description": "Meeting notes", "folder": "Meetings/", "required_props": ["date"], "icon": "calendar"}'
+
+        with patch(
+            "sys.argv",
+            [
+                "note_types.py",
+                "--vault",
+                str(temp_vault),
+                "--add",
+                "meeting",
+                "--config",
+                config_json,
+            ],
+        ):
+            from note_types import main
+
+            main()
+
+        # Verify file was updated with full config
+        with open(temp_vault / ".claude" / "settings.yaml") as f:
+            settings = yaml.safe_load(f)
+            meeting = settings["note_types"]["meeting"]
+            assert meeting["description"] == "Meeting notes"
+            assert meeting["folder_hints"] == ["Meetings/"]
+            assert meeting["properties"]["additional_required"] == ["date"]
+            assert meeting["icon"] == "calendar"
+
+    def test_main_add_with_invalid_config(self, temp_vault, capsys):
+        """Test main with invalid JSON config"""
+        with patch(
+            "sys.argv",
+            [
+                "note_types.py",
+                "--vault",
+                str(temp_vault),
+                "--add",
+                "meeting",
+                "--config",
+                "not valid json",
+            ],
+        ):
+            from note_types import main
+
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+            assert exc_info.value.code == 1
+
+        captured = capsys.readouterr()
+        assert "Invalid JSON" in captured.out
 
     def test_main_edit(self, temp_vault):
         """Test main with --edit"""

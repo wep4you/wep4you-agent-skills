@@ -1,6 +1,6 @@
 ---
 name: note-types
-version: "0.44.0"
+version: "0.45.0"
 license: MIT
 description: "Manage Obsidian note type definitions including folders, properties, and templates. Use when the user wants to (1) define new note types, (2) manage note type configurations, (3) set up folder and property mappings, (4) create note type templates, or (5) view existing note types. Triggers on keywords like note types, note type config, manage note types, define note type, note type wizard."
 ---
@@ -15,11 +15,12 @@ Manage note type definitions for your Obsidian vault. Define folders, required p
 |---------|-------------|
 | `obsidian:note-types --list` | List all note types |
 | `obsidian:note-types --show <name>` | Show details for a note type |
-| `obsidian:note-types --add <name> --non-interactive` | Add a new note type |
+| `obsidian:note-types --add <name> --non-interactive` | Add a new note type (minimal) |
+| `obsidian:note-types --add <name> --config '{...}'` | Add with full JSON config |
 | `obsidian:note-types --edit <name> --non-interactive [options]` | Edit a note type |
 | `obsidian:note-types --remove <name> --yes` | Remove a note type |
 
-**IMPORTANT for Claude Code**: Always use `--non-interactive` with `--add` and `--edit`, and `--yes` with `--remove`. Interactive mode (`--wizard`) requires terminal input and cannot be used.
+**IMPORTANT for Claude Code**: Always use `--non-interactive` or `--config` with `--add`, `--non-interactive` with `--edit`, and `--yes` with `--remove`. Interactive mode (`--wizard`) requires terminal input and cannot be used.
 
 ## Quick Start
 
@@ -181,6 +182,37 @@ uv run skills/note-types/scripts/note_types.py --add blog --non-interactive
 Creates a note type with minimal defaults:
 - Folder: `Blog/`
 - Properties: `type, up`
+
+### Add Note Type with Full Config (Wizard Alternative)
+
+Use `--config` with JSON for full wizard-like setup in a single command:
+
+```bash
+# Full wizard-like setup
+uv run skills/note-types/scripts/note_types.py --add meeting --config '{
+  "description": "Meeting notes and action items",
+  "folder": "Meetings/",
+  "required_props": ["attendees", "date"],
+  "optional_props": ["action_items", "next_meeting"],
+  "icon": "calendar"
+}'
+
+# Shorter syntax (all on one line)
+uv run skills/note-types/scripts/note_types.py --add blog --config '{"description": "Blog posts and drafts", "folder": "Blog/", "required_props": ["status", "published"], "icon": "pen-tool"}'
+```
+
+**Config JSON fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `description` | string | Note type description |
+| `folder` | string | Folder path (e.g., "Meetings/") |
+| `required_props` | array/string | Required properties (comma-separated or array) |
+| `optional_props` | array/string | Optional properties (comma-separated or array) |
+| `icon` | string | Lucide icon name |
+| `allow_empty_up` | boolean | Allow empty up links (default: false) |
+
+This is the **recommended approach for Claude Code** as it provides full wizard functionality without interactive prompts.
 
 ### Edit Note Type
 

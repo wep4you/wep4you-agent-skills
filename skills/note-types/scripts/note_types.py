@@ -21,6 +21,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -622,22 +623,31 @@ created: "{{{{date}}}}"
             print(f"  Template: {config['template']}")
         print()
 
-    def add_type(self, name: str, interactive: bool = True) -> None:
+    def add_type(
+        self,
+        name: str,
+        interactive: bool = True,
+        config: dict[str, Any] | None = None,
+    ) -> None:
         """Add a new note type
 
         Args:
             name: Name of the note type
             interactive: Whether to prompt for details interactively
+            config: Optional config dict (for non-interactive mode with full config)
         """
         if name in self.note_types:
             print(f"❌ Note type '{name}' already exists")
             print("   Use --edit to modify it")
             sys.exit(1)
 
-        if interactive:
-            config = self._interactive_type_definition(name)
+        if config:
+            # Use provided config, normalize structure
+            final_config = self._normalize_config(name, config)
+        elif interactive:
+            final_config = self._interactive_type_definition(name)
         else:
-            config = {
+            final_config = {
                 "description": f"{name.capitalize()} notes",
                 "folder_hints": [f"{name.capitalize()}/"],
                 "properties": {
@@ -650,13 +660,70 @@ created: "{{{{date}}}}"
                 "icon": "file",
             }
 
-        self.note_types[name] = config
+        self.note_types[name] = final_config
         self._save_settings()
-        self._create_vault_structure(name, config)
+        self._create_vault_structure(name, final_config)
         # Save again to persist template path
         self._save_settings()
         print(f"\n✅ Added note type '{name}'")
         self.show_type(name)
+
+    def _normalize_config(self, name: str, config: dict[str, Any]) -> dict[str, Any]:
+        """Normalize a config dict to the expected structure
+
+        Args:
+            name: Note type name (for defaults)
+            config: Input config dict
+
+        Returns:
+            Normalized config dict
+        """
+        # Start with defaults
+        normalized: dict[str, Any] = {
+            "description": config.get("description", f"{name.capitalize()} notes"),
+            "folder_hints": [],
+            "properties": {
+                "additional_required": [],
+                "optional": [],
+            },
+            "validation": {
+                "allow_empty_up": config.get("allow_empty_up", False),
+            },
+            "icon": config.get("icon", "file"),
+        }
+
+        # Handle folder/folder_hints
+        if "folder" in config:
+            folder = config["folder"]
+            normalized["folder_hints"] = [folder if folder.endswith("/") else f"{folder}/"]
+        elif "folder_hints" in config:
+            normalized["folder_hints"] = config["folder_hints"]
+        else:
+            normalized["folder_hints"] = [f"{name.capitalize()}/"]
+
+        # Handle properties
+        if "required_props" in config or "required" in config:
+            props = config.get("required_props", config.get("required", []))
+            if isinstance(props, str):
+                props = [p.strip() for p in props.split(",")]
+            normalized["properties"]["additional_required"] = props
+
+        if "optional_props" in config or "optional" in config:
+            props = config.get("optional_props", config.get("optional", []))
+            if isinstance(props, str):
+                props = [p.strip() for p in props.split(",")]
+            normalized["properties"]["optional"] = props
+
+        # Handle nested properties format
+        if "properties" in config and isinstance(config["properties"], dict):
+            if "additional_required" in config["properties"]:
+                normalized["properties"]["additional_required"] = config["properties"][
+                    "additional_required"
+                ]
+            if "optional" in config["properties"]:
+                normalized["properties"]["optional"] = config["properties"]["optional"]
+
+        return normalized
 
     def edit_type(
         self,
@@ -895,6 +962,10 @@ Examples:
         "--optional-props", help="Comma-separated optional properties (for --edit)"
     )
     parser.add_argument("--icon", help="Icon name (for --edit)")
+    parser.add_argument(
+        "--config",
+        help='JSON config for --add (e.g., \'{"description": "...", "folder": "..."}\')',
+    )
 
     args = parser.parse_args()
 
@@ -910,7 +981,15 @@ Examples:
     elif args.show:
         manager.show_type(args.show)
     elif args.add:
-        manager.add_type(args.add, interactive=not args.non_interactive)
+        # Parse JSON config if provided
+        config = None
+        if args.config:
+            try:
+                config = json.loads(args.config)
+            except json.JSONDecodeError as e:
+                print(f"❌ Invalid JSON config: {e}")
+                sys.exit(1)
+        manager.add_type(args.add, interactive=not args.non_interactive, config=config)
     elif args.edit:
         # Parse comma-separated properties if provided
         required_props = None
