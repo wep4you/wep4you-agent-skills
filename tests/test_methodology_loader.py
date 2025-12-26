@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import subprocess
+import sys
 import tempfile
 from pathlib import Path
 from unittest.mock import patch
@@ -10,13 +12,11 @@ import pytest
 import yaml
 
 # Add repo root to path for imports
-import sys
-
 _REPO_ROOT = Path(__file__).parent.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from config.methodologies.loader import (
+from config.methodologies.loader import (  # noqa: E402
     METHODOLOGIES,
     MethodologyNotFoundError,
     MethodologyParseError,
@@ -221,7 +221,7 @@ class TestLoadAllMethodologies:
     def test_each_methodology_valid(self):
         """Each methodology should have valid structure."""
         all_methods = load_all_methodologies()
-        for name, method in all_methods.items():
+        for _name, method in all_methods.items():
             assert "name" in method
             assert "folders" in method
             assert "note_types" in method
@@ -237,6 +237,13 @@ class TestReloadMethodology:
         method2 = reload_methodology("para")
         # Should be different objects
         assert method1 is not method2
+
+    def test_reload_without_cache(self):
+        """Reload should work even if not cached."""
+        clear_cache()
+        # Reload without first loading (cache is empty)
+        method = reload_methodology("para")
+        assert method["name"] == "PARA Method"
 
 
 class TestClearCache:
@@ -329,3 +336,206 @@ class TestNoteTypeValidation:
                 with pytest.raises(MethodologyParseError) as exc_info:
                     load_methodology("incomplete")
                 assert "missing" in str(exc_info.value).lower()
+
+    def test_folders_not_list(self):
+        """Should raise error if folders is not a list."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            invalid_data = {
+                "name": "Test",
+                "description": "Test",
+                "folders": "not-a-list",  # Should be a list
+                "core_properties": ["type"],
+                "note_types": {},
+            }
+            yaml_path = Path(tmpdir) / "badfolders.yaml"
+            with yaml_path.open("w") as f:
+                yaml.dump(invalid_data, f)
+
+            with patch(
+                "config.methodologies.loader.METHODOLOGIES_DIR", Path(tmpdir)
+            ):
+                clear_cache()
+                with pytest.raises(MethodologyParseError) as exc_info:
+                    load_methodology("badfolders")
+                assert "folders" in str(exc_info.value)
+                assert "list" in str(exc_info.value)
+
+    def test_core_properties_not_list(self):
+        """Should raise error if core_properties is not a list."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            invalid_data = {
+                "name": "Test",
+                "description": "Test",
+                "folders": ["test"],
+                "core_properties": "not-a-list",  # Should be a list
+                "note_types": {},
+            }
+            yaml_path = Path(tmpdir) / "badprops.yaml"
+            with yaml_path.open("w") as f:
+                yaml.dump(invalid_data, f)
+
+            with patch(
+                "config.methodologies.loader.METHODOLOGIES_DIR", Path(tmpdir)
+            ):
+                clear_cache()
+                with pytest.raises(MethodologyParseError) as exc_info:
+                    load_methodology("badprops")
+                assert "core_properties" in str(exc_info.value)
+                assert "list" in str(exc_info.value)
+
+    def test_missing_additional_required(self):
+        """Should raise error if properties.additional_required is missing."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            invalid_data = {
+                "name": "Test",
+                "description": "Test",
+                "folders": ["test"],
+                "core_properties": ["type"],
+                "note_types": {
+                    "test": {
+                        "description": "Test note",
+                        "folder_hints": ["test/"],
+                        "properties": {"optional": []},  # Missing additional_required
+                        "validation": {},
+                        "icon": "file",
+                    }
+                },
+            }
+            yaml_path = Path(tmpdir) / "noadditional.yaml"
+            with yaml_path.open("w") as f:
+                yaml.dump(invalid_data, f)
+
+            with patch(
+                "config.methodologies.loader.METHODOLOGIES_DIR", Path(tmpdir)
+            ):
+                clear_cache()
+                with pytest.raises(MethodologyParseError) as exc_info:
+                    load_methodology("noadditional")
+                assert "additional_required" in str(exc_info.value)
+
+    def test_missing_optional(self):
+        """Should raise error if properties.optional is missing."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            invalid_data = {
+                "name": "Test",
+                "description": "Test",
+                "folders": ["test"],
+                "core_properties": ["type"],
+                "note_types": {
+                    "test": {
+                        "description": "Test note",
+                        "folder_hints": ["test/"],
+                        "properties": {"additional_required": []},  # Missing optional
+                        "validation": {},
+                        "icon": "file",
+                    }
+                },
+            }
+            yaml_path = Path(tmpdir) / "nooptional.yaml"
+            with yaml_path.open("w") as f:
+                yaml.dump(invalid_data, f)
+
+            with patch(
+                "config.methodologies.loader.METHODOLOGIES_DIR", Path(tmpdir)
+            ):
+                clear_cache()
+                with pytest.raises(MethodologyParseError) as exc_info:
+                    load_methodology("nooptional")
+                assert "optional" in str(exc_info.value)
+
+
+class TestMethodologiesProxyAdvanced:
+    """Additional tests for METHODOLOGIES proxy coverage."""
+
+    def test_values(self):
+        """Should return list of methodology configs."""
+        values = METHODOLOGIES.values()
+        assert len(values) >= 4
+        for v in values:
+            assert "name" in v
+            assert "folders" in v
+
+    def test_items(self):
+        """Should return list of (name, config) tuples."""
+        items = METHODOLOGIES.items()
+        assert len(items) >= 4
+        for name, config in items:
+            assert isinstance(name, str)
+            assert config["name"] is not None
+
+
+class TestLoadAllMethodologiesErrors:
+    """Tests for load_all_methodologies error handling."""
+
+    def test_continues_on_error(self, capsys):
+        """Should continue loading other methodologies when one fails."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create one valid and one invalid methodology
+            valid_data = {
+                "name": "Valid",
+                "description": "Valid test",
+                "folders": ["test"],
+                "core_properties": ["type"],
+                "note_types": {},
+                "folder_structure": {},
+                "up_links": {},
+            }
+            valid_path = Path(tmpdir) / "valid.yaml"
+            with valid_path.open("w") as f:
+                yaml.dump(valid_data, f)
+
+            invalid_path = Path(tmpdir) / "invalid.yaml"
+            invalid_path.write_text("name: [broken")
+
+            with patch(
+                "config.methodologies.loader.METHODOLOGIES_DIR", Path(tmpdir)
+            ):
+                clear_cache()
+                result = load_all_methodologies()
+                # Should have loaded the valid one
+                assert "valid" in result
+                # Should have printed warning for invalid
+                captured = capsys.readouterr()
+                assert "Warning" in captured.out or "invalid" in str(result)
+
+
+class TestCLI:
+    """Tests for CLI functionality."""
+
+    def test_cli_list_methodologies(self):
+        """Should list methodologies when run without args."""
+        result = subprocess.run(  # noqa: S603
+            ["uv", "run", "python", "config/methodologies/loader.py"],  # noqa: S607
+            cwd="/Users/peterweiss/dev/skills-methodology-defs",
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert result.returncode == 0
+        assert "lyt-ace" in result.stdout
+        assert "para" in result.stdout
+
+    def test_cli_show_methodology(self):
+        """Should show methodology details when name provided."""
+        result = subprocess.run(  # noqa: S603
+            ["uv", "run", "python", "config/methodologies/loader.py", "para"],  # noqa: S607
+            cwd="/Users/peterweiss/dev/skills-methodology-defs",
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert result.returncode == 0
+        assert "PARA Method" in result.stdout
+        assert "Folders:" in result.stdout
+
+    def test_cli_error_handling(self):
+        """Should exit with error for invalid methodology."""
+        result = subprocess.run(  # noqa: S603
+            ["uv", "run", "python", "config/methodologies/loader.py", "nonexistent"],  # noqa: S607
+            cwd="/Users/peterweiss/dev/skills-methodology-defs",
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert result.returncode == 1
+        assert "Error" in result.stderr or "not found" in result.stderr

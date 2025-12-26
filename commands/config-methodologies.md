@@ -47,11 +47,11 @@ With argument - shows detailed info:
 
 ```bash
 # List all
-/config-methodologies
+obsidian:config-methodologies
 
 # Show PARA details
-/config-methodologies para
+obsidian:config-methodologies para
 
 # Show LYT-ACE details
-/config-methodologies lyt-ace
+obsidian:config-methodologies lyt-ace
 ```

@@ -136,46 +136,102 @@ This directory contains configuration files for different Personal Knowledge Man
 
 ## Using Methodology Configurations
 
-### Loading a Methodology
+### Slash Commands
 
-The wep4you-agent-skills plugin can load these methodology configurations to:
+```bash
+# List all available methodologies
+obsidian:config-methodologies
 
-1. **Validate vault structure** against the methodology's folder requirements
-2. **Suggest improvements** based on methodology best practices
-3. **Auto-create missing folders** with proper structure
-4. **Validate note types** and their properties
-5. **Check linking patterns** against methodology conventions
-6. **Provide workflow guidance** from the methodology definition
+# Show details for a specific methodology
+obsidian:config-methodologies para
+obsidian:config-methodologies lyt-ace
+```
+
+### Python API - Methodology Loader
+
+The `loader.py` module provides programmatic access to methodology definitions:
+
+```python
+from config.methodologies.loader import (
+    load_methodology,
+    load_all_methodologies,
+    get_methodology_names,
+    METHODOLOGIES,  # Dict-like proxy for lazy loading
+)
+
+# List available methodologies
+names = get_methodology_names()  # ["lyt-ace", "minimal", "para", "zettelkasten"]
+
+# Load a single methodology
+para = load_methodology("para")
+print(para["name"])           # "PARA Method"
+print(para["folders"])        # ["Projects", "Areas", ...]
+print(para["core_properties"]) # ["type", "up", "created", "tags"]
+print(para["note_types"])     # {"project": {...}, "area": {...}, ...}
+
+# Use dict-like access (lazy loading)
+lyt = METHODOLOGIES["lyt-ace"]
+if "para" in METHODOLOGIES:
+    print("PARA available")
+
+# Load all methodologies at once
+all_methods = load_all_methodologies()
+for name, config in all_methods.items():
+    print(f"{name}: {config['description']}")
+```
+
+### Integration with init_vault.py
+
+The vault initialization script uses the loader to create vaults:
+
+```python
+from config.methodologies.loader import METHODOLOGIES
+
+# METHODOLOGIES is a drop-in replacement for hardcoded definitions
+methodology_config = METHODOLOGIES["para"]
+folders = methodology_config["folders"]
+note_types = methodology_config["note_types"]
+```
 
 ### Configuration Structure
 
 Each methodology YAML file contains:
 
-- `name` - Methodology name
+**Init-Compatible Section (Required):**
+- `name` - Methodology display name
 - `description` - Brief description
+- `folders` - Flat list of folders to create
+- `core_properties` - List of required frontmatter properties
+- `note_types` - Note type definitions with:
+  - `description` - Type description
+  - `folder_hints` - Folders where this type belongs
+  - `properties.additional_required` - Extra required properties
+  - `properties.optional` - Optional properties
+  - `validation` - Validation rules (allow_empty_up, etc.)
+  - `icon` - Icon identifier
+  - `template` - Template filename
+- `folder_structure` - Semantic folder mapping
+- `up_links` - Default UP links per folder
+
+**Extended Documentation (Optional):**
 - `author` - Creator/origin
-- `url` - Reference URL for more information
-- `folders` - Required folder structure with purposes
-- `note_types` - Defined note types with properties and templates
-- `linking` - Linking conventions and patterns
-- `tags` - Tagging strategy and conventions
-- `workflow` - Recommended workflows and processes
-- `principles` - Core philosophical principles (optional)
-- `best_practices` - Guidelines for effective use (optional)
+- `url` - Reference URL
+- `principles` - Core philosophical principles
+- `workflow` - Recommended workflows
+- `linking` - Linking conventions
+- `tags` - Tagging strategy
 
 ### Validation Example
 
 ```python
-# Plugin can validate vault against methodology
-methodology = load_methodology("lyt-ace")
-results = validate_vault(vault_path, methodology)
+from config.methodologies.loader import load_methodology
 
-# Results include:
-# - Missing required folders
-# - Notes in wrong locations
-# - Missing required properties
-# - Linking pattern violations
-# - Suggestions for improvement
+# Load methodology and validate vault
+methodology = load_methodology("lyt-ace")
+
+# Access validation rules for each note type
+for nt_name, nt_config in methodology["note_types"].items():
+    print(f"{nt_name}: allow_empty_up={nt_config['validation'].get('allow_empty_up')}")
 ```
 
 ---
@@ -231,4 +287,4 @@ To contribute a new methodology configuration:
 
 ---
 
-*Last updated: 2025-12-23*
+*Last updated: 2025-12-26*

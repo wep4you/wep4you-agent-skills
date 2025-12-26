@@ -266,8 +266,7 @@ def reload_methodology(name: str) -> dict[str, Any]:
     Returns:
         Reloaded methodology configuration
     """
-    if name in _methodology_cache:
-        del _methodology_cache[name]
+    _methodology_cache.pop(name, None)
     return load_methodology(name, use_cache=False)
 
 
@@ -289,16 +288,16 @@ class _MethodologiesProxy:
     def __iter__(self):
         return iter(get_methodology_names())
 
-    def keys(self):
+    def keys(self) -> list[str]:
         return get_methodology_names()
 
-    def values(self):
+    def values(self) -> list[dict[str, Any]]:
         return [load_methodology(n) for n in get_methodology_names()]
 
-    def items(self):
+    def items(self) -> list[tuple[str, dict[str, Any]]]:
         return [(n, load_methodology(n)) for n in get_methodology_names()]
 
-    def get(self, key: str, default: Any = None) -> Any:
+    def get(self, key: str, default: dict[str, Any] | None = None) -> dict[str, Any] | None:
         try:
             return load_methodology(key)
         except MethodologyNotFoundError:
@@ -309,7 +308,7 @@ class _MethodologiesProxy:
 METHODOLOGIES = _MethodologiesProxy()
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     # CLI for testing
     import sys
 
