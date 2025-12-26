@@ -552,13 +552,13 @@ class TestFolderReadmeGeneration:
         content = projects_readme.read_text()
         assert "![[all_bases.base#Projects]]" in content
 
-    def test_all_bases_excludes_map_type(self, tmp_path: Path) -> None:
-        """Test all_bases.base has filter to exclude map type."""
+    def test_all_bases_excludes_readme_files(self, tmp_path: Path) -> None:
+        """Test all_bases.base has filter to exclude _Readme files."""
         init_vault(tmp_path, "para", dry_run=False, use_defaults=True)
 
         base_file = tmp_path / "x" / "bases" / "all_bases.base"
         content = base_file.read_text()
-        assert 'type != "map"' in content, "Missing map type exclusion filter"
+        assert 'file.name != "_Readme"' in content, "Missing _Readme exclusion filter"
 
     def test_all_bases_has_subfolder_views(self, tmp_path: Path) -> None:
         """Test all_bases.base has views for subfolders (LYT-ACE)."""

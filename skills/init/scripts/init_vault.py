@@ -1398,7 +1398,7 @@ def generate_all_bases_content(methodology: str) -> str:
         '    - \'!file.inFolder("+")\'',
         '    - \'!file.inFolder("x")\'',
         '    - file.folder != "/"',
-        '    - type != "map"',
+        '    - file.name != "_Readme"',
         "views:",
         "  - type: table",
         "    name: All",
