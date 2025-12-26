@@ -1730,16 +1730,10 @@ created: "{{{{date}}}}"
 
 Welcome to your **{method_config["name"]}** vault!
 
-## Quick Navigation
+## All Notes
 
-"""
-    # Add links based on methodology folders
-    for folder in method_config["folders"]:
-        if not folder.startswith("+") and not folder.startswith("x"):
-            folder_name = folder.split("/")[-1] if "/" in folder else folder
-            content += f"- [[{folder_name}]]\n"
+![[all_bases.base#All]]
 
-    content += """
 ## Getting Started
 
 1. Start capturing ideas in the `+/` inbox
