@@ -1,38 +1,46 @@
 ---
 name: note-types
-version: "0.49.0"
+version: "0.50.0"
 license: MIT
 description: "Manage Obsidian note type definitions including folders, properties, and templates. Use when the user wants to (1) define new note types, (2) manage note type configurations, (3) set up folder and property mappings, (4) create note type templates, or (5) view existing note types. Triggers on keywords like note types, note type config, manage note types, define note type, note type wizard."
 ---
 
 # Obsidian Note Types Manager
 
-## ⚠️ MANDATORY: Read Before Executing Any Command
+## ⚠️ MANDATORY: Pass --config DIRECTLY to the Script
 
-**NEVER use `--non-interactive` when user provides config details!**
+**When user provides `--config '{...}'`, pass it EXACTLY as-is to the script!**
 
-When user provides `--config '{...}'` in their command, you MUST pass that JSON directly to the script. DO NOT:
-- ❌ Use `--non-interactive` instead of `--config`
-- ❌ Create with defaults then edit settings.yaml
-- ❌ Rename folders after creation
-- ❌ Manually add properties to files
+DO NOT:
+- ❌ Read settings.yaml first
+- ❌ Manually edit settings.yaml
+- ❌ Use --show before --edit
+- ❌ Use --non-interactive instead of --config
+- ❌ Rename folders or modify files manually
 
-**The `--config` parameter creates ALL artifacts correctly in ONE command.**
+**Just execute the command with --config. The script handles everything.**
 
-Example - if user types:
+### ADD Example
+User types:
 ```
 /obsidian:note-types --add meeting --config '{"folder": "Meetings/", "required_props": ["date"]}'
 ```
-
-You MUST execute EXACTLY:
+Execute:
 ```bash
 uv run note_types.py --add meeting --config '{"folder": "Meetings/", "required_props": ["date"]}'
 ```
 
-NOT:
-```bash
-uv run note_types.py --add meeting --non-interactive  # WRONG!
+### EDIT Example
+User types:
 ```
+/obsidian:note-types --edit meeting --config '{"description": "Updated", "icon": "video"}'
+```
+Execute:
+```bash
+uv run note_types.py --edit meeting --config '{"description": "Updated", "icon": "video"}'
+```
+
+**DO NOT read or manually edit settings.yaml!**
 
 ---
 
