@@ -126,7 +126,16 @@ def load_settings(vault_path: Path, create_if_missing: bool = False) -> Settings
 
 def _parse_settings(raw: dict[str, Any]) -> Settings:
     """Parse raw YAML dict into Settings object."""
-    core_properties = raw.get("core_properties", [])
+    # Handle both formats:
+    # - Old: core_properties: [type, up, created, tags]
+    # - New: core_properties: {all: [type, up, ...], mandatory: [...], optional: [...]}
+    core_props_raw = raw.get("core_properties", [])
+    if isinstance(core_props_raw, dict):
+        # New format: use the 'all' key
+        core_properties = core_props_raw.get("all", [])
+    else:
+        # Old format: direct list
+        core_properties = core_props_raw
 
     # Parse note types with inheritance support
     note_types = {}
@@ -179,7 +188,7 @@ def _parse_settings(raw: dict[str, Any]) -> Settings:
     return Settings(
         version=raw.get("version", "1.0"),
         methodology=raw.get("methodology", "custom"),
-        core_properties=raw.get("core_properties", []),
+        core_properties=core_properties,
         note_types=note_types,
         validation=validation,
         folder_structure=raw.get("folder_structure", {}),
