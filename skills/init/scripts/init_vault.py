@@ -412,13 +412,56 @@ def prompt_existing_vault_action(detection: dict[str, Any]) -> str:  # pragma: n
         print("  Invalid choice. Please enter 'a', 'c', or 'r'.")
 
 
+def create_vault_backup(vault_path: Path) -> Path | None:
+    """Create a ZIP backup of the vault before reset.
+
+    Args:
+        vault_path: Path to the vault
+
+    Returns:
+        Path to the backup file, or None if backup failed
+    """
+    from datetime import datetime
+    import zipfile
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    backup_name = f"vault_backup_{timestamp}.zip"
+    backup_path = vault_path.parent / backup_name
+
+    print(f"\n  Creating backup: {backup_name}")
+
+    try:
+        with zipfile.ZipFile(backup_path, "w", zipfile.ZIP_DEFLATED) as zipf:
+            for item in vault_path.rglob("*"):
+                # Skip .obsidian folder
+                if ".obsidian" in item.parts:
+                    continue
+                if item.is_file():
+                    arcname = item.relative_to(vault_path)
+                    zipf.write(item, arcname)
+                    print(f"    + {arcname}")
+
+        print(f"  ✓ Backup saved: {backup_path}")
+        return backup_path
+    except Exception as e:
+        print(f"  ⚠️  Backup failed: {e}")
+        return None
+
+
 def reset_vault(vault_path: Path, keep_obsidian: bool = True) -> None:
     """Reset vault to clean state.
+
+    Creates a backup ZIP before deleting any files.
 
     Args:
         vault_path: Path to the vault
         keep_obsidian: If True, keep .obsidian folder (preserves Obsidian settings)
     """
+    # Create backup first
+    backup_path = create_vault_backup(vault_path)
+    if backup_path is None:
+        print("  ⚠️  Continuing without backup...")
+
     print("\nResetting vault...")
 
     for item in vault_path.iterdir():
@@ -1947,7 +1990,7 @@ def init_vault(
     else:
         # Direct mode (with or without methodology flag)
         # Handle existing vault FIRST, before methodology selection
-        user_chose_continue = False
+        # NOTE: Files are ONLY deleted when user explicitly chooses "reset"
         if has_existing and not use_defaults:
             print()
             print(f"  Vault: {vault_path}")
@@ -1957,8 +2000,7 @@ def init_vault(
                 return
             if action == "reset":
                 reset_vault(vault_path, keep_obsidian=True)
-            elif action == "continue":
-                user_chose_continue = True
+            # "continue" - do nothing, keep existing content
 
         # Now select methodology if not provided
         if methodology is None:
@@ -1968,14 +2010,7 @@ def init_vault(
         note_types = method_config["note_types"]
         core_properties = method_config["core_properties"]
         create_samples = True
-
-        # Auto-reset if methodology changed (only with --defaults, not if user chose continue)
-        if not user_chose_continue:
-            current_methodology = detection.get("current_methodology")
-            if current_methodology and current_methodology != methodology:
-                print(f"\n  Methodology change detected: {current_methodology} → {methodology}")
-                print("  Auto-resetting vault to clean state...")
-                reset_vault(vault_path, keep_obsidian=True)
+        # NOTE: No auto-reset! Files are NEVER deleted except via explicit reset
 
     print(f"\n{'=' * 60}")
     print(f"Initializing vault at: {vault_path}")

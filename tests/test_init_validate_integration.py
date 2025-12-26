@@ -574,29 +574,31 @@ class TestFolderReadmeGeneration:
         assert 'file.inFolder("Efforts/Projects")' in content, "Projects view has wrong filter"
 
 
-class TestAutoResetOnMethodologyChange:
-    """Test that vault auto-resets when methodology changes."""
+class TestNoAutoReset:
+    """Test that vault content is preserved (no auto-reset)."""
 
-    def test_auto_reset_removes_old_folders(self, tmp_path: Path) -> None:
-        """Test switching methodology removes old folders."""
+    def test_methodology_change_preserves_content(self, tmp_path: Path) -> None:
+        """Test switching methodology does NOT delete existing content."""
         # Init with PARA
         init_vault(tmp_path, "para", dry_run=False, use_defaults=True)
-        assert (tmp_path / "Projects").exists()
-        assert (tmp_path / "Archives").exists()
 
-        # Switch to LYT-ACE - should auto-reset
+        # Create a custom file
+        custom_file = tmp_path / "Projects" / "my_project.md"
+        custom_file.write_text("# My Project\n")
+
+        # Switch to LYT-ACE - should NOT reset
         init_vault(tmp_path, "lyt-ace", dry_run=False, use_defaults=True)
 
-        # Old PARA folders should be gone
-        assert not (tmp_path / "Projects").exists(), "Projects folder should be removed"
-        assert not (tmp_path / "Archives").exists(), "Archives folder should be removed"
+        # Old PARA folders and files should still exist
+        assert (tmp_path / "Projects").exists(), "Projects folder should be preserved"
+        assert custom_file.exists(), "Custom file should not be deleted"
 
-        # New LYT folders should exist
+        # New LYT folders should also exist
         assert (tmp_path / "Atlas").exists()
         assert (tmp_path / "Efforts").exists()
 
-    def test_same_methodology_no_reset(self, tmp_path: Path) -> None:
-        """Test re-init with same methodology doesn't reset."""
+    def test_reinit_preserves_custom_files(self, tmp_path: Path) -> None:
+        """Test re-init with same methodology preserves custom files."""
         # Init with PARA
         init_vault(tmp_path, "para", dry_run=False, use_defaults=True)
 
