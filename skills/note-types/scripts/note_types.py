@@ -752,6 +752,11 @@ created: "{{{{date}}}}"
             print(f"❌ Note type '{name}' not found")
             sys.exit(1)
 
+        # Capture old folder before changes
+        old_config = self.note_types[name]
+        old_folder_hints = old_config.get("folder_hints", [])
+        old_folder = old_folder_hints[0].rstrip("/") if old_folder_hints else name.capitalize()
+
         print(f"📝 Editing note type: {name}\n")
         self.show_type(name)
 
@@ -834,10 +839,82 @@ created: "{{{{date}}}}"
             if icon is not None:
                 final_config["icon"] = icon
 
+        # Check if folder changed
+        new_folder_hints = final_config.get("folder_hints", [])
+        new_folder = new_folder_hints[0].rstrip("/") if new_folder_hints else name.capitalize()
+
         self.note_types[name] = final_config
         self._save_settings()
+
+        # Handle folder rename if folder changed
+        if old_folder != new_folder:
+            self._rename_folder(name, old_folder, new_folder)
+
         print(f"✅ Updated note type '{name}'")
         self.show_type(name)
+
+    def _rename_folder(self, name: str, old_folder: str, new_folder: str) -> None:
+        """Rename a note type's folder in the vault
+
+        Args:
+            name: Name of the note type
+            old_folder: Old folder path (without trailing /)
+            new_folder: New folder path (without trailing /)
+        """
+        old_path = self.vault_path / old_folder
+        new_path = self.vault_path / new_folder
+
+        if not old_path.exists():
+            print(f"ℹ️  Old folder {old_folder}/ not found, creating {new_folder}/")
+            new_path.mkdir(parents=True, exist_ok=True)
+            print(f"📁 Created folder: {new_folder}/")
+            # Update all_bases.base with new folder
+            self._update_bases_file(name, new_folder)
+            return
+
+        if new_path.exists():
+            print(f"⚠️  Target folder {new_folder}/ already exists, not renaming")
+            return
+
+        # Rename the folder
+        try:
+            old_path.rename(new_path)
+            print(f"📁 Renamed folder: {old_folder}/ → {new_folder}/")
+
+            # Update all_bases.base: remove old view, add new view
+            self._remove_from_bases_file(name, old_folder)
+            self._update_bases_file(name, new_folder)
+
+            # Update _Readme.md if it exists
+            readme_path = new_path / "_Readme.md"
+            if readme_path.exists():
+                self._update_readme_folder(readme_path, old_folder, new_folder)
+
+        except OSError as e:
+            print(f"❌ Failed to rename folder: {e}")
+
+    def _update_readme_folder(
+        self, readme_path: Path, old_folder: str, new_folder: str
+    ) -> None:
+        """Update folder references in _Readme.md
+
+        Args:
+            readme_path: Path to _Readme.md
+            old_folder: Old folder name
+            new_folder: New folder name
+        """
+        try:
+            content = readme_path.read_text(encoding="utf-8")
+            # Update the embed reference
+            old_view_name = old_folder.split("/")[-1] if "/" in old_folder else old_folder
+            new_view_name = new_folder.split("/")[-1] if "/" in new_folder else new_folder
+            updated = content.replace(f"##{old_view_name}]]", f"##{new_view_name}]]")
+            updated = updated.replace(f"#{old_view_name}]]", f"#{new_view_name}]]")
+            if updated != content:
+                readme_path.write_text(updated, encoding="utf-8")
+                print(f"📝 Updated _Readme.md references")
+        except OSError:
+            pass  # Ignore errors updating readme
 
     def remove_type(self, name: str, skip_confirm: bool = False) -> None:
         """Remove a note type
