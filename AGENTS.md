@@ -87,6 +87,14 @@ All skill scripts use inline dependencies:
 - **Type hints**: Required for all functions (mypy strict mode)
 - **YAML**: 2-space indentation, quote wikilinks
 
+## Commit Messages
+
+- Use conventional commits format: `type(scope): description`
+- Types: feat, fix, chore, docs, refactor, test, style
+- Keep subject line under 72 characters
+- **DO NOT include** "Generated with Claude Code" or "Co-Authored-By: Claude" signatures
+- Focus on what changed and why, not how it was generated
+
 ## Security Requirements
 
 All skills must pass:
