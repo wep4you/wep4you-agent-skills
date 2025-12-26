@@ -19,7 +19,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "skills" / "init" / "scrip
 sys.path.insert(0, str(Path(__file__).parent.parent / "skills" / "validate" / "scripts"))
 sys.path.insert(0, str(Path(__file__).parent.parent / "skills" / "config" / "scripts"))
 
-from init_vault import METHODOLOGIES, init_vault
+from init_vault import METHODOLOGIES, init_vault, generate_template_note, create_template_notes
 from settings_loader import load_settings
 from validator import VaultValidator
 
@@ -260,3 +260,115 @@ class TestResetAndReinitialize:
         validator.run_validation()
         total_issues = sum(len(issues) for issues in validator.issues.values())
         assert total_issues == 0, f"Validation failed after reset: {validator.issues}"
+
+
+class TestTemplateGeneration:
+    """Test that init generates template notes for each note type."""
+
+    @pytest.mark.parametrize("methodology", list(METHODOLOGIES.keys()))
+    def test_templates_created(self, tmp_path: Path, methodology: str) -> None:
+        """Test that template files are created for each note type."""
+        init_vault(tmp_path, methodology, dry_run=False, use_defaults=True)
+
+        method_config = METHODOLOGIES[methodology]
+        folder_structure = method_config.get("folder_structure", {})
+        templates_folder = folder_structure.get("templates", "x/templates/")
+        templates_path = tmp_path / templates_folder
+
+        # Get expected note types (excluding daily)
+        note_types = method_config.get("note_types", {})
+        expected_templates = [nt for nt in note_types.keys() if nt != "daily"]
+
+        # Check templates exist
+        assert templates_path.exists(), f"Templates folder not created for {methodology}"
+
+        for note_type in expected_templates:
+            template_file = templates_path / f"{note_type}.md"
+            assert template_file.exists(), (
+                f"Template for {note_type} not created in {methodology}"
+            )
+
+    @pytest.mark.parametrize("methodology", list(METHODOLOGIES.keys()))
+    def test_templates_have_valid_frontmatter(
+        self, tmp_path: Path, methodology: str
+    ) -> None:
+        """Test that template files have valid frontmatter structure."""
+        init_vault(tmp_path, methodology, dry_run=False, use_defaults=True)
+
+        method_config = METHODOLOGIES[methodology]
+        folder_structure = method_config.get("folder_structure", {})
+        templates_folder = folder_structure.get("templates", "x/templates/")
+        templates_path = tmp_path / templates_folder
+        core_properties = method_config.get("core_properties", [])
+
+        for template_file in templates_path.glob("*.md"):
+            content = template_file.read_text()
+
+            # Check frontmatter structure
+            assert content.startswith("---"), (
+                f"Template {template_file.name} missing frontmatter start"
+            )
+            assert content.count("---") >= 2, (
+                f"Template {template_file.name} missing frontmatter end"
+            )
+
+            # Extract frontmatter
+            parts = content.split("---", 2)
+            frontmatter = parts[1]
+
+            # Check that all core properties are present
+            for prop in core_properties:
+                assert f"{prop}:" in frontmatter, (
+                    f"Template {template_file.name} missing {prop} property"
+                )
+
+    def test_template_has_type_specific_properties(self, tmp_path: Path) -> None:
+        """Test that templates include type-specific required properties."""
+        init_vault(tmp_path, "lyt-ace", dry_run=False, use_defaults=True)
+
+        # Check source template has author and url
+        source_template = tmp_path / "x" / "templates" / "source.md"
+        content = source_template.read_text()
+        assert "author:" in content, "Source template missing author property"
+        assert "url:" in content, "Source template missing url property"
+
+        # Check project template has status
+        project_template = tmp_path / "x" / "templates" / "project.md"
+        content = project_template.read_text()
+        assert "status:" in content, "Project template missing status property"
+
+    def test_template_has_optional_properties_as_comments(
+        self, tmp_path: Path
+    ) -> None:
+        """Test that optional properties are included as comments."""
+        init_vault(tmp_path, "lyt-ace", dry_run=False, use_defaults=True)
+
+        # Check project template has optional properties as comments
+        project_template = tmp_path / "x" / "templates" / "project.md"
+        content = project_template.read_text()
+        assert "# deadline:" in content, "Project template missing deadline comment"
+        assert "# priority:" in content, "Project template missing priority comment"
+
+    def test_generate_template_note_structure(self) -> None:
+        """Test the generate_template_note function output structure."""
+        type_config = {
+            "description": "Test note type",
+            "properties": {
+                "additional_required": ["status", "priority"],
+                "optional": ["deadline"],
+            },
+        }
+        core_properties = ["type", "up", "created", "tags"]
+
+        content = generate_template_note("test", type_config, core_properties)
+
+        # Check structure
+        assert content.startswith("---")
+        assert 'type: "test"' in content
+        assert 'up: "[[]]"' in content
+        assert "created: {{date}}" in content
+        assert "tags: []" in content
+        assert "status:" in content
+        assert "priority:" in content
+        assert "# deadline:" in content
+        assert "{{title}}" in content

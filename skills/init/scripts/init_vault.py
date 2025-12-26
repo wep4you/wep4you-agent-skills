@@ -1180,6 +1180,132 @@ def create_sample_notes(
     return created_files
 
 
+def generate_template_note(
+    note_type: str,
+    type_config: dict[str, Any],
+    core_properties: list[str],
+) -> str:
+    """Generate a template note for a specific note type.
+
+    Args:
+        note_type: The type of note (e.g., 'map', 'dot', 'project')
+        type_config: Configuration for this note type
+        core_properties: List of core properties
+
+    Returns:
+        Template content as string
+    """
+    # Build frontmatter with all properties as placeholders
+    lines = ["---"]
+    lines.append(f'type: "{note_type}"')
+
+    # Add core properties (except type which is already added)
+    for prop in core_properties:
+        if prop == "type":
+            continue
+        elif prop == "up":
+            lines.append('up: "[[]]"')
+        elif prop == "created":
+            lines.append("created: {{date}}")
+        elif prop == "tags":
+            lines.append("tags: []")
+        elif prop == "daily":
+            lines.append("daily: ")
+        elif prop == "collection":
+            lines.append("collection: ")
+        elif prop == "related":
+            lines.append("related: []")
+        else:
+            lines.append(f"{prop}: ")
+
+    # Add type-specific required properties
+    props = type_config.get("properties", {})
+    additional_required = props.get("additional_required", [])
+    for prop in additional_required:
+        if prop == "status":
+            lines.append('status: "active"')
+        elif prop == "author":
+            lines.append("author: ")
+        elif prop == "url":
+            lines.append("url: ")
+        else:
+            lines.append(f"{prop}: ")
+
+    # Add optional properties as comments
+    optional = props.get("optional", [])
+    for prop in optional:
+        lines.append(f"# {prop}: ")
+
+    lines.append("---")
+    lines.append("")
+
+    # Add template body
+    description = type_config.get("description", f"{note_type.title()} note")
+    type_title = note_type.replace("_", " ").title()
+
+    lines.append(f"# {{{{title}}}}")
+    lines.append("")
+    lines.append(f"> Template for **{type_title}** notes: {description}")
+    lines.append("")
+    lines.append("## Content")
+    lines.append("")
+    lines.append("<!-- Your content here -->")
+    lines.append("")
+    lines.append("## Related")
+    lines.append("")
+    lines.append("- [[]]")
+    lines.append("")
+
+    return "\n".join(lines)
+
+
+def create_template_notes(
+    vault_path: Path,
+    methodology: str,
+    note_types: dict[str, dict[str, Any]],
+    core_properties: list[str],
+    dry_run: bool = False,
+) -> list[Path]:
+    """Create template notes for each note type.
+
+    Args:
+        vault_path: Path to the vault root
+        methodology: Selected methodology
+        note_types: Dictionary of enabled note types
+        core_properties: List of core properties
+        dry_run: If True, only print what would be created
+
+    Returns:
+        List of created file paths
+    """
+    method_config = METHODOLOGIES[methodology]
+    folder_structure = method_config.get("folder_structure", {})
+    templates_folder = folder_structure.get("templates", "x/templates/")
+    templates_path = vault_path / templates_folder
+
+    created_files: list[Path] = []
+
+    print("\nCreating template notes...")
+
+    for note_type, type_config in note_types.items():
+        # Skip daily notes - they use a different template system
+        if note_type == "daily":
+            continue
+
+        template_file = templates_path / f"{note_type}.md"
+        content = generate_template_note(note_type, type_config, core_properties)
+
+        if dry_run:
+            print(f"  [DRY RUN] Would create: {template_file}")
+        else:
+            template_file.parent.mkdir(parents=True, exist_ok=True)
+            template_file.write_text(content)
+            print(f"  ✓ Created: {template_file}")
+            created_files.append(template_file)
+
+    return created_files
+
+
 def show_migration_hint(has_existing_content: bool) -> None:
     """Show hint about future migration feature.
 
@@ -1606,6 +1732,9 @@ def init_vault(
     # Create sample notes
     if create_samples:
         create_sample_notes(vault_path, methodology, note_types, core_properties, dry_run)
+
+    # Create template notes for each note type
+    create_template_notes(vault_path, methodology, note_types, core_properties, dry_run)
 
     # Show migration hint if there was existing content
     if has_existing:
