@@ -1,0 +1,221 @@
+# Minimal Methodology Configuration
+# This file serves as the single source of truth for the Minimal methodology.
+# Used by init_vault.py to create vaults and by validate to check notes.
+
+name: Minimal
+description: Simple folder structure for getting started
+author: Inspired by Kepano and emergent note-taking
+version: "1.0"
+url: https://stephanango.com/file-over-app
+
+# =============================================================================
+# INIT-COMPATIBLE SECTION (Required for init_vault.py)
+# =============================================================================
+
+# Flat list of folders to create
+folders:
+  - Notes
+  - Daily
+  - "+"           # Inbox
+  - x/templates   # System templates
+  - x/bases       # Dataview bases
+
+# Core properties required in all notes (minimal set)
+core_properties:
+  - type
+  - created
+  - tags
+
+# Note types with init-compatible structure
+note_types:
+  note:
+    description: General notes
+    folder_hints:
+      - Notes/
+    properties:
+      additional_required: []
+      optional: []
+    validation:
+      allow_empty_up: true
+    icon: file
+    template: note.md
+
+  daily:
+    description: Daily journal entries
+    folder_hints:
+      - Daily/
+    properties:
+      additional_required: []
+      optional:
+        - mood
+    validation:
+      allow_empty_up: true
+    icon: calendar
+    template: daily.md
+    naming: YYYY-MM-DD
+
+# Semantic folder structure mapping
+folder_structure:
+  inbox: "+/"
+  system: x/
+  templates: x/templates/
+  bases: x/bases/
+  notes: Notes/
+  daily: Daily/
+
+# Default UP links per folder (empty for minimal - no hierarchy required)
+up_links: {}
+
+# =============================================================================
+# EXTENDED DOCUMENTATION (Additional context, not used by init_vault.py)
+# =============================================================================
+
+# Core philosophy
+philosophy:
+  - Let structure emerge organically from your thinking
+  - Tags over folders
+  - Start simple, add complexity only when needed
+  - Future-proof with plain text and minimal dependencies
+  - Fast capture, minimal friction
+  - Bottom-up organization
+
+# Organization principles
+organization:
+  primary: Tags and links (not folders)
+  folders: Use only when absolutely necessary
+  naming: Descriptive, human-readable filenames
+  structure: Emerges from usage, not pre-planned
+
+# Tagging strategy
+tags:
+  philosophy: Tags are primary organizational tool
+  style: flat or minimal hierarchy
+  conventions:
+    - Use tags liberally
+    - Create tags naturally as you write
+    - Don't overthink tag structure
+    - Tags emerge from use, not planning
+
+  common_patterns:
+    content_types:
+      - idea
+      - reference
+      - howto
+      - definition
+      - example
+
+    status:
+      - draft
+      - complete
+      - evergreen
+      - seedling
+
+# Linking conventions
+linking:
+  style: wikilink
+  philosophy: Link freely and frequently
+  bidirectional: Rely on backlinks for navigation
+  patterns:
+    - Link terms on first use
+    - Create notes for concepts as needed
+    - Don't worry about orphan notes
+    - Let link structure emerge
+
+# Workflow (intentionally simple)
+workflow:
+  capture:
+    - Quick notes go to Inbox
+    - Don't overthink location or structure
+    - Tag minimally if at all
+
+  process:
+    - Review Inbox when convenient
+    - Move valuable notes to Notes folder
+    - Add tags and links as you go
+    - Delete or archive unneeded items
+
+  create:
+    - Start writing immediately
+    - Add structure if/when needed
+    - Link to related notes
+    - Tag for findability
+
+  review:
+    - No strict review schedule
+    - Browse tags and backlinks naturally
+    - Refactor structure when pain points emerge
+
+# Search and discovery
+discovery:
+  methods:
+    - Search by content (full-text search)
+    - Browse by tags
+    - Follow backlinks
+    - Graph view for visual exploration
+    - Random note for serendipity
+
+  no_reliance_on:
+    - Complex folder structures
+    - Rigid categorization
+    - Pre-planned organization
+
+# Best practices
+best_practices:
+  start_simple:
+    - Begin with just notes in root folder
+    - Add folders only if you need them
+    - Keep it minimal
+
+  evolve_naturally:
+    - Don't create structure upfront
+    - Add organization when clear need emerges
+    - Refactor when friction appears
+
+  fast_capture:
+    - Remove barriers to creating notes
+    - Perfect is the enemy of done
+    - Edit and improve later
+
+  link_freely:
+    - Link generously
+    - Create target notes when needed
+    - Trust search and backlinks
+
+  trust_emergence:
+    - Structure reveals itself over time
+    - Your needs guide organization
+    - Bottom-up beats top-down
+
+# What to avoid
+avoid:
+  - Complex folder hierarchies
+  - Over-planning structure
+  - Excessive tagging schemes
+  - Rigid templates
+  - Perfectionism in capture
+  - Analysis paralysis
+
+# Scaling strategy
+scaling:
+  small_vault:
+    - Just notes in root
+    - Tags for organization
+    - Search for discovery
+
+  medium_vault:
+    - Add structure notes for complex topics
+    - More consistent tagging
+    - Consider Daily notes
+
+  large_vault:
+    - Hub notes for major themes
+    - More metadata if helpful
+    - Still avoid deep folder hierarchies
+
+# Portability
+portability:
+  - Plain markdown files
+  - Standard wikilinks
+  - Minimal metadata
+  - No proprietary formats
+  - Easy to move between tools

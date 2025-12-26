@@ -9,9 +9,20 @@ description: "Configuration loader and manager for Obsidian vault settings. Use 
 
 Loads, manages, and merges YAML configuration files for Obsidian vault management with support for vault-specific overrides.
 
+## Slash Commands
+
+| Command | Description |
+|---------|-------------|
+| `obsidian:config-show` | Show vault settings from `.claude/settings.yaml` |
+| `obsidian:config-show --type map` | Show specific note type configuration |
+| `obsidian:config-validate` | Validate vault settings structure |
+| `obsidian:config-create` | Create default settings if missing |
+| `obsidian:config-methodologies` | List available methodologies |
+| `obsidian:config-methodologies para` | Show methodology details |
+
 ## Architecture
 
-This skill provides two complementary modules:
+This skill provides three complementary modules:
 
 ### settings_loader.py (PRIMARY - Source of Truth)
 - Loads `.claude/settings.yaml` as the primary configuration source
@@ -23,6 +34,12 @@ This skill provides two complementary modules:
 - Loads and merges additional YAML config files
 - Provides fallback defaults when settings.yaml doesn't exist
 - Use for: config file merging, custom YAML management
+
+### methodology loader (config/methodologies/loader.py)
+- Loads methodology definitions from YAML files
+- Provides `METHODOLOGIES` proxy for dict-like access
+- Used by init_vault.py to create vaults
+- Use for: methodology listing, vault initialization
 
 ## Quick Start
 

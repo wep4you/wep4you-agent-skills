@@ -1,0 +1,182 @@
+# PARA Methodology Configuration
+# This file serves as the single source of truth for the PARA methodology.
+# Used by init_vault.py to create vaults and by validate to check notes.
+
+name: PARA Method
+description: Tiago Forte's Projects, Areas, Resources, Archives system
+author: Tiago Forte
+version: "1.0"
+url: https://fortelabs.com/blog/para/
+
+# =============================================================================
+# INIT-COMPATIBLE SECTION (Required for init_vault.py)
+# =============================================================================
+
+# Flat list of folders to create
+folders:
+  - Projects
+  - Areas
+  - Resources
+  - Archives
+  - "+"           # Inbox
+  - x/templates   # System templates
+  - x/bases       # Dataview bases
+
+# Core properties required in all notes
+core_properties:
+  - type
+  - up
+  - created
+  - tags
+
+# Note types with init-compatible structure
+note_types:
+  project:
+    description: Active projects with defined outcomes
+    folder_hints:
+      - Projects/
+    properties:
+      additional_required:
+        - status
+      optional:
+        - deadline
+        - priority
+    validation:
+      allow_empty_up: false
+    icon: target
+    template: project.md
+
+  area:
+    description: Areas of responsibility
+    folder_hints:
+      - Areas/
+    properties:
+      additional_required: []
+      optional:
+        - review_frequency
+    validation:
+      allow_empty_up: false
+    icon: home
+    template: area.md
+
+  resource:
+    description: Reference materials and resources
+    folder_hints:
+      - Resources/
+    properties:
+      additional_required: []
+      optional:
+        - source
+    validation:
+      allow_empty_up: true
+    icon: book
+    template: resource.md
+
+  archive:
+    description: Completed or inactive items
+    folder_hints:
+      - Archives/
+    properties:
+      additional_required: []
+      optional:
+        - archived_date
+    validation:
+      allow_empty_up: true
+    icon: archive
+    template: archive.md
+
+# Semantic folder structure mapping
+folder_structure:
+  inbox: "+/"
+  system: x/
+  templates: x/templates/
+  bases: x/bases/
+  projects: Projects/
+  areas: Areas/
+  resources: Resources/
+  archives: Archives/
+
+# Default UP links per folder
+up_links:
+  "Projects/": "[[Projects]]"
+  "Areas/": "[[Areas]]"
+  "Resources/": "[[Resources]]"
+  "Archives/": "[[Archives]]"
+
+# =============================================================================
+# EXTENDED DOCUMENTATION (Additional context, not used by init_vault.py)
+# =============================================================================
+
+# Organizational principles
+principles:
+  - Projects have clear outcomes and deadlines
+  - Areas have standards to maintain but no end date
+  - Resources are references without active work
+  - Archives preserve completed or inactive items
+  - Move items between categories as their status changes
+
+# Movement rules
+movement_rules:
+  project_to_archive:
+    trigger: status equals completed or on-hold for 30+ days
+    action: Move to Archives/ with archived metadata
+
+  area_to_archive:
+    trigger: No longer an active responsibility
+    action: Move to Archives/ with archived metadata
+
+  resource_to_archive:
+    trigger: No longer relevant or accessed
+    action: Move to Archives/ with archived metadata
+
+  archive_to_active:
+    trigger: Becomes relevant again
+    action: Move back to original category and update status
+
+# Workflow
+workflow:
+  daily_review:
+    - Check Projects/ for tasks due today
+    - Update project status and progress
+    - Move completed projects to Archives/
+
+  weekly_review:
+    - Review all active Projects
+    - Check Areas for standard maintenance
+    - Archive completed or stale items
+    - Create new Projects from Areas if needed
+
+  monthly_review:
+    - Review all Areas for alignment
+    - Clean up Resources
+    - Archive inactive Resources
+    - Review Archives for items to purge
+
+# Linking conventions
+linking:
+  style: wikilink
+  project_to_area: Projects should link to their parent Area
+  area_to_project: Areas should link to active Projects
+  resource_to_project: Resources can be referenced by Projects
+
+# Tags strategy
+tags:
+  use_nested: true
+  conventions:
+    - "status/ (e.g., status/active, status/completed)"
+    - "priority/ (e.g., priority/high, priority/low)"
+    - "context/ (e.g., context/work, context/personal)"
+
+# Search and retrieval
+search:
+  by_status: Use status property to find active vs completed
+  by_deadline: Sort projects by deadline property
+  by_area: Filter projects by their parent area
+  by_archive_date: Find recently archived items
+
+# Integration with productivity systems
+integrations:
+  task_management: Projects contain actionable tasks
+  calendar: Project deadlines sync with calendar
+  note_taking: Resources store research and reference material
+  review_system: Weekly/monthly reviews maintain the system
