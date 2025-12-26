@@ -1,4 +1,5 @@
 ---
+name: obsidian:note-types
 description: Manage Obsidian note type definitions
 argument-hint: [--list|--show|--add|--edit|--remove|--wizard] [name]
 allowed-tools: Bash(uv run:*)

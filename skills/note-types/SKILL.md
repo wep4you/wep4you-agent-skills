@@ -1,5 +1,6 @@
 ---
 name: note-types
+version: "0.1.0"
 license: MIT
 description: "Manage Obsidian note type definitions including folders, properties, and templates. Use when the user wants to (1) define new note types, (2) manage note type configurations, (3) set up folder and property mappings, (4) create note type templates, or (5) view existing note types. Triggers on keywords like note types, note type config, manage note types, define note type, note type wizard."
 ---
@@ -7,6 +8,17 @@ description: "Manage Obsidian note type definitions including folders, propertie
 # Obsidian Note Types Manager
 
 Manage note type definitions for your Obsidian vault. Define folders, required properties, and templates for different types of notes.
+
+## Slash Commands
+
+| Command | Description |
+|---------|-------------|
+| `obsidian:note-types --list` | List all note types |
+| `obsidian:note-types --show <name>` | Show details for a note type |
+| `obsidian:note-types --add <name>` | Add a new note type |
+| `obsidian:note-types --edit <name>` | Edit an existing note type |
+| `obsidian:note-types --remove <name>` | Remove a note type |
+| `obsidian:note-types --wizard` | Interactive wizard mode |
 
 ## Quick Start
 
