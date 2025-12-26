@@ -1947,6 +1947,7 @@ def init_vault(
     else:
         # Direct mode (with or without methodology flag)
         # Handle existing vault FIRST, before methodology selection
+        user_chose_continue = False
         if has_existing and not use_defaults:
             print()
             print(f"  Vault: {vault_path}")
@@ -1956,6 +1957,8 @@ def init_vault(
                 return
             if action == "reset":
                 reset_vault(vault_path, keep_obsidian=True)
+            elif action == "continue":
+                user_chose_continue = True
 
         # Now select methodology if not provided
         if methodology is None:
@@ -1966,12 +1969,13 @@ def init_vault(
         core_properties = method_config["core_properties"]
         create_samples = True
 
-        # Auto-reset if methodology changed (even with --defaults)
-        current_methodology = detection.get("current_methodology")
-        if current_methodology and current_methodology != methodology:
-            print(f"\n  Methodology change detected: {current_methodology} → {methodology}")
-            print("  Auto-resetting vault to clean state...")
-            reset_vault(vault_path, keep_obsidian=True)
+        # Auto-reset if methodology changed (only with --defaults, not if user chose continue)
+        if not user_chose_continue:
+            current_methodology = detection.get("current_methodology")
+            if current_methodology and current_methodology != methodology:
+                print(f"\n  Methodology change detected: {current_methodology} → {methodology}")
+                print("  Auto-resetting vault to clean state...")
+                reset_vault(vault_path, keep_obsidian=True)
 
     print(f"\n{'=' * 60}")
     print(f"Initializing vault at: {vault_path}")
