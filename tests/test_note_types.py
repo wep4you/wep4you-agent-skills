@@ -509,31 +509,45 @@ class TestVaultStructure:
         assert "Blog" in content
 
     def test_add_updates_bases_file(self, temp_vault):
-        """Test that add updates all_bases.base"""
+        """Test that add updates all_bases.base with YAML view"""
         bases_folder = temp_vault / "_system" / "bases"
         bases_folder.mkdir(parents=True)
-        (bases_folder / "all_bases.base").write_text("# All\n\nExisting\n")
+        # Create proper YAML-formatted bases file
+        (bases_folder / "all_bases.base").write_text("views:\n  - type: table\n    name: All\n")
 
         manager = NoteTypesManager(str(temp_vault))
         manager.add_type("blog", interactive=False)
 
         content = (bases_folder / "all_bases.base").read_text()
-        assert "# Blog" in content
-        assert 'FROM "Blog"' in content
+        assert "name: Blog" in content
+        assert 'file.inFolder("Blog")' in content
 
     def test_remove_updates_bases_file(self, temp_vault):
-        """Test that remove updates all_bases.base"""
+        """Test that remove updates all_bases.base (YAML view format)"""
         bases_folder = temp_vault / "_system" / "bases"
         bases_folder.mkdir(parents=True)
-        (bases_folder / "all_bases.base").write_text(
-            "# All\n\n# Project\n\n```dataview\nFROM Projects\n```\n"
-        )
+        # Create YAML-formatted bases file with a Projects view
+        bases_content = """views:
+  - type: table
+    name: All
+  - type: table
+    name: Projects
+    filters:
+      and:
+        - file.inFolder("Projects")
+    order:
+      - file.name
+      - type
+      - up
+"""
+        (bases_folder / "all_bases.base").write_text(bases_content)
 
         manager = NoteTypesManager(str(temp_vault))
         manager.remove_type("project", skip_confirm=True)
 
         content = (bases_folder / "all_bases.base").read_text()
-        assert "# Project" not in content
+        assert "name: Projects" not in content
+        assert "name: All" in content  # Other views should remain
 
     def test_lyt_methodology_uses_x_prefix(self, empty_dir):
         """Test that LYT methodology uses x/ prefix"""
@@ -556,10 +570,10 @@ class TestVaultStructure:
         assert manager.system_prefix == "_system"
 
     def test_add_creates_template(self, temp_vault):
-        """Test that add creates a template file"""
+        """Test that add creates a template file (init skill format)"""
         bases_folder = temp_vault / "_system" / "bases"
         bases_folder.mkdir(parents=True)
-        (bases_folder / "all_bases.base").write_text("# All\n")
+        (bases_folder / "all_bases.base").write_text("views:\n  - type: table\n    name: All\n")
 
         manager = NoteTypesManager(str(temp_vault))
         manager.add_type("blog", interactive=False)
@@ -567,14 +581,16 @@ class TestVaultStructure:
         template = temp_vault / "_system" / "templates" / "blog.md"
         assert template.exists()
         content = template.read_text()
-        assert "type: blog" in content
+        assert 'type: "blog"' in content  # Quoted value (init format)
         assert "{{title}}" in content
+        assert "## Content" in content  # Template structure
+        assert "## Related" in content
 
     def test_add_creates_sample_note(self, temp_vault):
-        """Test that add creates a sample note"""
+        """Test that add creates a sample note (matches template structure)"""
         bases_folder = temp_vault / "_system" / "bases"
         bases_folder.mkdir(parents=True)
-        (bases_folder / "all_bases.base").write_text("# All\n")
+        (bases_folder / "all_bases.base").write_text("views:\n  - type: table\n    name: All\n")
 
         manager = NoteTypesManager(str(temp_vault))
         manager.add_type("blog", interactive=False)
@@ -582,8 +598,10 @@ class TestVaultStructure:
         sample = temp_vault / "Blog" / "Sample Blog.md"
         assert sample.exists()
         content = sample.read_text()
-        assert "type: blog" in content
+        assert 'type: "blog"' in content  # Quoted value (init format)
         assert "Sample Blog" in content
+        assert "## Content" in content  # Matches template structure
+        assert "## Related" in content
 
 
 class TestCorePropertiesIntegration:
@@ -659,10 +677,10 @@ class TestCorePropertiesIntegration:
         assert "tags: []" in frontmatter
 
     def test_template_has_all_core_properties(self, temp_vault):
-        """Test that created template includes all core properties"""
+        """Test that created template includes all core properties (init format)"""
         bases_folder = temp_vault / "_system" / "bases"
         bases_folder.mkdir(parents=True)
-        (bases_folder / "all_bases.base").write_text("# All\n")
+        (bases_folder / "all_bases.base").write_text("views:\n  - type: table\n    name: All\n")
 
         manager = NoteTypesManager(str(temp_vault))
         manager.add_type("blog", interactive=False)
@@ -670,17 +688,17 @@ class TestCorePropertiesIntegration:
         template = temp_vault / "_system" / "templates" / "blog.md"
         content = template.read_text()
 
-        # All core properties should be in template
-        assert "type: blog" in content
-        assert "up:" in content
-        assert "created:" in content or "{{date}}" in content
-        assert "tags:" in content
+        # All core properties should be in template (init format)
+        assert 'type: "blog"' in content  # Quoted value
+        assert 'up: "[[]]"' in content  # Empty link
+        assert "created: {{date}}" in content  # Placeholder
+        assert "tags: []" in content  # Empty array
 
     def test_sample_note_has_all_core_properties(self, temp_vault):
-        """Test that created sample note includes all core properties"""
+        """Test that created sample note includes all core properties (init format)"""
         bases_folder = temp_vault / "_system" / "bases"
         bases_folder.mkdir(parents=True)
-        (bases_folder / "all_bases.base").write_text("# All\n")
+        (bases_folder / "all_bases.base").write_text("views:\n  - type: table\n    name: All\n")
 
         manager = NoteTypesManager(str(temp_vault))
         manager.add_type("blog", interactive=False)
@@ -688,17 +706,17 @@ class TestCorePropertiesIntegration:
         sample = temp_vault / "Blog" / "Sample Blog.md"
         content = sample.read_text()
 
-        # All core properties should be in sample
-        assert "type: blog" in content
-        assert "up:" in content
-        assert "created:" in content
-        assert "tags:" in content
+        # All core properties should be in sample (init format, with values)
+        assert 'type: "blog"' in content  # Quoted value
+        assert 'up: "[[_Readme]]"' in content  # Link to readme
+        assert "created:" in content  # Date filled in
+        assert "tags: [blog]" in content  # Type tag
 
-    def test_readme_has_all_core_properties(self, temp_vault):
-        """Test that created _Readme.md includes all core properties"""
+    def test_readme_has_init_format(self, temp_vault):
+        """Test that created _Readme.md matches init skill format (simple MAP)"""
         bases_folder = temp_vault / "_system" / "bases"
         bases_folder.mkdir(parents=True)
-        (bases_folder / "all_bases.base").write_text("# All\n")
+        (bases_folder / "all_bases.base").write_text("views:\n  - type: table\n    name: All\n")
 
         manager = NoteTypesManager(str(temp_vault))
         manager.add_type("blog", interactive=False)
@@ -706,11 +724,11 @@ class TestCorePropertiesIntegration:
         readme = temp_vault / "Blog" / "_Readme.md"
         content = readme.read_text()
 
-        # All core properties should be in readme
-        assert "type:" in content
-        assert "up:" in content
-        assert "created:" in content
-        assert "tags:" in content
+        # Readme uses init skill's simple MAP format
+        assert "type: map" in content
+        assert 'created: "{{date}}"' in content  # Placeholder
+        assert "## Contents" in content  # Section header
+        assert "![[all_bases.base#Blog]]" in content  # Embed
 
 
 class TestCompleteAddRemoveCycle:
@@ -720,7 +738,7 @@ class TestCompleteAddRemoveCycle:
         """Test that add creates folder, readme, template, sample, and base view"""
         bases_folder = temp_vault / "_system" / "bases"
         bases_folder.mkdir(parents=True)
-        (bases_folder / "all_bases.base").write_text("# All Notes\n")
+        (bases_folder / "all_bases.base").write_text("views:\n  - type: table\n    name: All\n")
 
         manager = NoteTypesManager(str(temp_vault))
         manager.add_type("meeting", interactive=False)
@@ -732,16 +750,16 @@ class TestCompleteAddRemoveCycle:
         template = temp_vault / "_system" / "templates" / "meeting.md"
         assert template.exists(), "Template not created"
 
-        # Check base view
+        # Check base view (YAML format)
         bases_content = (bases_folder / "all_bases.base").read_text()
-        assert "# Meeting" in bases_content, "Base view header not created"
-        assert 'FROM "Meeting"' in bases_content, "Base view query not created"
+        assert "name: Meeting" in bases_content, "Base view not created"
+        assert 'file.inFolder("Meeting")' in bases_content, "Base view filter not created"
 
     def test_remove_removes_all_artifacts(self, temp_vault):
         """Test that remove removes all created artifacts"""
         bases_folder = temp_vault / "_system" / "bases"
         bases_folder.mkdir(parents=True)
-        (bases_folder / "all_bases.base").write_text("# All Notes\n")
+        (bases_folder / "all_bases.base").write_text("views:\n  - type: table\n    name: All\n")
 
         manager = NoteTypesManager(str(temp_vault))
         manager.add_type("meeting", interactive=False)
@@ -763,15 +781,15 @@ class TestCompleteAddRemoveCycle:
         # Folder should be removed if empty
         assert not (temp_vault / "Meeting").exists(), "Empty folder not removed"
 
-        # Base view should be removed
+        # Base view should be removed (YAML format)
         bases_content = (bases_folder / "all_bases.base").read_text()
-        assert "# Meeting" not in bases_content, "Base view not removed"
+        assert "name: Meeting" not in bases_content, "Base view not removed"
 
     def test_remove_keeps_folder_with_other_files(self, temp_vault):
         """Test that remove keeps folder if it contains other files"""
         bases_folder = temp_vault / "_system" / "bases"
         bases_folder.mkdir(parents=True)
-        (bases_folder / "all_bases.base").write_text("# All Notes\n")
+        (bases_folder / "all_bases.base").write_text("views:\n  - type: table\n    name: All\n")
 
         manager = NoteTypesManager(str(temp_vault))
         manager.add_type("meeting", interactive=False)
@@ -788,48 +806,55 @@ class TestCompleteAddRemoveCycle:
         assert not (temp_vault / "Meeting" / "_Readme.md").exists()
         assert not (temp_vault / "Meeting" / "Sample Meeting.md").exists()
 
-    def test_add_creates_bases_file_if_missing(self, temp_vault):
-        """Test that add creates all_bases.base if it doesn't exist"""
+    def test_add_skips_bases_if_missing(self, temp_vault, capsys):
+        """Test that add warns if all_bases.base doesn't exist (requires init)"""
         manager = NoteTypesManager(str(temp_vault))
         manager.add_type("blog", interactive=False)
 
+        # Bases file should not be created - init must be run first
         bases_file = temp_vault / "_system" / "bases" / "all_bases.base"
-        assert bases_file.exists(), "Bases file not created"
-        content = bases_file.read_text()
-        assert "# Blog" in content
+        assert not bases_file.exists(), "Bases file should not be auto-created"
 
-    def test_remove_from_bases_handles_code_blocks(self, temp_vault):
-        """Test that remove correctly handles code blocks in bases file"""
+        # Should print warning message
+        captured = capsys.readouterr()
+        assert "Base file not found" in captured.out
+        assert "Run 'obsidian:init' first" in captured.out
+
+    def test_remove_from_bases_handles_yaml_views(self, temp_vault):
+        """Test that remove correctly handles YAML view entries"""
         bases_folder = temp_vault / "_system" / "bases"
         bases_folder.mkdir(parents=True)
-        bases_content = """# All Notes
-
-# Project
-
-```dataview
-TABLE WITHOUT ID file.link AS "Note"
-FROM "Projects"
-WHERE file.name != "_Readme"
-SORT file.name ASC
-```
-
-# Area
-
-```dataview
-TABLE WITHOUT ID file.link AS "Note"
-FROM "Areas"
-SORT file.name ASC
-```
+        bases_content = """views:
+  - type: table
+    name: All
+  - type: table
+    name: Projects
+    filters:
+      and:
+        - file.inFolder("Projects")
+    order:
+      - file.name
+      - type
+      - up
+  - type: table
+    name: Areas
+    filters:
+      and:
+        - file.inFolder("Areas")
+    order:
+      - file.name
+      - type
+      - up
 """
         (bases_folder / "all_bases.base").write_text(bases_content)
 
         manager = NoteTypesManager(str(temp_vault))
-        manager._remove_from_bases_file("project")
+        manager._remove_from_bases_file("project", "Projects")
 
         content = (bases_folder / "all_bases.base").read_text()
-        assert "# Project" not in content
-        assert "# Area" in content
-        assert 'FROM "Areas"' in content
+        assert "name: Projects" not in content
+        assert "name: Areas" in content
+        assert 'file.inFolder("Areas")' in content
 
 
 class TestEdgeCases:

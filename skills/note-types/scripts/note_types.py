@@ -210,7 +210,7 @@ class NoteTypesManager:
     def _create_readme(
         self, name: str, config: dict[str, Any], folder_path: Path
     ) -> None:
-        """Create _Readme.md in the folder
+        """Create _Readme.md in the folder (matches init skill format)
 
         Args:
             name: Note type name
@@ -222,42 +222,28 @@ class NoteTypesManager:
             print(f"ℹ️  _Readme.md already exists in {folder_path.name}/")
             return
 
-        description = config.get("description", f"{name.capitalize()} notes")
-        icon = config.get("icon", "file")
+        description = config.get("description", f"Notes and content for {name.capitalize()}.")
+        display_name = folder_path.name
 
-        # Build frontmatter with core properties
-        core_props = self._get_core_properties()
-        today = datetime.now().strftime("%Y-%m-%d")
+        # Match init skill's simple _Readme format
+        readme_content = f'''---
+type: map
+created: "{{{{date}}}}"
+---
 
-        lines = ["---"]
-        for prop in core_props:
-            if prop == "type":
-                lines.append("type: map")
-            elif prop == "created":
-                lines.append(f"created: {today}")
-            elif prop == "up":
-                lines.append('up: "[[Home]]"')
-            elif prop == "tags":
-                lines.append(f"tags: [{name}, moc]")
-            else:
-                lines.append(f'{prop}: ""')
-        lines.append("---")
-
-        readme_content = "\n".join(lines) + f"""
-
-# {icon} {name.capitalize()}
+# {display_name}
 
 {description}
 
-## Notes
+## Contents
 
-![[all_bases.base#{name.capitalize()}]]
-"""
+![[all_bases.base#{display_name}]]
+'''
         readme_path.write_text(readme_content, encoding="utf-8")
         print(f"📄 Created _Readme.md in {folder_path.name}/")
 
     def _update_bases_file(self, name: str, folder: str) -> None:
-        """Add a new view section to all_bases.base
+        """Add a new YAML view to all_bases.base (matches init skill format)
 
         Args:
             name: Name of the note type
@@ -265,39 +251,38 @@ class NoteTypesManager:
         """
         if not self.all_bases_file.exists():
             print(f"⚠️  Base file not found: {self.all_bases_file}")
-            print("   Creating new all_bases.base file...")
-            self.bases_folder.mkdir(parents=True, exist_ok=True)
-            self.all_bases_file.write_text("# All Notes\n\n", encoding="utf-8")
+            print("   Run 'obsidian:init' first to initialize your vault.")
+            return
 
         content = self.all_bases_file.read_text(encoding="utf-8")
 
-        # Check if view already exists
-        view_header = f"# {name.capitalize()}"
-        if view_header in content:
-            print(f"ℹ️  View '{name.capitalize()}' already exists in all_bases.base")
+        # Check if view already exists (look for "name: FolderName" in views)
+        view_name = folder.split("/")[-1] if "/" in folder else folder
+        if f"name: {view_name}" in content:
+            print(f"ℹ️  View '{view_name}' already exists in all_bases.base")
             return
 
-        # Create new view section
-        new_view = f"""
-{view_header}
+        # Create new YAML view entry (matches init skill format)
+        new_view_lines = [
+            "  - type: table",
+            f"    name: {view_name}",
+            "    filters:",
+            "      and:",
+            f'        - file.inFolder("{folder}")',
+            "    order:",
+            "      - file.name",
+            "      - type",
+            "      - up",
+        ]
 
-```dataview
-TABLE WITHOUT ID
-  file.link AS "Note",
-  type AS "Type",
-  up AS "Up"
-FROM "{folder}"
-WHERE file.name != "_Readme"
-SORT file.name ASC
-```
-"""
-        # Append to file
-        with open(self.all_bases_file, "a", encoding="utf-8") as f:
-            f.write(new_view)
-        print(f"📊 Added view '{name.capitalize()}' to all_bases.base")
+        # Append to end of file
+        lines = content.rstrip().split("\n")
+        lines.extend(new_view_lines)
+        self.all_bases_file.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        print(f"📊 Added view '{view_name}' to all_bases.base")
 
     def _create_template(self, name: str, config: dict[str, Any]) -> None:
-        """Create a template file for the note type
+        """Create a template file for the note type (matches init skill format)
 
         Args:
             name: Name of the note type
@@ -310,13 +295,60 @@ SORT file.name ASC
             print(f"ℹ️  Template already exists: {template_path.name}")
             return
 
-        frontmatter = self._build_frontmatter(name, config, use_placeholders=True)
-        template_content = f"""{frontmatter}
+        description = config.get("description", f"{name.capitalize()} notes")
+        core_props = self._get_core_properties()
+        required, optional = self._get_additional_properties(config)
 
-# {{{{title}}}}
+        # Build frontmatter matching init skill format
+        lines = ["---"]
+        lines.append(f'type: "{name}"')
 
-"""
-        template_path.write_text(template_content, encoding="utf-8")
+        for prop in core_props:
+            if prop == "type":
+                continue  # Already added above
+            elif prop == "up":
+                lines.append('up: "[[]]"')
+            elif prop == "created":
+                lines.append("created: {{date}}")
+            elif prop == "tags":
+                lines.append("tags: []")
+            elif prop == "daily":
+                lines.append("daily: ")
+            elif prop == "collection":
+                lines.append("collection: ")
+            elif prop == "related":
+                lines.append("related: []")
+            else:
+                lines.append(f"{prop}: ")
+
+        # Add required properties
+        for prop in required:
+            if prop == "status":
+                lines.append('status: "active"')
+            else:
+                lines.append(f"{prop}: ")
+
+        # Add optional properties as empty
+        for prop in optional:
+            if prop not in required:
+                lines.append(f"{prop}: ")
+
+        lines.append("---")
+        lines.append("")
+        lines.append("# {{title}}")
+        lines.append("")
+        lines.append(f"> Template for **{name.capitalize()}** notes: {description}")
+        lines.append("")
+        lines.append("## Content")
+        lines.append("")
+        lines.append("<!-- Your content here -->")
+        lines.append("")
+        lines.append("## Related")
+        lines.append("")
+        lines.append("- [[]]")
+        lines.append("")
+
+        template_path.write_text("\n".join(lines), encoding="utf-8")
         print(f"📝 Created template: {self.system_prefix}/templates/{name}.md")
 
         # Update config to reference the template
@@ -325,7 +357,7 @@ SORT file.name ASC
     def _create_sample_note(
         self, name: str, config: dict[str, Any], folder_path: Path
     ) -> None:
-        """Create a sample note in the folder
+        """Create a sample note in the folder (matches template structure)
 
         Args:
             name: Name of the note type
@@ -339,14 +371,61 @@ SORT file.name ASC
             print(f"ℹ️  Sample note already exists: {sample_name}.md")
             return
 
-        frontmatter = self._build_frontmatter(name, config, use_placeholders=False)
-        sample_content = f"""{frontmatter}
+        description = config.get("description", f"{name.capitalize()} notes")
+        core_props = self._get_core_properties()
+        required, optional = self._get_additional_properties(config)
+        today = datetime.now().strftime("%Y-%m-%d")
 
-# {sample_name}
+        # Build frontmatter matching template format but with values filled in
+        lines = ["---"]
+        lines.append(f'type: "{name}"')
 
-This is a sample {name} note. You can delete this after reviewing.
-"""
-        sample_path.write_text(sample_content, encoding="utf-8")
+        for prop in core_props:
+            if prop == "type":
+                continue  # Already added above
+            elif prop == "up":
+                lines.append('up: "[[_Readme]]"')
+            elif prop == "created":
+                lines.append(f"created: {today}")
+            elif prop == "tags":
+                lines.append(f"tags: [{name}]")
+            elif prop == "daily":
+                lines.append(f"daily: {today}")
+            elif prop == "collection":
+                lines.append("collection: ")
+            elif prop == "related":
+                lines.append("related: []")
+            else:
+                lines.append(f"{prop}: ")
+
+        # Add required properties with sample values
+        for prop in required:
+            if prop == "status":
+                lines.append('status: "active"')
+            else:
+                lines.append(f"{prop}: ")
+
+        # Add optional properties
+        for prop in optional:
+            if prop not in required:
+                lines.append(f"{prop}: ")
+
+        lines.append("---")
+        lines.append("")
+        lines.append(f"# {sample_name}")
+        lines.append("")
+        lines.append(f"> This is a sample **{name}** note: {description}")
+        lines.append("")
+        lines.append("## Content")
+        lines.append("")
+        lines.append("This is a sample note. You can delete it after reviewing the structure.")
+        lines.append("")
+        lines.append("## Related")
+        lines.append("")
+        lines.append("- [[_Readme]]")
+        lines.append("")
+
+        sample_path.write_text("\n".join(lines), encoding="utf-8")
         print(f"📄 Created sample note: {sample_name}.md")
 
     def _remove_vault_structure(
@@ -364,7 +443,7 @@ This is a sample {name} note. You can delete this after reviewing.
         folder_path = self.vault_path / folder
 
         # Remove view from all_bases.base
-        self._remove_from_bases_file(name)
+        self._remove_from_bases_file(name, folder)
 
         # Remove template
         template_path = self.templates_folder / f"{name}.md"
@@ -393,61 +472,67 @@ This is a sample {name} note. You can delete this after reviewing.
             else:
                 print(f"ℹ️  Folder {folder}/ not empty ({len(remaining)} files), keeping it")
 
-    def _remove_from_bases_file(self, name: str) -> None:
-        """Remove a view section from all_bases.base
+    def _remove_from_bases_file(self, name: str, folder: str | None = None) -> None:
+        """Remove a YAML view from all_bases.base
 
         Args:
             name: Name of the note type
+            folder: Folder path (used as view name)
         """
         if not self.all_bases_file.exists():
             return
 
         content = self.all_bases_file.read_text(encoding="utf-8")
-        view_header = f"# {name.capitalize()}"
 
-        if view_header not in content:
+        # The view name is the folder name (or capitalized type name if no folder)
+        view_name = folder.split("/")[-1] if folder else name.capitalize()
+
+        # Check if view exists
+        if f"name: {view_name}" not in content:
             return
 
-        # Parse and remove the section
+        # Parse YAML-style view entries and remove the matching one
         lines = content.split("\n")
         new_lines = []
-        skip_until_next_header = False
-        in_code_block = False
+        skip_view = False
+        i = 0
 
-        for line in lines:
-            # Track code blocks
-            if line.strip().startswith("```"):
-                in_code_block = not in_code_block
+        while i < len(lines):
+            line = lines[i]
 
-            # Check for our header (not in code block)
-            if not in_code_block and line.strip() == view_header:
-                skip_until_next_header = True
-                continue
+            # Check for view entry start
+            if line.strip() == "- type: table":
+                # Look ahead for the name line
+                found_target = False
+                j = i + 1
+                while j < len(lines) and not lines[j].strip().startswith("- type:"):
+                    if lines[j].strip() == f"name: {view_name}":
+                        found_target = True
+                        break
+                    j += 1
 
-            # Check for next header (end of our section)
-            if skip_until_next_header and not in_code_block and line.startswith("# "):
-                skip_until_next_header = False
+                if found_target:
+                    # Skip this entire view entry
+                    skip_view = True
+                    i += 1
+                    continue
 
-            if not skip_until_next_header:
+            # Check if we're done skipping (next view entry or end)
+            if skip_view and line.strip().startswith("- type:"):
+                skip_view = False
+
+            if not skip_view:
                 new_lines.append(line)
 
-        # Clean up multiple blank lines
-        cleaned = []
-        prev_blank = False
-        for line in new_lines:
-            is_blank = line.strip() == ""
-            if is_blank and prev_blank:
-                continue
-            cleaned.append(line)
-            prev_blank = is_blank
+            i += 1
 
-        # Ensure single trailing newline
-        while cleaned and cleaned[-1].strip() == "":
-            cleaned.pop()
-        cleaned.append("")
+        # Ensure trailing newline
+        content_out = "\n".join(new_lines)
+        if not content_out.endswith("\n"):
+            content_out += "\n"
 
-        self.all_bases_file.write_text("\n".join(cleaned), encoding="utf-8")
-        print(f"📊 Removed view '{name.capitalize()}' from all_bases.base")
+        self.all_bases_file.write_text(content_out, encoding="utf-8")
+        print(f"📊 Removed view '{view_name}' from all_bases.base")
 
     def _format_properties(self, nt_config: dict[str, Any]) -> list[str]:
         """Extract all properties from note type config
