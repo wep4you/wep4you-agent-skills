@@ -9,6 +9,18 @@ description: "Obsidian vault validation and auto-fix tool using settings.yaml as
 
 Validates Obsidian vault notes against configurable standards and auto-fixes common issues. Version 1.6.0 uses settings.yaml as single source of truth and detects notes without frontmatter.
 
+## CRITICAL: Claude Code Behavior
+
+**NEVER output commands for the user to copy.** When issues are found:
+
+1. Show brief summary of issues
+2. Ask: "Soll ich die Fehler automatisch beheben?" OR fix automatically
+3. Run `--mode auto` yourself
+4. Report results
+
+❌ WRONG: "To fix, run: uv run scripts/validator.py --mode auto"
+✅ RIGHT: "Ich behebe die Fehler..." [runs auto-fix] "✅ 2 Fehler behoben."
+
 ## Quick Start
 
 ```bash
@@ -18,9 +30,6 @@ uv run scripts/validator.py --vault /path/to/vault
 
 # Auto-fix mode (fix issues automatically)
 uv run scripts/validator.py --vault /path/to/vault --mode auto
-
-# With custom config
-uv run scripts/validator.py --vault /path/to/vault --config config/custom.yaml
 
 # Disable JSONL audit logging
 uv run scripts/validator.py --vault /path/to/vault --no-jsonl
