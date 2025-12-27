@@ -6,7 +6,7 @@
 """
 Vault Validator & Auto-Fix Tool
 Validates Obsidian vault against standards and auto-fixes common issues
-Version: 1.5.0 - JSONL audit logging enabled by default in .claude/logs/
+Version: 1.6.0 - Removed legacy validator.yaml, settings.yaml is single source of truth
 
 Usage:
     uv run scripts/validator.py --vault /path/to/vault
@@ -25,7 +25,6 @@ from pathlib import Path
 from typing import Any
 
 # PyYAML is always available via uv inline dependencies
-import yaml
 
 # Try to import settings_loader for integrated configuration
 SETTINGS_LOADER_AVAILABLE = False
@@ -49,27 +48,36 @@ except ImportError:
 
 
 class VaultValidator:
-    """Main validator class with config support and code block detection"""
+    """Main validator class with settings.yaml support and code block detection"""
 
-    def __init__(self, vault_path: str, mode: str = "report", config_path: str | None = None):
+    def __init__(self, vault_path: str, mode: str = "report"):
         self.vault_path = Path(vault_path)
         self.mode = mode  # report, auto, interactive
 
-        # Try to load settings.yaml first (primary source of truth)
+        # Load settings.yaml (single source of truth)
         self.settings: Settings | None = None
         if SETTINGS_LOADER_AVAILABLE:
             try:
                 self.settings = load_settings(self.vault_path)
                 print(f"✅ Using settings.yaml (methodology: {self.settings.methodology})")
             except FileNotFoundError:
-                pass  # Fall back to validator config
+                print("⚠️  No settings.yaml found - using defaults")
             except Exception as e:
                 print(f"⚠️  Error loading settings.yaml: {e}")
 
-        # Fall back to validator.yaml if settings not loaded
-        self.config = self.load_config(config_path)
+        # Use hardcoded defaults for auto_fix settings
+        self.auto_fix_config = {
+            "empty_types": True,
+            "daily_links": True,
+            "wikilink_quotes": True,
+            "invalid_created": True,
+            "title_properties": True,
+            "date_mismatches": True,
+            "missing_properties": True,
+        }
 
         self.issues: dict[str, list[str]] = {
+            "missing_frontmatter": [],  # Files with no frontmatter at all
             "empty_types": [],
             "missing_properties": [],  # Files missing required frontmatter properties
             "invalid_daily_links": [],
@@ -90,12 +98,12 @@ class VaultValidator:
         self.fixed_count = 0
         self.skipped_files = 0
 
-        # Load type rules from settings or config
+        # Load type rules from settings or use defaults
         self.type_rules: dict[str, str]
         if self.settings:
             self.type_rules = self._build_type_rules_from_settings()
         else:
-            type_rules_default: dict[str, str] = {
+            self.type_rules = {
                 "Atlas/Maps/": "map",
                 "Atlas/Dots/": "dot",
                 "Atlas/Sources/": "source",
@@ -108,8 +116,6 @@ class VaultValidator:
                 "Calendar/weekly/": "weekly",
                 "Calendar/monthly/": "monthly",
             }
-            config_rules = self.config.get("type_rules")
-            self.type_rules = config_rules if isinstance(config_rules, dict) else type_rules_default
 
     def _build_type_rules_from_settings(self) -> dict[str, str]:
         """Build type_rules dict from settings.yaml note_types."""
@@ -134,67 +140,19 @@ class VaultValidator:
 
         return self.required_properties
 
-    def load_config(self, config_path: str | None = None) -> dict[str, Any]:
-        """Load configuration from YAML file"""
-        # Try to find config file
-        if config_path:
-            config_file = Path(config_path)
-        else:
-            # Look for config in standard location
-            config_file = self.vault_path / ".claude/config/validator.yaml"
-
-        if not config_file.exists():
-            # Silently use defaults - no config file is normal
-            return self.get_default_config()
-
-        try:
-            with open(config_file) as f:
-                config: dict[str, Any] = yaml.safe_load(f) or {}
-                print(f"✅ Loaded config: {config_file}")
-                print(f"   Version: {config.get('version', 'unknown')}\n")
-                return config
-        except Exception as e:
-            print(f"⚠️  Error loading config: {e}")
-            print("   Using default configuration\n")
-            return self.get_default_config()
-
-    def get_default_config(self) -> dict[str, Any]:
-        """Return default configuration"""
-        return {
-            "version": "1.0.0",
-            "exclude_paths": ["x/Templates/", ".obsidian/", ".git/"],
-            "exclude_files": [],
-            "auto_fix": {
-                "empty_types": True,
-                "daily_links": True,
-                "wikilink_quotes": True,
-                "invalid_created": True,
-                "title_properties": True,
-                "date_mismatches": True,
-            },
-            "type_rules": {},
-            "skip_code_blocks": True,
-        }
-
     def should_exclude_file(self, file_path: Path) -> bool:
         """Check if file should be excluded from validation"""
         # Use settings.yaml if available
         if self.settings and SETTINGS_LOADER_AVAILABLE:
             return settings_should_exclude(self.settings, file_path)
 
-        # Fall back to config-based exclusion
+        # Fall back to default exclusions
         relative_path = str(file_path.relative_to(self.vault_path))
 
-        # Check exclude_paths
-        exclude_paths = self.config.get("exclude_paths", [])
-        for pattern in exclude_paths:
+        # Default exclude paths
+        default_exclude_paths = ["x/", ".obsidian/", ".git/", ".claude/"]
+        for pattern in default_exclude_paths:
             if pattern in relative_path:
-                return True
-
-        # Check exclude_files
-        exclude_files = self.config.get("exclude_files", [])
-        for pattern in exclude_files:
-            if relative_path == pattern or relative_path.endswith(pattern):
                 return True
 
         return False
@@ -245,7 +203,8 @@ class VaultValidator:
             # Extract frontmatter only (excluding code blocks in content)
             frontmatter = self.extract_frontmatter_only(content)
             if not frontmatter:
-                # No frontmatter, skip validation
+                # No frontmatter - this is an error, all notes must have frontmatter
+                self.issues["missing_frontmatter"].append(relative_path)
                 return file_issues
 
             # Check 1: Empty type field (only in frontmatter)
@@ -320,7 +279,7 @@ class VaultValidator:
 
     def fix_empty_types(self) -> int:
         """Fix empty type fields"""
-        if not self.config.get("auto_fix", {}).get("empty_types", True):
+        if not self.auto_fix_config.get("empty_types", True):
             return 0
 
         fixed = 0
@@ -352,7 +311,7 @@ class VaultValidator:
         - type: inferred from folder location
         - Other properties: set to empty string for user to fill in
         """
-        if not self.config.get("auto_fix", {}).get("empty_types", True):
+        if not self.auto_fix_config.get("empty_types", True):
             return 0
 
         fixed = 0
@@ -408,7 +367,7 @@ class VaultValidator:
 
     def fix_daily_links(self) -> int:
         """Convert full-path daily links to basename format"""
-        if not self.config.get("auto_fix", {}).get("daily_links", True):
+        if not self.auto_fix_config.get("daily_links", True):
             return 0
 
         fixed = 0
@@ -432,7 +391,7 @@ class VaultValidator:
 
     def fix_unquoted_wikilinks(self) -> int:
         """Add quotes to wikilinks in frontmatter"""
-        if not self.config.get("auto_fix", {}).get("wikilink_quotes", True):
+        if not self.auto_fix_config.get("wikilink_quotes", True):
             return 0
 
         fixed = 0
@@ -471,7 +430,7 @@ class VaultValidator:
 
     def fix_invalid_created(self) -> int:
         """Fix invalid created date format"""
-        if not self.config.get("auto_fix", {}).get("invalid_created", True):
+        if not self.auto_fix_config.get("invalid_created", True):
             return 0
 
         fixed = 0
@@ -495,7 +454,7 @@ class VaultValidator:
 
     def fix_title_properties(self) -> int:
         """Remove title properties from frontmatter"""
-        if not self.config.get("auto_fix", {}).get("title_properties", True):
+        if not self.auto_fix_config.get("title_properties", True):
             return 0
 
         fixed = 0
@@ -533,7 +492,7 @@ class VaultValidator:
 
     def fix_date_mismatches(self) -> int:
         """Synchronize created and daily dates"""
-        if not self.config.get("auto_fix", {}).get("date_mismatches", True):
+        if not self.auto_fix_config.get("date_mismatches", True):
             return 0
 
         fixed = 0
@@ -630,11 +589,12 @@ class VaultValidator:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         total_issues = sum(len(v) for v in self.issues.values())
 
+        methodology = self.settings.methodology if self.settings else "default"
         report = f"""# Vault Validation Report
 
 **Date**: {timestamp}
 **Mode**: {self.mode}
-**Config Version**: {self.config.get("version", "unknown")}
+**Methodology**: {methodology}
 **Total Issues**: {total_issues}
 
 ---
@@ -681,15 +641,16 @@ class VaultValidator:
         timestamp = datetime.now().isoformat()
         total_issues = sum(len(v) for v in self.issues.values())
 
+        methodology = self.settings.methodology if self.settings else "default"
         log_entry = {
             "timestamp": timestamp,
             "vault_path": str(self.vault_path.absolute()),
             "mode": self.mode,
+            "methodology": methodology,
             "total_issues": total_issues,
             "issues_by_type": {k: len(v) for k, v in self.issues.items() if v},
             "issues_detail": {k: v for k, v in self.issues.items() if v},
             "fixes_applied": fixes_applied,
-            "config_version": self.config.get("version", "unknown"),
         }
 
         # Use default path if not specified
@@ -706,7 +667,7 @@ class VaultValidator:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Vault Validator & Auto-Fix Tool v1.5.0")
+    parser = argparse.ArgumentParser(description="Vault Validator & Auto-Fix Tool v1.6.0")
     parser.add_argument("--vault", default=".", help="Vault path (default: current directory)")
     parser.add_argument(
         "--mode",
@@ -716,7 +677,6 @@ def main() -> None:
     )
     parser.add_argument("--path", help="Specific path to validate (optional)")
     parser.add_argument("--report", help="Save report to file")
-    parser.add_argument("--config", help="Path to config YAML file")
     parser.add_argument("--check", help="Run specific check only")
     parser.add_argument(
         "--no-jsonl",
@@ -730,7 +690,7 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    validator = VaultValidator(args.vault, args.mode, args.config)
+    validator = VaultValidator(args.vault, args.mode)
 
     # Run validation
     summary = validator.run_validation(args.path)

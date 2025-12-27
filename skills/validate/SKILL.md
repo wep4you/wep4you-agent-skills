@@ -1,13 +1,13 @@
 ---
 name: validate
 license: MIT
-version: 1.5.0
-description: "Obsidian vault validation and auto-fix tool with dynamic configuration, note-type specific validation, and JSONL audit logging. Use when the user wants to (1) validate vault frontmatter against standards, (2) check for missing required properties, (3) fix common issues like unquoted wikilinks or wrong date formats, (4) audit vault compliance with type-specific rules, (5) run maintenance checks on their Obsidian vault, or (6) log validation results for audit trails. Triggers on keywords like validate vault, check frontmatter, fix vault issues, vault audit, maintenance check, note-type validation, audit log."
+version: 1.6.0
+description: "Obsidian vault validation and auto-fix tool using settings.yaml as single source of truth. Detects missing frontmatter, validates required properties, and auto-fixes common issues. Use when the user wants to (1) validate vault frontmatter against standards, (2) check for missing required properties, (3) fix common issues like unquoted wikilinks or wrong date formats, (4) audit vault compliance with type-specific rules, (5) run maintenance checks on their Obsidian vault, or (6) log validation results for audit trails. Triggers on keywords like validate vault, check frontmatter, fix vault issues, vault audit, maintenance check, note-type validation, audit log."
 ---
 
 # Obsidian Validator
 
-Validates Obsidian vault notes against configurable standards and auto-fixes common issues. Version 1.5.0 enables JSONL audit logging by default.
+Validates Obsidian vault notes against configurable standards and auto-fixes common issues. Version 1.6.0 uses settings.yaml as single source of truth and detects notes without frontmatter.
 
 ## Quick Start
 
