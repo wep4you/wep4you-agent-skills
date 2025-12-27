@@ -355,6 +355,210 @@ def settings_exist(vault_path: Path) -> bool:
     return (vault_path / SETTINGS_FILE).exists()
 
 
+def get_backup_dir(vault_path: Path) -> Path:
+    """Get backup directory path."""
+    return vault_path / ".claude" / "backups"
+
+
+def create_backup(vault_path: Path) -> Path | None:
+    """
+    Create backup of current settings.yaml.
+
+    Returns:
+        Path to backup file, or None if no settings exist
+    """
+    from datetime import datetime
+
+    settings_path = vault_path / SETTINGS_FILE
+    if not settings_path.exists():
+        return None
+
+    backup_dir = get_backup_dir(vault_path)
+    backup_dir.mkdir(parents=True, exist_ok=True)
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    backup_path = backup_dir / f"settings_{timestamp}.yaml"
+
+    shutil.copy2(settings_path, backup_path)
+    return backup_path
+
+
+def set_setting(vault_path: Path, key: str, value: str, create_backup_file: bool = True) -> None:
+    """
+    Set a configuration value in settings.yaml.
+
+    Args:
+        vault_path: Path to vault root
+        key: Dot-separated key path (e.g., "validation.strict_types")
+        value: Value to set (auto-converted to bool/int if applicable)
+        create_backup_file: Whether to create backup before modifying
+
+    Raises:
+        FileNotFoundError: If settings.yaml doesn't exist
+        ValueError: If key path is invalid
+    """
+    settings_path = vault_path / SETTINGS_FILE
+    if not settings_path.exists():
+        raise FileNotFoundError(f"Settings file not found: {settings_path}")
+
+    # Create backup before modifying
+    if create_backup_file:
+        backup_path = create_backup(vault_path)
+        if backup_path:
+            print(f"Backup created: {backup_path}")
+
+    # Load raw YAML
+    with settings_path.open("r", encoding="utf-8") as f:
+        config = yaml.safe_load(f) or {}
+
+    # Parse key path
+    keys = key.split(".")
+    if not keys:
+        raise ValueError("Key cannot be empty")
+
+    # Navigate to the right location
+    current = config
+    for k in keys[:-1]:
+        if k not in current:
+            current[k] = {}
+        elif not isinstance(current[k], dict):
+            raise ValueError(f"Cannot set nested key: {k} is not a dict")
+        current = current[k]
+
+    # Convert value to appropriate type
+    final_key = keys[-1]
+    if value.lower() in ("true", "false"):
+        current[final_key] = value.lower() == "true"
+    elif value.isdigit():
+        current[final_key] = int(value)
+    elif value.startswith("[") and value.endswith("]"):
+        # Simple list parsing
+        items = value[1:-1].split(",")
+        current[final_key] = [item.strip().strip("'\"") for item in items if item.strip()]
+    else:
+        current[final_key] = value
+
+    # Save
+    with settings_path.open("w", encoding="utf-8") as f:
+        yaml.safe_dump(config, f, default_flow_style=False, sort_keys=False, indent=2)
+
+    print(f"Set {key} = {current[final_key]}")
+    print(f"Saved to: {settings_path}")
+
+
+def get_default_settings_dict() -> dict:
+    """Get default settings as a dictionary for comparison."""
+    return {
+        "version": "1.0",
+        "methodology": "custom",
+        "core_properties": ["type", "up", "created", "daily", "tags", "collection", "related"],
+        "note_types": {},
+        "validation": {
+            "require_core_properties": True,
+            "allow_empty_properties": ["tags", "collection", "related"],
+            "strict_types": True,
+            "check_templates": True,
+            "check_up_links": True,
+            "check_inbox_no_frontmatter": True,
+        },
+        "exclude": {
+            "paths": ["+/", "x/", ".obsidian/", ".claude/", ".git/"],
+            "files": ["Home.md", "README.md", "_Readme.md"],
+        },
+    }
+
+
+def diff_settings(vault_path: Path) -> list[str]:
+    """
+    Compare current settings with defaults.
+
+    Returns:
+        List of difference strings
+    """
+    settings_path = vault_path / SETTINGS_FILE
+    if not settings_path.exists():
+        return ["Settings file does not exist - using defaults"]
+
+    with settings_path.open("r", encoding="utf-8") as f:
+        current = yaml.safe_load(f) or {}
+
+    default = get_default_settings_dict()
+    return _diff_dicts(default, current, "")
+
+
+def _diff_dicts(d1: dict, d2: dict, path: str = "") -> list[str]:
+    """Recursively find differences between two dicts."""
+    changes = []
+
+    all_keys = set(d1.keys()) | set(d2.keys())
+
+    for key in sorted(all_keys):
+        current_path = f"{path}.{key}" if path else key
+
+        if key not in d2:
+            changes.append(f"- {current_path}: REMOVED (was: {d1[key]})")
+        elif key not in d1:
+            changes.append(f"+ {current_path}: ADDED (value: {d2[key]})")
+        else:
+            v1, v2 = d1[key], d2[key]
+            if isinstance(v1, dict) and isinstance(v2, dict):
+                changes.extend(_diff_dicts(v1, v2, current_path))
+            elif v1 != v2:
+                changes.append(f"~ {current_path}: {v1} → {v2}")
+
+    return changes
+
+
+def edit_settings(vault_path: Path) -> bool:
+    """
+    Open settings.yaml in editor.
+
+    Returns:
+        True if edit was successful
+    """
+    import os
+    import subprocess
+
+    settings_path = vault_path / SETTINGS_FILE
+    if not settings_path.exists():
+        print("Settings file does not exist. Creating default...")
+        create_default_settings(vault_path)
+
+    # Create backup before editing
+    backup_path = create_backup(vault_path)
+    if backup_path:
+        print(f"Backup created: {backup_path}")
+
+    editor = os.environ.get("EDITOR", "vim")
+
+    try:
+        subprocess.run([editor, str(settings_path)], check=True)  # noqa: S603
+        print(f"\nSettings edited: {settings_path}")
+
+        # Validate after editing
+        try:
+            settings = load_settings(vault_path)
+            errors = validate_settings(settings)
+            if errors:
+                print("\n⚠️  WARNING: Settings have validation errors:")
+                for error in errors:
+                    print(f"  - {error}")
+                if backup_path:
+                    print(f"\nBackup available at: {backup_path}")
+                return False
+            print("✅ Settings are valid")
+            return True
+        except Exception as e:
+            print(f"\n❌ Error loading settings: {e}")
+            if backup_path:
+                print(f"Backup available at: {backup_path}")
+            return False
+
+    except subprocess.CalledProcessError:
+        print(f"Error opening editor: {editor}")
+        return False
+
+
 METHODOLOGIES = ["lyt-ace", "para", "zettelkasten", "minimal", "custom"]
 
 # ANSI color codes
@@ -407,6 +611,12 @@ def main() -> int:
     parser.add_argument(
         "--yes", "-y", action="store_true", help="Skip confirmation prompt (use with --reset)"
     )
+    parser.add_argument(
+        "--set", nargs=2, metavar=("KEY", "VALUE"),
+        help="Set configuration value (e.g., --set validation.strict_types false)"
+    )
+    parser.add_argument("--edit", action="store_true", help="Open settings in editor")
+    parser.add_argument("--diff", action="store_true", help="Show diff between current and defaults")
 
     args = parser.parse_args()
 
@@ -465,6 +675,28 @@ def main() -> int:
             print(f"Methodology: {settings.methodology}")
             print(f"Core properties: {settings.core_properties}")
             print(f"Note types: {list(settings.note_types.keys())}")
+            return 0
+
+        # Handle set operation
+        if args.set:
+            key, value = args.set
+            set_setting(args.vault, key, value)
+            return 0
+
+        # Handle edit operation
+        if args.edit:
+            success = edit_settings(args.vault)
+            return 0 if success else 1
+
+        # Handle diff operation
+        if args.diff:
+            print("# Configuration Diff (Current vs Default)\n")
+            changes = diff_settings(args.vault)
+            if not changes:
+                print("No differences - current config matches defaults")
+            else:
+                for change in changes:
+                    print(change)
             return 0
 
         settings = load_settings(args.vault, create_if_missing=args.create)
