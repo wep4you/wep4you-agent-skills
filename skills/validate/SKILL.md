@@ -14,12 +14,12 @@ Validates Obsidian vault notes against configurable standards and auto-fixes com
 **NEVER output commands for the user to copy.** When issues are found:
 
 1. Show brief summary of issues
-2. Ask: "Soll ich die Fehler automatisch beheben?" OR fix automatically
+2. Ask: "Should I fix these issues automatically?" OR fix automatically
 3. Run `--mode auto` yourself
 4. Report results
 
 ❌ WRONG: "To fix, run: uv run scripts/validator.py --mode auto"
-✅ RIGHT: "Ich behebe die Fehler..." [runs auto-fix] "✅ 2 Fehler behoben."
+✅ RIGHT: "Fixing issues..." [runs auto-fix] "✅ Fixed 2 issues."
 
 ## Quick Start
 
