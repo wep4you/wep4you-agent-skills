@@ -144,11 +144,11 @@ Each line in the JSONL file is a complete JSON object:
   "timestamp": "2025-12-27T10:30:00.123456",
   "vault_path": "/path/to/vault",
   "mode": "report",
+  "methodology": "para",
   "total_issues": 5,
   "issues_by_type": {"empty_types": 2, "missing_properties": 3},
   "issues_detail": {"empty_types": ["file1.md", "file2.md"]},
-  "fixes_applied": 0,
-  "config_version": "1.5.0"
+  "fixes_applied": 0
 }
 ```
 
@@ -163,7 +163,22 @@ The JSONL file is appended to, allowing you to track validation history over tim
 
 When user requests vault validation:
 
-1. Determine vault path (usually current directory)
-2. Check if custom config exists
-3. Run validator in appropriate mode
-4. Report results and suggest next steps
+1. Run validator in report mode first
+2. If issues are found:
+   - Show summary to user
+   - Ask if they want to auto-fix OR immediately run auto-fix mode
+   - **DO NOT output the command** - just run it directly
+3. After auto-fix, report results
+
+**Important**: When issues are found, Claude should proactively offer to fix them or run auto-fix directly. Never just output a command for the user to copy - always execute it.
+
+### Example Flow
+
+```
+User: validate my vault
+
+Claude: [runs validator in report mode]
+Claude: Found 2 issues. Fixing automatically...
+Claude: [runs validator in auto mode]
+Claude: ✅ Fixed 2 issues. Vault is now compliant.
+```
