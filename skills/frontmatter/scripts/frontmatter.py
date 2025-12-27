@@ -225,7 +225,9 @@ class FrontmatterManager:
         print(f"Removed core property: {name}")
 
     def list_type_properties(
-        self, note_type: Optional[str] = None, output_format: str = "text"  # noqa: UP007
+        self,
+        note_type: str | None = None,
+        output_format: str = "text",
     ) -> None:
         """
         List type-specific properties
@@ -268,7 +270,10 @@ class FrontmatterManager:
                     if "format" in spec:
                         print(f"    Format: {spec['format']}")
                     if "values" in spec:
-                        print(f"    Values: {', '.join(spec['values'])}")
+                        spec_values = spec["values"]
+                        if isinstance(spec_values, list):
+                            values = [str(v) for v in spec_values]
+                            print(f"    Values: {', '.join(values)}")
                     if desc:
                         print(f"    Description: {desc}")
 

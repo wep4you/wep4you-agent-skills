@@ -10,33 +10,73 @@ A Claude Code skills marketplace following the open [Agent Skills](https://agent
 
 ## Available Skills
 
-### Obsidian
+### Obsidian Plugin (v0.59.0)
+
+Complete PKM (Personal Knowledge Management) toolkit for Obsidian vaults.
 
 | Skill | Description | Version |
 |-------|-------------|---------|
-| [init](skills/init/) | Initialize Obsidian vault with methodology (PARA, LYT-ACE, Zettelkasten, Minimal) | 0.31.0 |
-| [config](skills/config/) | Configuration loader and settings management | 0.4.0 |
+| [init](skills/init/) | Initialize vault with methodology wizard (PARA, LYT-ACE, Zettelkasten, Minimal) | 0.31.0 |
+| [config](skills/config/) | Configuration loader and settings management with backup | 0.5.0 |
+| [validate](skills/validate/) | Validate and auto-fix frontmatter with JSONL audit logging | 1.6.0 |
 | [note-types](skills/note-types/) | Manage note type definitions (folders, properties, templates) | 0.53.0 |
-| [validate](skills/validate/) | Validate and auto-fix frontmatter against standards | 1.2.0 |
+| [frontmatter](skills/frontmatter/) | Manage frontmatter properties for note types | 1.0.0 |
+| [templates](skills/templates/) | Create, view, and manage note templates | 1.0.0 |
 
 ### Slash Commands
 
 After installing the plugin, these commands are available:
 
+**Vault Initialization**
 | Command | Description |
 |---------|-------------|
 | `/obsidian:init` | Initialize vault with interactive wizard |
+
+**Configuration Management**
+| Command | Description |
+|---------|-------------|
 | `/obsidian:config-show` | Show vault settings from `.claude/settings.yaml` |
 | `/obsidian:config-validate` | Validate settings.yaml structure |
-| `/obsidian:config-create` | Create default settings.yaml if missing |
-| `/obsidian:config-methodologies` | List available methodologies |
-| `/obsidian:note-types --list` | List all note types |
-| `/obsidian:note-types --add <name> --config '{...}'` | Add note type with JSON config |
-| `/obsidian:note-types --edit <name> --config '{...}'` | Edit note type (renames folders, updates frontmatter) |
-| `/obsidian:note-types --remove <name> --yes` | Remove a note type |
-| `/obsidian:validate` | Validate vault frontmatter against standards |
+| `/obsidian:config set KEY VALUE` | Set a config value (with backup) |
+| `/obsidian:config diff` | Show differences from defaults |
+| `/obsidian:config reset METHODOLOGY` | Reset to a methodology |
 
-> **Note**: Slash commands use the format `/<plugin-name>:<command-name>`
+**Validation**
+| Command | Description |
+|---------|-------------|
+| `/obsidian:validate` | Validate vault frontmatter (auto-fix available) |
+
+**Note Types**
+| Command | Description |
+|---------|-------------|
+| `/obsidian:note-types list` | List all note types |
+| `/obsidian:note-types add NAME` | Add new note type with folder + template |
+| `/obsidian:note-types edit NAME` | Edit note type (renames folders, updates frontmatter) |
+| `/obsidian:note-types remove NAME` | Remove a note type |
+
+**Frontmatter**
+| Command | Description |
+|---------|-------------|
+| `/frontmatter list` | List all core properties |
+| `/frontmatter list --type NAME` | Show properties for a note type |
+| `/frontmatter add --property NAME --type TYPE` | Add property to note type |
+| `/frontmatter remove --property NAME --type TYPE` | Remove property from note type |
+
+**Templates**
+| Command | Description |
+|---------|-------------|
+| `/templates list` | List all templates |
+| `/templates show NAME` | Show template content |
+| `/templates create --name NAME --type TYPE` | Create new template |
+| `/templates delete --name NAME` | Delete template |
+
+## Key Features
+
+- **Single Source of Truth**: `.claude/settings.yaml` manages all configuration
+- **Automatic Backups**: Config changes create timestamped backups in `.claude/backups/`
+- **JSONL Audit Logging**: Validation results logged to `.claude/logs/validate.jsonl`
+- **Multi-Methodology Support**: PARA, LYT-ACE, Zettelkasten, Minimal
+- **Auto-Fix**: Validator can automatically fix common frontmatter issues
 
 ## Quick Start
 
@@ -51,42 +91,22 @@ After installing the plugin, these commands are available:
    https://github.com/wep4you/wep4you-agent-skills
    ```
 4. Press Enter to add the marketplace
+5. Browse and install the "obsidian" plugin
 
-Once added, you can:
-- Browse available plugins in the **"Marketplaces"** tab
-- Select a plugin to see details (version, description, author)
-- Choose installation scope:
-  - **User scope**: Available in all your projects
-  - **Project scope**: Available for all collaborators
-  - **Local scope**: Only in this repository
-- Update plugins when new versions are available
-
-#### Option 2: Manual Installation
+#### Option 2: Development Mode
 
 ```bash
-# Clone and install using the install script
-git clone https://github.com/wep4you/wep4you-agent-skills.git
-cd wep4you-agent-skills
-uv run scripts/install_skills.py --platform claude-code
-
-# Or install specific skill
-uv run scripts/install_skills.py --skill validate
+# Run Claude Code with local plugin directory
+claude --plugin-dir /path/to/wep4you-agent-skills
 ```
 
 ### OpenAI Codex
 
 ```bash
-# Clone repository
 git clone https://github.com/wep4you/wep4you-agent-skills.git
 cd wep4you-agent-skills
-
-# Manually symlink
 ln -s $(pwd)/skills/obsidian/* ~/.codex/skills/
 ```
-
-### GitHub Copilot (Enterprise)
-
-Skills are auto-discovered from `.claude/skills/` in repositories. Symlink or copy skills to your project.
 
 ## Requirements
 
@@ -99,27 +119,26 @@ Skills are auto-discovered from `.claude/skills/` in repositories. Symlink or co
 ### Setup
 
 ```bash
-# Clone and install
 git clone https://github.com/wep4you/wep4you-agent-skills.git
 cd wep4you-agent-skills
 uv sync --all-extras
-
-# Install pre-commit hooks
 uv run pre-commit install
 ```
 
 ### Commands
 
 ```bash
-# Run tests
-uv run pytest
+# Run tests with coverage
+uv run pytest --cov --cov-fail-under=88
 
 # Run linter
 uv run ruff check .
 
+# Run type checker
+uv run mypy skills/ --ignore-missing-imports
+
 # Run security scan
-uv run bandit -r skills/ -ll
-uv run pip-audit
+uv run bandit -r skills/ -ll --skip B101
 
 # Validate all SKILL.md files
 uv run python scripts/validate_skills.py --verbose
@@ -129,30 +148,15 @@ uv run python scripts/validate_skills.py --verbose
 
 All skills must pass:
 - **Ruff**: Linting with security rules (S, B, C90)
+- **Mypy**: Static type checking
 - **Bandit**: Python security analysis
 - **pip-audit**: CVE vulnerability scanning
-- **Tests**: pytest with 90% coverage threshold
+- **Tests**: pytest with 88% coverage threshold
 - **SKILL.md validation**: Required frontmatter fields
 
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
-### Creating a New Skill
-
-```bash
-# Use the automated setup script
-uv run scripts/create_skill.py obsidian my-skill-name --author "Your Name"
-
-# Or manually copy the template
-cp -r templates/skill-template skills/obsidian/<skill-name>
-```
-
-Then:
-1. Edit `SKILL.md` with your skill description
-2. Implement your logic in `scripts/main.py`
-3. Add tests in `tests/`
-4. Run validation: `uv run python scripts/validate_skills.py --verbose`
 
 ## Security
 

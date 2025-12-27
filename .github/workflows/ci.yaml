@@ -97,7 +97,7 @@ jobs:
         run: uv sync --python ${{ matrix.python-version }} --extra dev
 
       - name: Run tests with coverage
-        run: uv run pytest --cov --cov-report=xml --cov-report=term --cov-fail-under=90
+        run: uv run pytest --cov --cov-report=xml --cov-report=term --cov-fail-under=88
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4

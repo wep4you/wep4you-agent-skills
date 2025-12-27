@@ -612,11 +612,15 @@ def main() -> int:
         "--yes", "-y", action="store_true", help="Skip confirmation prompt (use with --reset)"
     )
     parser.add_argument(
-        "--set", nargs=2, metavar=("KEY", "VALUE"),
-        help="Set configuration value (e.g., --set validation.strict_types false)"
+        "--set",
+        nargs=2,
+        metavar=("KEY", "VALUE"),
+        help="Set configuration value (e.g., --set validation.strict_types false)",
     )
     parser.add_argument("--edit", action="store_true", help="Open settings in editor")
-    parser.add_argument("--diff", action="store_true", help="Show diff between current and defaults")
+    parser.add_argument(
+        "--diff", action="store_true", help="Show diff between current and defaults"
+    )
 
     args = parser.parse_args()
 
