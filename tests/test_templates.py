@@ -389,6 +389,99 @@ class TestCLI:
         assert result == 0
         mock_manager.list_templates.assert_called_once()
 
+    @patch("sys.argv", ["templates.py", "--vault", "test", "--list"])
+    @patch("templates.TemplateManager")
+    def test_cli_list_with_templates(self, mock_manager_class: MagicMock) -> None:
+        """Test CLI list command with templates"""
+        from templates import main
+
+        mock_manager = MagicMock()
+        mock_manager.list_templates.return_value = [
+            {"name": "map/basic", "type": "map", "source": "plugin"},
+            {"name": "custom", "type": "unknown", "source": "vault"},
+        ]
+        mock_manager.has_templater = True
+        mock_manager_class.return_value = mock_manager
+
+        result = main()
+
+        assert result == 0
+        mock_manager.list_templates.assert_called_once()
+
+    @patch("sys.argv", ["templates.py", "--vault", "test", "--create", "new"])
+    @patch("templates.TemplateManager")
+    def test_cli_create_failed(self, mock_manager_class: MagicMock) -> None:
+        """Test CLI create command when it fails"""
+        from templates import main
+
+        mock_manager = MagicMock()
+        mock_manager.create_template.return_value = False
+        mock_manager_class.return_value = mock_manager
+
+        result = main()
+
+        assert result == 1
+
+    @patch("sys.argv", ["templates.py", "--vault", "test", "--edit", "map/basic"])
+    @patch("templates.TemplateManager")
+    def test_cli_edit(self, mock_manager_class: MagicMock) -> None:
+        """Test CLI edit command"""
+        from templates import main
+
+        mock_manager = MagicMock()
+        mock_manager.edit_template.return_value = True
+        mock_manager_class.return_value = mock_manager
+
+        result = main()
+
+        assert result == 0
+        mock_manager.edit_template.assert_called_once_with("map/basic")
+
+    @patch("sys.argv", ["templates.py", "--vault", "test", "--edit", "nonexistent"])
+    @patch("templates.TemplateManager")
+    def test_cli_edit_failed(self, mock_manager_class: MagicMock) -> None:
+        """Test CLI edit command when it fails"""
+        from templates import main
+
+        mock_manager = MagicMock()
+        mock_manager.edit_template.return_value = False
+        mock_manager_class.return_value = mock_manager
+
+        result = main()
+
+        assert result == 1
+
+    @patch("sys.argv", ["templates.py", "--vault", "test", "--delete", "nonexistent"])
+    @patch("templates.TemplateManager")
+    def test_cli_delete_failed(self, mock_manager_class: MagicMock) -> None:
+        """Test CLI delete command when it fails"""
+        from templates import main
+
+        mock_manager = MagicMock()
+        mock_manager.delete_template.return_value = False
+        mock_manager_class.return_value = mock_manager
+
+        result = main()
+
+        assert result == 1
+
+    @patch(
+        "sys.argv",
+        ["templates.py", "--vault", "test", "--apply", "nonexistent", "test.md"],
+    )
+    @patch("templates.TemplateManager")
+    def test_cli_apply_failed(self, mock_manager_class: MagicMock) -> None:
+        """Test CLI apply command when it fails"""
+        from templates import main
+
+        mock_manager = MagicMock()
+        mock_manager.apply_template.return_value = False
+        mock_manager_class.return_value = mock_manager
+
+        result = main()
+
+        assert result == 1
+
     @patch("sys.argv", ["templates.py", "--vault", "test", "--show", "map/basic"])
     @patch("templates.TemplateManager")
     def test_cli_show(self, mock_manager_class: MagicMock) -> None:
