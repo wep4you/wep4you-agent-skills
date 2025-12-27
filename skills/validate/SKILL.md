@@ -1,18 +1,19 @@
 ---
 name: validate
 license: MIT
-version: 1.4.0
+version: 1.5.0
 description: "Obsidian vault validation and auto-fix tool with dynamic configuration, note-type specific validation, and JSONL audit logging. Use when the user wants to (1) validate vault frontmatter against standards, (2) check for missing required properties, (3) fix common issues like unquoted wikilinks or wrong date formats, (4) audit vault compliance with type-specific rules, (5) run maintenance checks on their Obsidian vault, or (6) log validation results for audit trails. Triggers on keywords like validate vault, check frontmatter, fix vault issues, vault audit, maintenance check, note-type validation, audit log."
 ---
 
 # Obsidian Validator
 
-Validates Obsidian vault notes against configurable standards and auto-fixes common issues. Version 1.4.0 adds JSONL logging for audit trails.
+Validates Obsidian vault notes against configurable standards and auto-fixes common issues. Version 1.5.0 enables JSONL audit logging by default.
 
 ## Quick Start
 
 ```bash
 # Report mode (show issues without fixing)
+# Audit log written to .claude/logs/validate.jsonl by default
 uv run scripts/validator.py --vault /path/to/vault
 
 # Auto-fix mode (fix issues automatically)
@@ -21,8 +22,11 @@ uv run scripts/validator.py --vault /path/to/vault --mode auto
 # With custom config
 uv run scripts/validator.py --vault /path/to/vault --config config/custom.yaml
 
-# With JSONL audit logging (v1.4.0)
-uv run scripts/validator.py --vault /path/to/vault --jsonl validation.jsonl
+# Disable JSONL audit logging
+uv run scripts/validator.py --vault /path/to/vault --no-jsonl
+
+# Custom JSONL log path
+uv run scripts/validator.py --vault /path/to/vault --jsonl custom-audit.jsonl
 ```
 
 ## Validation Checks
@@ -118,12 +122,19 @@ See `config/default.yaml` for complete configuration options.
 - **auto**: Fix issues automatically, re-validate after fixes
 - **interactive**: Prompt before each fix (future)
 
-## JSONL Audit Logging (v1.4.0)
+## JSONL Audit Logging (v1.5.0)
 
-Log validation results to a JSONL file for audit trails:
+Audit logging is **enabled by default**. Validation results are automatically logged to `.claude/logs/validate.jsonl`.
 
 ```bash
-uv run scripts/validator.py --vault . --jsonl audit.jsonl
+# Default: logs to .claude/logs/validate.jsonl
+uv run scripts/validator.py --vault .
+
+# Custom log path
+uv run scripts/validator.py --vault . --jsonl my-audit.jsonl
+
+# Disable logging
+uv run scripts/validator.py --vault . --no-jsonl
 ```
 
 Each line in the JSONL file is a complete JSON object:
@@ -137,11 +148,11 @@ Each line in the JSONL file is a complete JSON object:
   "issues_by_type": {"empty_types": 2, "missing_properties": 3},
   "issues_detail": {"empty_types": ["file1.md", "file2.md"]},
   "fixes_applied": 0,
-  "config_version": "1.4.0"
+  "config_version": "1.5.0"
 }
 ```
 
-The JSONL file is appended to, allowing you to track validation history over time.
+The JSONL file is appended to, allowing you to track validation history over time. The `.claude/logs/` directory is created automatically if it doesn't exist.
 
 ## Exit Codes
 

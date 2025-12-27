@@ -927,3 +927,84 @@ type: dot
                 main()
 
         assert jsonl_file.exists()
+
+    def test_get_default_jsonl_path(self, tmp_path):
+        """Test that default JSONL path is .claude/logs/validate.jsonl"""
+        from validator import VaultValidator
+
+        validator = VaultValidator(str(tmp_path))
+        default_path = validator.get_default_jsonl_path()
+
+        assert default_path == tmp_path / ".claude" / "logs" / "validate.jsonl"
+
+    def test_log_to_jsonl_creates_parent_dirs(self, tmp_path):
+        """Test that log_to_jsonl creates parent directories if they don't exist"""
+        from validator import VaultValidator
+
+        validator = VaultValidator(str(tmp_path))
+        nested_path = tmp_path / "deep" / "nested" / "logs" / "audit.jsonl"
+
+        # Parent dirs don't exist yet
+        assert not nested_path.parent.exists()
+
+        validator.log_to_jsonl(str(nested_path))
+
+        assert nested_path.exists()
+        assert nested_path.parent.exists()
+
+    def test_log_to_jsonl_uses_default_path_when_none(self, tmp_path):
+        """Test that log_to_jsonl uses default path when None is passed"""
+        from validator import VaultValidator
+
+        validator = VaultValidator(str(tmp_path))
+
+        # Pass None explicitly
+        validator.log_to_jsonl(None)
+
+        default_path = tmp_path / ".claude" / "logs" / "validate.jsonl"
+        assert default_path.exists()
+
+    def test_cli_no_jsonl_disables_logging(self, tmp_path):
+        """Test CLI with --no-jsonl disables default logging"""
+        import sys
+        from unittest.mock import patch
+
+        test_file = tmp_path / "test.md"
+        test_file.write_text("""---
+type: dot
+---
+""")
+
+        from validator import main
+
+        args = ["validator.py", "--vault", str(tmp_path), "--no-jsonl"]
+        with patch.object(sys, "argv", args):
+            with pytest.raises(SystemExit):
+                main()
+
+        # Default log file should NOT exist
+        default_log = tmp_path / ".claude" / "logs" / "validate.jsonl"
+        assert not default_log.exists()
+
+    def test_cli_default_creates_jsonl(self, tmp_path):
+        """Test CLI without --no-jsonl creates default JSONL log"""
+        import sys
+        from unittest.mock import patch
+
+        test_file = tmp_path / "test.md"
+        test_file.write_text("""---
+type: dot
+---
+""")
+
+        from validator import main
+
+        # No --no-jsonl means logging is enabled by default
+        args = ["validator.py", "--vault", str(tmp_path)]
+        with patch.object(sys, "argv", args):
+            with pytest.raises(SystemExit):
+                main()
+
+        # Default log file SHOULD exist
+        default_log = tmp_path / ".claude" / "logs" / "validate.jsonl"
+        assert default_log.exists()

@@ -6,12 +6,12 @@
 """
 Vault Validator & Auto-Fix Tool
 Validates Obsidian vault against standards and auto-fixes common issues
-Version: 1.4.0 - Added JSONL logging infrastructure for audit trails
+Version: 1.5.0 - JSONL audit logging enabled by default in .claude/logs/
 
 Usage:
     uv run scripts/validator.py --vault /path/to/vault
     uv run scripts/validator.py --vault . --mode auto
-    uv run scripts/validator.py --vault . --jsonl validation.jsonl
+    uv run scripts/validator.py --vault . --no-jsonl  # Disable audit logging
 """
 
 from __future__ import annotations
@@ -644,7 +644,11 @@ class VaultValidator:
 
         return report
 
-    def log_to_jsonl(self, output_path: str, fixes_applied: int = 0) -> None:
+    def get_default_jsonl_path(self) -> Path:
+        """Get default JSONL log path: .claude/logs/validate.jsonl"""
+        return self.vault_path / ".claude" / "logs" / "validate.jsonl"
+
+    def log_to_jsonl(self, output_path: str | Path | None = None, fixes_applied: int = 0) -> None:
         """Append validation result as JSON line to JSONL file for audit trail.
 
         Each line is a complete JSON object with:
@@ -656,6 +660,10 @@ class VaultValidator:
         - issues_detail: Dict of issue type -> list of affected files
         - fixes_applied: Number of auto-fixes applied (if mode=auto)
         - config_version: Version from config file
+
+        Args:
+            output_path: Path to JSONL file. If None, uses default .claude/logs/validate.jsonl
+            fixes_applied: Number of fixes applied in auto mode
         """
         timestamp = datetime.now().isoformat()
         total_issues = sum(len(v) for v in self.issues.values())
@@ -671,16 +679,21 @@ class VaultValidator:
             "config_version": self.config.get("version", "unknown"),
         }
 
+        # Use default path if not specified
+        jsonl_path = Path(output_path) if output_path else self.get_default_jsonl_path()
+
+        # Create parent directories if they don't exist
+        jsonl_path.parent.mkdir(parents=True, exist_ok=True)
+
         # Append to JSONL file (create if doesn't exist)
-        jsonl_path = Path(output_path)
         with open(jsonl_path, "a") as f:
             f.write(json.dumps(log_entry) + "\n")
 
-        print(f"📝 Logged to JSONL: {output_path}")
+        print(f"📝 Logged to JSONL: {jsonl_path}")
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Vault Validator & Auto-Fix Tool v1.4.0")
+    parser = argparse.ArgumentParser(description="Vault Validator & Auto-Fix Tool v1.5.0")
     parser.add_argument("--vault", default=".", help="Vault path (default: current directory)")
     parser.add_argument(
         "--mode",
@@ -693,8 +706,13 @@ def main() -> None:
     parser.add_argument("--config", help="Path to config YAML file")
     parser.add_argument("--check", help="Run specific check only")
     parser.add_argument(
+        "--no-jsonl",
+        action="store_true",
+        help="Disable JSONL audit logging (enabled by default to .claude/logs/validate.jsonl)",
+    )
+    parser.add_argument(
         "--jsonl",
-        help="Append validation results to JSONL file (for audit trail)",
+        help="Custom path for JSONL audit log (default: .claude/logs/validate.jsonl)",
     )
 
     args = parser.parse_args()
@@ -718,9 +736,10 @@ def main() -> None:
     if args.report:
         validator.generate_report(args.report)
 
-    # Log to JSONL if requested (for audit trail)
-    if args.jsonl:
-        validator.log_to_jsonl(args.jsonl, fixes_applied)
+    # Log to JSONL by default (unless --no-jsonl specified)
+    if not args.no_jsonl:
+        jsonl_path = args.jsonl if args.jsonl else None  # None = use default path
+        validator.log_to_jsonl(jsonl_path, fixes_applied)
 
     # Exit code based on remaining issues
     remaining_issues = sum(len(v) for v in validator.issues.values())
