@@ -1,28 +1,41 @@
 ---
 name: validate
 license: MIT
-version: 1.4.0
-description: "Obsidian vault validation and auto-fix tool with dynamic configuration, note-type specific validation, and JSONL audit logging. Use when the user wants to (1) validate vault frontmatter against standards, (2) check for missing required properties, (3) fix common issues like unquoted wikilinks or wrong date formats, (4) audit vault compliance with type-specific rules, (5) run maintenance checks on their Obsidian vault, or (6) log validation results for audit trails. Triggers on keywords like validate vault, check frontmatter, fix vault issues, vault audit, maintenance check, note-type validation, audit log."
+version: 1.6.0
+description: "Obsidian vault validation and auto-fix tool using settings.yaml as single source of truth. Detects missing frontmatter, validates required properties, and auto-fixes common issues. Use when the user wants to (1) validate vault frontmatter against standards, (2) check for missing required properties, (3) fix common issues like unquoted wikilinks or wrong date formats, (4) audit vault compliance with type-specific rules, (5) run maintenance checks on their Obsidian vault, or (6) log validation results for audit trails. Triggers on keywords like validate vault, check frontmatter, fix vault issues, vault audit, maintenance check, note-type validation, audit log."
 ---
 
 # Obsidian Validator
 
-Validates Obsidian vault notes against configurable standards and auto-fixes common issues. Version 1.4.0 adds JSONL logging for audit trails.
+Validates Obsidian vault notes against configurable standards and auto-fixes common issues. Version 1.6.0 uses settings.yaml as single source of truth and detects notes without frontmatter.
+
+## CRITICAL: Claude Code Behavior
+
+**NEVER output commands for the user to copy.** When issues are found:
+
+1. Show brief summary of issues
+2. Ask: "Should I fix these issues automatically?" OR fix automatically
+3. Run `--mode auto` yourself
+4. Report results
+
+❌ WRONG: "To fix, run: uv run scripts/validator.py --mode auto"
+✅ RIGHT: "Fixing issues..." [runs auto-fix] "✅ Fixed 2 issues."
 
 ## Quick Start
 
 ```bash
 # Report mode (show issues without fixing)
+# Audit log written to .claude/logs/validate.jsonl by default
 uv run scripts/validator.py --vault /path/to/vault
 
 # Auto-fix mode (fix issues automatically)
 uv run scripts/validator.py --vault /path/to/vault --mode auto
 
-# With custom config
-uv run scripts/validator.py --vault /path/to/vault --config config/custom.yaml
+# Disable JSONL audit logging
+uv run scripts/validator.py --vault /path/to/vault --no-jsonl
 
-# With JSONL audit logging (v1.4.0)
-uv run scripts/validator.py --vault /path/to/vault --jsonl validation.jsonl
+# Custom JSONL log path
+uv run scripts/validator.py --vault /path/to/vault --jsonl custom-audit.jsonl
 ```
 
 ## Validation Checks
@@ -118,12 +131,19 @@ See `config/default.yaml` for complete configuration options.
 - **auto**: Fix issues automatically, re-validate after fixes
 - **interactive**: Prompt before each fix (future)
 
-## JSONL Audit Logging (v1.4.0)
+## JSONL Audit Logging (v1.5.0)
 
-Log validation results to a JSONL file for audit trails:
+Audit logging is **enabled by default**. Validation results are automatically logged to `.claude/logs/validate.jsonl`.
 
 ```bash
-uv run scripts/validator.py --vault . --jsonl audit.jsonl
+# Default: logs to .claude/logs/validate.jsonl
+uv run scripts/validator.py --vault .
+
+# Custom log path
+uv run scripts/validator.py --vault . --jsonl my-audit.jsonl
+
+# Disable logging
+uv run scripts/validator.py --vault . --no-jsonl
 ```
 
 Each line in the JSONL file is a complete JSON object:
@@ -133,15 +153,15 @@ Each line in the JSONL file is a complete JSON object:
   "timestamp": "2025-12-27T10:30:00.123456",
   "vault_path": "/path/to/vault",
   "mode": "report",
+  "methodology": "para",
   "total_issues": 5,
   "issues_by_type": {"empty_types": 2, "missing_properties": 3},
   "issues_detail": {"empty_types": ["file1.md", "file2.md"]},
-  "fixes_applied": 0,
-  "config_version": "1.4.0"
+  "fixes_applied": 0
 }
 ```
 
-The JSONL file is appended to, allowing you to track validation history over time.
+The JSONL file is appended to, allowing you to track validation history over time. The `.claude/logs/` directory is created automatically if it doesn't exist.
 
 ## Exit Codes
 
@@ -152,7 +172,22 @@ The JSONL file is appended to, allowing you to track validation history over tim
 
 When user requests vault validation:
 
-1. Determine vault path (usually current directory)
-2. Check if custom config exists
-3. Run validator in appropriate mode
-4. Report results and suggest next steps
+1. Run validator in report mode first
+2. If issues are found:
+   - Show summary to user
+   - Ask if they want to auto-fix OR immediately run auto-fix mode
+   - **DO NOT output the command** - just run it directly
+3. After auto-fix, report results
+
+**Important**: When issues are found, Claude should proactively offer to fix them or run auto-fix directly. Never just output a command for the user to copy - always execute it.
+
+### Example Flow
+
+```
+User: validate my vault
+
+Claude: [runs validator in report mode]
+Claude: Found 2 issues. Fixing automatically...
+Claude: [runs validator in auto mode]
+Claude: ✅ Fixed 2 issues. Vault is now compliant.
+```

@@ -178,56 +178,41 @@ related: []
 class TestConfiguration:
     """Test configuration loading"""
 
-    def test_default_config(self, tmp_path):
-        """Test default config when no file exists"""
+    def test_default_auto_fix_config(self, tmp_path):
+        """Test default auto_fix_config is set"""
         from validator import VaultValidator
 
         validator = VaultValidator(str(tmp_path))
 
-        assert "exclude_paths" in validator.config
-        assert "auto_fix" in validator.config
+        assert "empty_types" in validator.auto_fix_config
+        assert "daily_links" in validator.auto_fix_config
+        assert validator.auto_fix_config["empty_types"] is True
 
-    def test_custom_config(self, tmp_path):
-        """Test loading custom config"""
-        # Create config file
-        config_dir = tmp_path / ".claude" / "config"
-        config_dir.mkdir(parents=True)
-        config_file = config_dir / "validator.yaml"
-        config_file.write_text("""
-version: "test"
-exclude_paths:
-  - custom/exclude/
-auto_fix:
-  empty_types: false
-""")
+    def test_default_exclude_paths(self, tmp_path):
+        """Test default exclusion paths work"""
+        # Create files in excluded paths
+        obsidian_dir = tmp_path / ".obsidian"
+        obsidian_dir.mkdir()
+        (obsidian_dir / "config.md").write_text("---\ntype: config\n---\n# Config")
 
-        from validator import VaultValidator
-
-        validator = VaultValidator(str(tmp_path))
-
-        assert validator.config.get("version") == "test"
-        assert "custom/exclude/" in validator.config.get("exclude_paths", [])
-
-    def test_exclude_paths(self, tmp_path):
-        """Test file exclusion based on config"""
-        # Create excluded and non-excluded files
-        excluded_dir = tmp_path / "templates"
-        excluded_dir.mkdir()
-        (excluded_dir / "template.md").write_text("---\ntype:\n---\n# Template")
+        x_dir = tmp_path / "x"
+        x_dir.mkdir()
+        (x_dir / "template.md").write_text("---\ntype: template\n---\n# Template")
 
         regular_dir = tmp_path / "notes"
         regular_dir.mkdir()
-        (regular_dir / "note.md").write_text("---\ntype:\n---\n# Note")
+        (regular_dir / "note.md").write_text("---\ntype: note\n---\n# Note")
 
         from validator import VaultValidator
 
         validator = VaultValidator(str(tmp_path))
-        validator.config["exclude_paths"] = ["templates/"]
-
         files = validator.scan_vault()
         file_names = [f.name for f in files]
 
+        # Excluded files should not be in the list
+        assert "config.md" not in file_names
         assert "template.md" not in file_names
+        # Regular file should be included
         assert "note.md" in file_names
 
 
@@ -482,8 +467,8 @@ created: 2025-01-15
         assert len(missing) == 0
 
 
-class TestFixMissingTypes:
-    """Test fix_missing_types function"""
+class TestFixMissingProperties:
+    """Test fix_missing_properties function"""
 
     def test_fix_missing_type_with_inferable_location(self, tmp_path):
         """Test adding missing type to file in known location"""
@@ -510,69 +495,96 @@ related: []
         # Should have missing type in issues
         assert len(validator.issues["missing_properties"]) > 0
 
-        fixed = validator.fix_missing_types()
+        fixed = validator.fix_missing_properties()
         assert fixed == 1
 
         new_content = test_file.read_text()
         assert "type: dot" in new_content
 
-    def test_fix_missing_type_skips_non_type_properties(self, tmp_path):
-        """Test that fix_missing_types only handles type property"""
-        test_file = tmp_path / "test.md"
+    def test_fix_missing_custom_properties_with_empty_value(self, tmp_path):
+        """Test that fix_missing_properties adds custom properties with empty value"""
+        test_dir = tmp_path / "Meetings"
+        test_dir.mkdir(parents=True)
+        test_file = test_dir / "test.md"
         test_file.write_text("""---
-type: dot
+type: meeting
 created: 2025-01-15
 ---
 
-# Content missing other properties
+# Content missing custom properties
 """)
 
         from validator import VaultValidator
 
         validator = VaultValidator(str(tmp_path), mode="auto")
+        # Simulate custom required properties
+        validator.required_properties = ["type", "created", "participants", "agenda"]
         validator.run_validation()
 
-        # Should have missing properties but not type
-        fixed = validator.fix_missing_types()
-        assert fixed == 0
+        # Should have missing properties (participants, agenda)
+        assert len(validator.issues["missing_properties"]) > 0
+
+        fixed = validator.fix_missing_properties()
+        assert fixed == 1
+
+        new_content = test_file.read_text()
+        # Custom properties should be added with empty value
+        assert "participants:" in new_content
+        assert "agenda:" in new_content
+
+    def test_fix_missing_multiple_properties(self, tmp_path):
+        """Test fixing multiple missing properties at once"""
+        dots_dir = tmp_path / "Atlas" / "Dots"
+        dots_dir.mkdir(parents=True)
+        test_file = dots_dir / "test.md"
+        test_file.write_text("""---
+created: 2025-01-15
+---
+
+# Content missing type and up
+""")
+
+        from validator import VaultValidator
+
+        validator = VaultValidator(str(tmp_path), mode="auto")
+        validator.type_rules = {"Atlas/Dots/": "dot"}
+        validator.required_properties = ["type", "up", "created"]
+        validator.run_validation()
+
+        fixed = validator.fix_missing_properties()
+        assert fixed == 1
+
+        new_content = test_file.read_text()
+        assert "type: dot" in new_content  # Inferred from folder
+        assert "up:" in new_content  # Empty value
 
 
-class TestConfigErrors:
-    """Test configuration error handling"""
+class TestMissingFrontmatter:
+    """Test detection of notes without frontmatter"""
 
-    def test_invalid_config_file(self, tmp_path):
-        """Test handling of invalid YAML config"""
-        config_dir = tmp_path / ".claude" / "config"
-        config_dir.mkdir(parents=True)
-        config_file = config_dir / "validator.yaml"
-        config_file.write_text("invalid: yaml: content: [")
+    def test_detect_missing_frontmatter(self, tmp_path):
+        """Test that notes without frontmatter are flagged"""
+        # Create note without frontmatter
+        (tmp_path / "no_frontmatter.md").write_text("# Just a heading\n\nSome content.")
 
         from validator import VaultValidator
 
         validator = VaultValidator(str(tmp_path))
+        validator.run_validation()
 
-        # Should fall back to default config
-        assert "exclude_paths" in validator.config
+        assert len(validator.issues["missing_frontmatter"]) == 1
+        assert "no_frontmatter.md" in validator.issues["missing_frontmatter"][0]
 
-
-class TestExcludeFiles:
-    """Test file exclusion"""
-
-    def test_exclude_specific_files(self, tmp_path):
-        """Test excluding specific files by name"""
-        (tmp_path / "normal.md").write_text("---\ntype: dot\n---\n")
-        (tmp_path / "README.md").write_text("---\ntype: dot\n---\n")
+    def test_valid_note_has_no_missing_frontmatter_issue(self, tmp_path):
+        """Test that notes with valid frontmatter don't trigger missing_frontmatter"""
+        (tmp_path / "valid.md").write_text("---\ntype: dot\n---\n# Content")
 
         from validator import VaultValidator
 
         validator = VaultValidator(str(tmp_path))
-        validator.config["exclude_files"] = ["README.md"]
+        validator.run_validation()
 
-        files = validator.scan_vault()
-        file_names = [f.name for f in files]
-
-        assert "normal.md" in file_names
-        assert "README.md" not in file_names
+        assert len(validator.issues["missing_frontmatter"]) == 0
 
 
 class TestRunValidationWithPath:
@@ -634,10 +646,10 @@ class TestReportWithManyFiles:
 
 
 class TestAutoFixDisabled:
-    """Test auto-fix when disabled in config"""
+    """Test auto-fix when disabled in auto_fix_config"""
 
     def test_fix_daily_links_disabled(self, tmp_path):
-        """Test that fix_daily_links respects config"""
+        """Test that fix_daily_links respects auto_fix_config"""
         test_file = tmp_path / "test.md"
         test_file.write_text("""---
 type: Dot
@@ -648,14 +660,14 @@ daily: "[[Calendar/daily/2025/01/2025-01-15]]"
         from validator import VaultValidator
 
         validator = VaultValidator(str(tmp_path), mode="auto")
-        validator.config["auto_fix"] = {"daily_links": False}
+        validator.auto_fix_config["daily_links"] = False
         validator.run_validation()
 
         fixed = validator.fix_daily_links()
         assert fixed == 0
 
     def test_fix_wikilink_quotes_disabled(self, tmp_path):
-        """Test that fix_unquoted_wikilinks respects config"""
+        """Test that fix_unquoted_wikilinks respects auto_fix_config"""
         test_file = tmp_path / "test.md"
         test_file.write_text("""---
 type: Dot
@@ -666,14 +678,14 @@ up: [[Parent]]
         from validator import VaultValidator
 
         validator = VaultValidator(str(tmp_path), mode="auto")
-        validator.config["auto_fix"] = {"wikilink_quotes": False}
+        validator.auto_fix_config["wikilink_quotes"] = False
         validator.run_validation()
 
         fixed = validator.fix_unquoted_wikilinks()
         assert fixed == 0
 
     def test_fix_invalid_created_disabled(self, tmp_path):
-        """Test that fix_invalid_created respects config"""
+        """Test that fix_invalid_created respects auto_fix_config"""
         test_file = tmp_path / "test.md"
         test_file.write_text("""---
 type: Dot
@@ -684,14 +696,14 @@ created: [[2025-01-15]]
         from validator import VaultValidator
 
         validator = VaultValidator(str(tmp_path), mode="auto")
-        validator.config["auto_fix"] = {"invalid_created": False}
+        validator.auto_fix_config["invalid_created"] = False
         validator.run_validation()
 
         fixed = validator.fix_invalid_created()
         assert fixed == 0
 
     def test_fix_title_properties_disabled(self, tmp_path):
-        """Test that fix_title_properties respects config"""
+        """Test that fix_title_properties respects auto_fix_config"""
         test_file = tmp_path / "test.md"
         test_file.write_text("""---
 title: Test
@@ -702,14 +714,14 @@ type: Dot
         from validator import VaultValidator
 
         validator = VaultValidator(str(tmp_path), mode="auto")
-        validator.config["auto_fix"] = {"title_properties": False}
+        validator.auto_fix_config["title_properties"] = False
         validator.run_validation()
 
         fixed = validator.fix_title_properties()
         assert fixed == 0
 
     def test_fix_date_mismatches_disabled(self, tmp_path):
-        """Test that fix_date_mismatches respects config"""
+        """Test that fix_date_mismatches respects auto_fix_config"""
         test_file = tmp_path / "test.md"
         test_file.write_text("""---
 type: Dot
@@ -721,7 +733,7 @@ daily: "[[2025-01-20]]"
         from validator import VaultValidator
 
         validator = VaultValidator(str(tmp_path), mode="auto")
-        validator.config["auto_fix"] = {"date_mismatches": False}
+        validator.auto_fix_config["date_mismatches"] = False
         validator.run_validation()
 
         fixed = validator.fix_date_mismatches()
@@ -927,3 +939,84 @@ type: dot
                 main()
 
         assert jsonl_file.exists()
+
+    def test_get_default_jsonl_path(self, tmp_path):
+        """Test that default JSONL path is .claude/logs/validate.jsonl"""
+        from validator import VaultValidator
+
+        validator = VaultValidator(str(tmp_path))
+        default_path = validator.get_default_jsonl_path()
+
+        assert default_path == tmp_path / ".claude" / "logs" / "validate.jsonl"
+
+    def test_log_to_jsonl_creates_parent_dirs(self, tmp_path):
+        """Test that log_to_jsonl creates parent directories if they don't exist"""
+        from validator import VaultValidator
+
+        validator = VaultValidator(str(tmp_path))
+        nested_path = tmp_path / "deep" / "nested" / "logs" / "audit.jsonl"
+
+        # Parent dirs don't exist yet
+        assert not nested_path.parent.exists()
+
+        validator.log_to_jsonl(str(nested_path))
+
+        assert nested_path.exists()
+        assert nested_path.parent.exists()
+
+    def test_log_to_jsonl_uses_default_path_when_none(self, tmp_path):
+        """Test that log_to_jsonl uses default path when None is passed"""
+        from validator import VaultValidator
+
+        validator = VaultValidator(str(tmp_path))
+
+        # Pass None explicitly
+        validator.log_to_jsonl(None)
+
+        default_path = tmp_path / ".claude" / "logs" / "validate.jsonl"
+        assert default_path.exists()
+
+    def test_cli_no_jsonl_disables_logging(self, tmp_path):
+        """Test CLI with --no-jsonl disables default logging"""
+        import sys
+        from unittest.mock import patch
+
+        test_file = tmp_path / "test.md"
+        test_file.write_text("""---
+type: dot
+---
+""")
+
+        from validator import main
+
+        args = ["validator.py", "--vault", str(tmp_path), "--no-jsonl"]
+        with patch.object(sys, "argv", args):
+            with pytest.raises(SystemExit):
+                main()
+
+        # Default log file should NOT exist
+        default_log = tmp_path / ".claude" / "logs" / "validate.jsonl"
+        assert not default_log.exists()
+
+    def test_cli_default_creates_jsonl(self, tmp_path):
+        """Test CLI without --no-jsonl creates default JSONL log"""
+        import sys
+        from unittest.mock import patch
+
+        test_file = tmp_path / "test.md"
+        test_file.write_text("""---
+type: dot
+---
+""")
+
+        from validator import main
+
+        # No --no-jsonl means logging is enabled by default
+        args = ["validator.py", "--vault", str(tmp_path)]
+        with patch.object(sys, "argv", args):
+            with pytest.raises(SystemExit):
+                main()
+
+        # Default log file SHOULD exist
+        default_log = tmp_path / ".claude" / "logs" / "validate.jsonl"
+        assert default_log.exists()

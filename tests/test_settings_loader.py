@@ -129,6 +129,23 @@ class TestCreateDefaultSettings:
         settings = load_settings(tmp_path)
         assert settings.methodology == "para"
 
+    def test_create_default_settings_fallback(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test fallback when template file doesn't exist."""
+        import skills.config.scripts.settings_loader as loader
+
+        # Mock TEMPLATE_FILE to not exist
+        fake_template = tmp_path / "nonexistent_template.yaml"
+        monkeypatch.setattr(loader, "TEMPLATE_FILE", fake_template)
+
+        settings_path = create_default_settings(tmp_path, methodology="zettelkasten")
+        assert settings_path.exists()
+
+        settings = load_settings(tmp_path)
+        assert settings.methodology == "zettelkasten"
+        assert "type" in settings.core_properties
+
 
 class TestGetNoteType:
     """Tests for get_note_type function."""
@@ -747,3 +764,436 @@ class TestPrintResetHelp:
         assert "minimal" in captured.out
         assert "custom" in captured.out
         assert "Examples:" in captured.out
+
+
+class TestBackup:
+    """Tests for backup functions."""
+
+    def test_get_backup_dir(self, tmp_path: Path) -> None:
+        """Test getting backup directory path."""
+        from skills.config.scripts.settings_loader import get_backup_dir
+
+        backup_dir = get_backup_dir(tmp_path)
+        assert backup_dir == tmp_path / ".claude" / "backups"
+
+    def test_create_backup_no_settings(self, tmp_path: Path) -> None:
+        """Test creating backup when no settings exist."""
+        from skills.config.scripts.settings_loader import create_backup
+
+        result = create_backup(tmp_path)
+        assert result is None
+
+    def test_create_backup_success(self, tmp_path: Path) -> None:
+        """Test creating backup successfully."""
+        from skills.config.scripts.settings_loader import create_backup, create_default_settings
+
+        create_default_settings(tmp_path)
+        backup_path = create_backup(tmp_path)
+
+        assert backup_path is not None
+        assert backup_path.exists()
+        assert "settings_" in backup_path.name
+        assert backup_path.suffix == ".yaml"
+        assert backup_path.parent == tmp_path / ".claude" / "backups"
+
+    def test_create_backup_creates_dir(self, tmp_path: Path) -> None:
+        """Test that create_backup creates backup directory if needed."""
+        from skills.config.scripts.settings_loader import create_backup, create_default_settings
+
+        create_default_settings(tmp_path)
+        backup_dir = tmp_path / ".claude" / "backups"
+        assert not backup_dir.exists()
+
+        backup_path = create_backup(tmp_path)
+        assert backup_dir.exists()
+        assert backup_path is not None
+
+
+class TestSetSetting:
+    """Tests for set_setting function."""
+
+    def test_set_setting_string(self, tmp_path: Path) -> None:
+        """Test setting a string value."""
+        from skills.config.scripts.settings_loader import create_default_settings, set_setting
+
+        create_default_settings(tmp_path)
+        set_setting(tmp_path, "methodology", "para", create_backup_file=False)
+
+        settings = load_settings(tmp_path)
+        assert settings.methodology == "para"
+
+    def test_set_setting_bool_true(self, tmp_path: Path) -> None:
+        """Test setting a boolean true value."""
+        from skills.config.scripts.settings_loader import create_default_settings, set_setting
+
+        create_default_settings(tmp_path)
+        set_setting(tmp_path, "validation.strict_types", "true", create_backup_file=False)
+
+        settings = load_settings(tmp_path)
+        assert settings.validation.strict_types is True
+
+    def test_set_setting_bool_false(self, tmp_path: Path) -> None:
+        """Test setting a boolean false value."""
+        from skills.config.scripts.settings_loader import create_default_settings, set_setting
+
+        create_default_settings(tmp_path)
+        set_setting(tmp_path, "validation.strict_types", "false", create_backup_file=False)
+
+        settings = load_settings(tmp_path)
+        assert settings.validation.strict_types is False
+
+    def test_set_setting_nested(self, tmp_path: Path) -> None:
+        """Test setting a nested value."""
+        from skills.config.scripts.settings_loader import create_default_settings, set_setting
+
+        create_default_settings(tmp_path)
+        set_setting(tmp_path, "validation.check_templates", "false", create_backup_file=False)
+
+        settings = load_settings(tmp_path)
+        assert settings.validation.check_templates is False
+
+    def test_set_setting_creates_backup(self, tmp_path: Path) -> None:
+        """Test that set_setting creates backup by default."""
+        from skills.config.scripts.settings_loader import create_default_settings, set_setting
+
+        create_default_settings(tmp_path)
+        set_setting(tmp_path, "methodology", "para", create_backup_file=True)
+
+        backup_dir = tmp_path / ".claude" / "backups"
+        assert backup_dir.exists()
+        backups = list(backup_dir.glob("settings_*.yaml"))
+        assert len(backups) == 1
+
+    def test_set_setting_no_settings(self, tmp_path: Path) -> None:
+        """Test setting value when no settings exist."""
+        from skills.config.scripts.settings_loader import set_setting
+
+        with pytest.raises(FileNotFoundError):
+            set_setting(tmp_path, "methodology", "para")
+
+    def test_set_setting_creates_nested_dict(self, tmp_path: Path) -> None:
+        """Test that set_setting creates nested dicts if needed."""
+        from skills.config.scripts.settings_loader import create_default_settings, set_setting
+
+        create_default_settings(tmp_path)
+        set_setting(tmp_path, "custom.nested.value", "test", create_backup_file=False)
+
+        settings_path = tmp_path / ".claude" / "settings.yaml"
+        with settings_path.open() as f:
+            config = yaml.safe_load(f)
+        assert config["custom"]["nested"]["value"] == "test"
+
+
+class TestDiffSettings:
+    """Tests for diff_settings function."""
+
+    def test_diff_settings_no_file(self, tmp_path: Path) -> None:
+        """Test diff when settings file doesn't exist."""
+        from skills.config.scripts.settings_loader import diff_settings
+
+        changes = diff_settings(tmp_path)
+        assert len(changes) == 1
+        assert "does not exist" in changes[0]
+
+    def test_diff_settings_with_changes(self, tmp_path: Path) -> None:
+        """Test diff detects changes."""
+        from skills.config.scripts.settings_loader import create_default_settings, diff_settings
+
+        create_default_settings(tmp_path, methodology="para")
+        changes = diff_settings(tmp_path)
+
+        # Should have at least the methodology difference
+        change_str = "\n".join(changes)
+        assert "methodology" in change_str or "note_types" in change_str
+
+    def test_diff_dicts_added(self) -> None:
+        """Test _diff_dicts detects added keys."""
+        from skills.config.scripts.settings_loader import _diff_dicts
+
+        d1 = {"a": 1}
+        d2 = {"a": 1, "b": 2}
+        changes = _diff_dicts(d1, d2, "")
+
+        assert len(changes) == 1
+        assert "ADDED" in changes[0]
+        assert "b" in changes[0]
+
+    def test_diff_dicts_removed(self) -> None:
+        """Test _diff_dicts detects removed keys."""
+        from skills.config.scripts.settings_loader import _diff_dicts
+
+        d1 = {"a": 1, "b": 2}
+        d2 = {"a": 1}
+        changes = _diff_dicts(d1, d2, "")
+
+        assert len(changes) == 1
+        assert "REMOVED" in changes[0]
+        assert "b" in changes[0]
+
+    def test_diff_dicts_changed(self) -> None:
+        """Test _diff_dicts detects changed values."""
+        from skills.config.scripts.settings_loader import _diff_dicts
+
+        d1 = {"a": 1}
+        d2 = {"a": 2}
+        changes = _diff_dicts(d1, d2, "")
+
+        assert len(changes) == 1
+        assert "1 →" in changes[0] or "1 ->" in changes[0] or "→" in changes[0]
+
+    def test_diff_dicts_nested(self) -> None:
+        """Test _diff_dicts handles nested dicts."""
+        from skills.config.scripts.settings_loader import _diff_dicts
+
+        d1 = {"outer": {"inner": 1}}
+        d2 = {"outer": {"inner": 2}}
+        changes = _diff_dicts(d1, d2, "")
+
+        assert len(changes) == 1
+        assert "outer.inner" in changes[0]
+
+
+class TestGetDefaultSettingsDict:
+    """Tests for get_default_settings_dict function."""
+
+    def test_get_default_settings_dict(self) -> None:
+        """Test getting default settings dictionary."""
+        from skills.config.scripts.settings_loader import get_default_settings_dict
+
+        defaults = get_default_settings_dict()
+        assert defaults["version"] == "1.0"
+        assert defaults["methodology"] == "custom"
+        assert "type" in defaults["core_properties"]
+        assert "validation" in defaults
+        assert "exclude" in defaults
+
+
+class TestEditSettings:
+    """Tests for edit_settings function."""
+
+    def test_edit_settings_creates_default(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test edit_settings creates default settings if missing."""
+        import subprocess
+
+        from skills.config.scripts.settings_loader import edit_settings
+
+        # Mock subprocess.run to succeed
+        monkeypatch.setattr(subprocess, "run", lambda *args, **kwargs: None)
+        monkeypatch.setenv("EDITOR", "cat")
+
+        # Settings don't exist yet
+        assert not (tmp_path / ".claude" / "settings.yaml").exists()
+
+        result = edit_settings(tmp_path)
+        assert result is True
+        assert (tmp_path / ".claude" / "settings.yaml").exists()
+
+    def test_edit_settings_editor_fails(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test edit_settings returns False when editor fails."""
+        import subprocess
+
+        from skills.config.scripts.settings_loader import create_default_settings, edit_settings
+
+        create_default_settings(tmp_path)
+
+        # Mock subprocess.run to raise error
+        def mock_run(*args, **kwargs):
+            raise subprocess.CalledProcessError(1, "vim")
+
+        monkeypatch.setattr(subprocess, "run", mock_run)
+        monkeypatch.setenv("EDITOR", "vim")
+
+        result = edit_settings(tmp_path)
+        assert result is False
+
+    def test_edit_settings_validation_errors(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test edit_settings detects validation errors."""
+        import subprocess
+
+        from skills.config.scripts.settings_loader import create_default_settings, edit_settings
+
+        create_default_settings(tmp_path)
+
+        # Mock subprocess.run to succeed
+        monkeypatch.setattr(subprocess, "run", lambda *args, **kwargs: None)
+        monkeypatch.setenv("EDITOR", "cat")
+
+        # Corrupt the settings file to cause validation errors
+        settings_path = tmp_path / ".claude" / "settings.yaml"
+        settings_path.write_text("version: ''\ncore_properties: []")
+
+        result = edit_settings(tmp_path)
+        assert result is False
+
+
+class TestSettingsCLIExtended:
+    """Tests for extended CLI commands (set, diff)."""
+
+    def test_cli_set(self, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+        """Test --set CLI option."""
+        import sys
+
+        from skills.config.scripts.settings_loader import create_default_settings, main
+
+        create_default_settings(tmp_path)
+
+        old_argv = sys.argv
+        try:
+            sys.argv = [
+                "settings_loader",
+                "--vault",
+                str(tmp_path),
+                "--set",
+                "methodology",
+                "para",
+            ]
+            result = main()
+            assert result == 0
+            captured = capsys.readouterr()
+            assert "Set methodology = para" in captured.out
+
+            # Verify change was made
+            settings = load_settings(tmp_path)
+            assert settings.methodology == "para"
+        finally:
+            sys.argv = old_argv
+
+    def test_cli_diff(self, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+        """Test --diff CLI option."""
+        import sys
+
+        from skills.config.scripts.settings_loader import create_default_settings, main
+
+        create_default_settings(tmp_path)
+
+        old_argv = sys.argv
+        try:
+            sys.argv = ["settings_loader", "--vault", str(tmp_path), "--diff"]
+            result = main()
+            assert result == 0
+            captured = capsys.readouterr()
+            assert "Configuration Diff" in captured.out
+        finally:
+            sys.argv = old_argv
+
+    def test_cli_diff_no_settings(self, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+        """Test --diff when no settings exist."""
+        import sys
+
+        from skills.config.scripts.settings_loader import main
+
+        old_argv = sys.argv
+        try:
+            sys.argv = ["settings_loader", "--vault", str(tmp_path), "--diff"]
+            result = main()
+            assert result == 0
+            captured = capsys.readouterr()
+            assert "does not exist" in captured.out
+        finally:
+            sys.argv = old_argv
+
+    def test_cli_edit(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+    ) -> None:
+        """Test --edit CLI option."""
+        import subprocess
+        import sys
+
+        from skills.config.scripts.settings_loader import create_default_settings, main
+
+        create_default_settings(tmp_path)
+
+        # Mock subprocess.run to succeed
+        monkeypatch.setattr(subprocess, "run", lambda *args, **kwargs: None)
+        monkeypatch.setenv("EDITOR", "cat")
+
+        old_argv = sys.argv
+        try:
+            sys.argv = ["settings_loader", "--vault", str(tmp_path), "--edit"]
+            result = main()
+            assert result == 0
+        finally:
+            sys.argv = old_argv
+
+    def test_cli_validate_fails(self, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+        """Test --validate when settings are invalid."""
+        import sys
+
+        from skills.config.scripts.settings_loader import main
+
+        # Create invalid settings
+        settings_dir = tmp_path / ".claude"
+        settings_dir.mkdir(parents=True)
+        settings_file = settings_dir / "settings.yaml"
+        settings_file.write_text("version: ''\ncore_properties: []")
+
+        old_argv = sys.argv
+        try:
+            sys.argv = ["settings_loader", "--vault", str(tmp_path), "--validate"]
+            result = main()
+            assert result == 1
+            captured = capsys.readouterr()
+            assert "validation failed" in captured.err
+        finally:
+            sys.argv = old_argv
+
+    def test_cli_reset_interactive_cancel(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test --reset with interactive cancellation."""
+        import sys
+        from io import StringIO
+
+        from skills.config.scripts.settings_loader import create_default_settings, main
+
+        create_default_settings(tmp_path)
+
+        # Create a tty-like stdin that returns 'no'
+        class MockStdin(StringIO):
+            def isatty(self):
+                return True
+
+        mock_stdin = MockStdin("no\n")
+        monkeypatch.setattr(sys, "stdin", mock_stdin)
+        monkeypatch.setattr("builtins.input", lambda x: "no")
+
+        old_argv = sys.argv
+        try:
+            sys.argv = ["settings_loader", "--vault", str(tmp_path), "--reset", "para"]
+            result = main()
+            assert result == 1
+            captured = capsys.readouterr()
+            assert "cancelled" in captured.out
+        finally:
+            sys.argv = old_argv
+
+    def test_cli_diff_no_changes(self, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+        """Test --diff when no differences from defaults."""
+        import sys
+
+        import yaml
+
+        from skills.config.scripts.settings_loader import get_default_settings_dict, main
+
+        # Create settings that match defaults exactly
+        settings_dir = tmp_path / ".claude"
+        settings_dir.mkdir(parents=True)
+        settings_file = settings_dir / "settings.yaml"
+        with settings_file.open("w") as f:
+            yaml.safe_dump(get_default_settings_dict(), f)
+
+        old_argv = sys.argv
+        try:
+            sys.argv = ["settings_loader", "--vault", str(tmp_path), "--diff"]
+            result = main()
+            assert result == 0
+            captured = capsys.readouterr()
+            assert "No differences" in captured.out
+        finally:
+            sys.argv = old_argv

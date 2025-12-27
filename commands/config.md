@@ -1,100 +1,87 @@
 ---
-description: Manage Obsidian vault validator configuration
-argument-hint: [show|edit|set|reset|validate|diff] [key value]
+description: Manage Obsidian vault configuration (settings.yaml)
+argument-hint: [set|edit|diff|reset] [key value]
 allowed-tools: Bash(uv run:*)
 ---
 
 # Config Management
 
-Manage the Obsidian vault validator configuration file.
+Manage the Obsidian vault settings file (.claude/settings.yaml).
 
 ## Execution
 
 Run the config management tool:
 
 ```bash
-uv run "${CLAUDE_PLUGIN_ROOT}/skills/config/scripts/config_cli.py" --show
+uv run "${CLAUDE_PLUGIN_ROOT}/skills/config/scripts/settings_loader.py" --vault . --show
 ```
 
 ## Commands
 
-### Show Current Config
+### Set Value
 ```bash
-uv run "${CLAUDE_PLUGIN_ROOT}/skills/config/scripts/config_cli.py" --show
+uv run "${CLAUDE_PLUGIN_ROOT}/skills/config/scripts/settings_loader.py" --vault . --set <key> <value>
 ```
-Display the current configuration in YAML format.
+Set a specific configuration value. Supports nested keys with dot notation.
+Creates a backup before modifying.
 
-### Show Defaults
-```bash
-uv run "${CLAUDE_PLUGIN_ROOT}/skills/config/scripts/config_cli.py" --show-defaults
-```
-Display the default configuration template.
+Examples:
+- `--set validation.strict_types false`
+- `--set methodology para`
 
 ### Edit Config
 ```bash
-uv run "${CLAUDE_PLUGIN_ROOT}/skills/config/scripts/config_cli.py" --edit
+uv run "${CLAUDE_PLUGIN_ROOT}/skills/config/scripts/settings_loader.py" --vault . --edit
 ```
-Open the configuration file in your default editor ($EDITOR).
+Open the settings file in your default editor ($EDITOR).
 Creates a backup before editing.
-
-### Set Value
-```bash
-uv run "${CLAUDE_PLUGIN_ROOT}/skills/config/scripts/config_cli.py" --set <key> <value>
-```
-Set a specific configuration value. Supports nested keys with dot notation.
-
-Examples:
-- `--set auto_fix.empty_types false`
-- `--set default_mode auto`
-- `--set performance.max_workers 8`
-
-### Reset to Defaults
-```bash
-uv run "${CLAUDE_PLUGIN_ROOT}/skills/config/scripts/config_cli.py" --reset
-```
-Reset configuration to default values. Creates a backup before resetting.
-
-### Validate Config
-```bash
-uv run "${CLAUDE_PLUGIN_ROOT}/skills/config/scripts/config_cli.py" --validate
-```
-Validate the configuration file structure and required keys.
 
 ### Show Diff
 ```bash
-uv run "${CLAUDE_PLUGIN_ROOT}/skills/config/scripts/config_cli.py" --diff
+uv run "${CLAUDE_PLUGIN_ROOT}/skills/config/scripts/settings_loader.py" --vault . --diff
 ```
-Show differences between current configuration and defaults.
+Show differences between current settings and defaults.
+
+### Reset Settings
+```bash
+uv run "${CLAUDE_PLUGIN_ROOT}/skills/config/scripts/settings_loader.py" --vault . --reset <methodology>
+```
+Reset settings to a specific methodology (lyt-ace, para, zettelkasten, minimal, custom).
+Creates a backup before resetting.
+
+Examples:
+- `--reset para --yes` (reset to PARA without confirmation)
+- `--reset list` (show available methodologies)
 
 ## Configuration File
 
-Location: `.claude/config/validator.yaml` (in vault root)
+Location: `.claude/settings.yaml` (in vault root)
 
-The configuration file controls validator behavior including:
-- Auto-fix settings
+The settings file controls:
+- Methodology and folder structure
+- Core properties required in all notes
+- Note type definitions
+- Validation rules
 - Excluded paths and files
-- Type inference rules
-- Report formatting
-- Performance settings
 
 ## Backups
 
 All destructive operations (edit, set, reset) automatically create timestamped backups in:
-`.claude/config/backups/`
+`.claude/backups/`
 
 ## Examples
 
-Check current auto-fix settings:
+Set a validation rule:
 ```bash
-uv run "${CLAUDE_PLUGIN_ROOT}/skills/config/scripts/config_cli.py" --show | grep auto_fix
+uv run "${CLAUDE_PLUGIN_ROOT}/skills/config/scripts/settings_loader.py" --vault . --set validation.strict_types false
 ```
 
-Disable auto-fixing of folder renames:
+Compare your settings with defaults:
 ```bash
-uv run "${CLAUDE_PLUGIN_ROOT}/skills/config/scripts/config_cli.py" --set auto_fix.folder_renames false
+uv run "${CLAUDE_PLUGIN_ROOT}/skills/config/scripts/settings_loader.py" --vault . --diff
 ```
 
-Compare your config with defaults:
+Reset to PARA methodology:
 ```bash
-uv run "${CLAUDE_PLUGIN_ROOT}/skills/config/scripts/config_cli.py" --diff
+uv run "${CLAUDE_PLUGIN_ROOT}/skills/config/scripts/settings_loader.py" --vault . --reset para --yes
 ```

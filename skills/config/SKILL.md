@@ -1,6 +1,6 @@
 ---
 name: config
-version: "0.4.0"
+version: "0.5.0"
 license: MIT
 description: "Configuration loader and manager for Obsidian vault settings. Use when the user wants to (1) load vault configuration, (2) customize note type definitions, (3) manage frontmatter defaults, (4) merge configuration files, (5) validate configuration structure, or (6) save custom vault settings. Triggers on keywords like load config, vault settings, note type config, frontmatter defaults, merge configs, validate configuration."
 ---
