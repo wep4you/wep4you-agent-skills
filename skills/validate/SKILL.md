@@ -1,13 +1,13 @@
 ---
 name: validate
 license: MIT
-version: 1.3.0
-description: "Obsidian vault validation and auto-fix tool with dynamic configuration and note-type specific validation. Use when the user wants to (1) validate vault frontmatter against standards, (2) check for missing required properties, (3) fix common issues like unquoted wikilinks or wrong date formats, (4) audit vault compliance with type-specific rules, or (5) run maintenance checks on their Obsidian vault. Triggers on keywords like validate vault, check frontmatter, fix vault issues, vault audit, maintenance check, note-type validation."
+version: 1.4.0
+description: "Obsidian vault validation and auto-fix tool with dynamic configuration, note-type specific validation, and JSONL audit logging. Use when the user wants to (1) validate vault frontmatter against standards, (2) check for missing required properties, (3) fix common issues like unquoted wikilinks or wrong date formats, (4) audit vault compliance with type-specific rules, (5) run maintenance checks on their Obsidian vault, or (6) log validation results for audit trails. Triggers on keywords like validate vault, check frontmatter, fix vault issues, vault audit, maintenance check, note-type validation, audit log."
 ---
 
 # Obsidian Validator
 
-Validates Obsidian vault notes against configurable standards and auto-fixes common issues. Version 1.3.0 adds dynamic configuration and note-type specific validation.
+Validates Obsidian vault notes against configurable standards and auto-fixes common issues. Version 1.4.0 adds JSONL logging for audit trails.
 
 ## Quick Start
 
@@ -20,6 +20,9 @@ uv run scripts/validator.py --vault /path/to/vault --mode auto
 
 # With custom config
 uv run scripts/validator.py --vault /path/to/vault --config config/custom.yaml
+
+# With JSONL audit logging (v1.4.0)
+uv run scripts/validator.py --vault /path/to/vault --jsonl validation.jsonl
 ```
 
 ## Validation Checks
@@ -114,6 +117,31 @@ See `config/default.yaml` for complete configuration options.
 - **report** (default): Show issues without making changes
 - **auto**: Fix issues automatically, re-validate after fixes
 - **interactive**: Prompt before each fix (future)
+
+## JSONL Audit Logging (v1.4.0)
+
+Log validation results to a JSONL file for audit trails:
+
+```bash
+uv run scripts/validator.py --vault . --jsonl audit.jsonl
+```
+
+Each line in the JSONL file is a complete JSON object:
+
+```json
+{
+  "timestamp": "2025-12-27T10:30:00.123456",
+  "vault_path": "/path/to/vault",
+  "mode": "report",
+  "total_issues": 5,
+  "issues_by_type": {"empty_types": 2, "missing_properties": 3},
+  "issues_detail": {"empty_types": ["file1.md", "file2.md"]},
+  "fixes_applied": 0,
+  "config_version": "1.4.0"
+}
+```
+
+The JSONL file is appended to, allowing you to track validation history over time.
 
 ## Exit Codes
 

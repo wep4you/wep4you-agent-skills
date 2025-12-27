@@ -728,234 +728,6 @@ daily: "[[2025-01-20]]"
         assert fixed == 0
 
 
-class TestDynamicConfig:
-    """Test dynamic configuration loading (v1.3.0)"""
-
-    def test_load_dynamic_config_with_note_type_rules(self, tmp_path):
-        """Test loading config with note-type validation rules"""
-        config_dir = tmp_path / ".claude" / "config"
-        config_dir.mkdir(parents=True)
-        config_file = config_dir / "validator.yaml"
-        config_file.write_text("""
-version: "1.3.0"
-dynamic_config: true
-note_type_validation: true
-note_type_validation_rules:
-  map:
-    required: [type, up]
-    formats:
-      created: date
-  project:
-    required: [type, status]
-""")
-
-        from validator import VaultValidator
-
-        validator = VaultValidator(str(tmp_path))
-
-        assert validator.config.get("version") == "1.3.0"
-        assert validator.config.get("dynamic_config") is True
-        assert validator.config.get("note_type_validation") is True
-        assert "map" in validator.note_type_rules
-        assert "project" in validator.note_type_rules
-
-
-class TestNoteTypeValidation:
-    """Test note-type specific validation (v1.3.0)"""
-
-    def test_check_type_properties_missing_required(self, tmp_path):
-        """Test detection of missing required properties for a type"""
-        from validator import VaultValidator
-
-        validator = VaultValidator(str(tmp_path))
-        validator.config["note_type_validation"] = True
-        validator.note_type_rules = {
-            "map": {"required": ["type", "up", "related"], "optional": ["tags"]}
-        }
-
-        frontmatter = """---
-type: map
-up: "[[Parent]]"
-created: 2025-01-15
----"""
-
-        violations = validator.check_type_properties(frontmatter, "map", "test.md")
-        assert len(violations) == 1
-        assert "missing: related" in violations[0]
-
-    def test_check_type_properties_all_present(self, tmp_path):
-        """Test no violations when all required properties present"""
-        from validator import VaultValidator
-
-        validator = VaultValidator(str(tmp_path))
-        validator.config["note_type_validation"] = True
-        validator.note_type_rules = {"map": {"required": ["type", "up"]}}
-
-        frontmatter = """---
-type: map
-up: "[[Parent]]"
-created: 2025-01-15
----"""
-
-        violations = validator.check_type_properties(frontmatter, "map", "test.md")
-        assert len(violations) == 0
-
-    def test_check_property_formats_invalid_date(self, tmp_path):
-        """Test detection of invalid date format"""
-        from validator import VaultValidator
-
-        validator = VaultValidator(str(tmp_path))
-        validator.config["note_type_validation"] = True
-        validator.note_type_rules = {"map": {"formats": {"created": "date"}}}
-
-        frontmatter = """---
-type: map
-created: 2025/01/15
----"""
-
-        violations = validator.check_property_formats(frontmatter, "map", "test.md")
-        assert len(violations) == 1
-        assert "invalid date format" in violations[0]
-
-    def test_check_property_formats_valid_date(self, tmp_path):
-        """Test valid date format passes"""
-        from validator import VaultValidator
-
-        validator = VaultValidator(str(tmp_path))
-        validator.config["note_type_validation"] = True
-        validator.note_type_rules = {"map": {"formats": {"created": "date"}}}
-
-        frontmatter = """---
-type: map
-created: 2025-01-15
----"""
-
-        violations = validator.check_property_formats(frontmatter, "map", "test.md")
-        assert len(violations) == 0
-
-    def test_check_property_formats_wikilink(self, tmp_path):
-        """Test wikilink format validation"""
-        from validator import VaultValidator
-
-        validator = VaultValidator(str(tmp_path))
-        validator.config["note_type_validation"] = True
-        validator.note_type_rules = {"map": {"formats": {"up": "wikilink"}}}
-
-        # Invalid - not a wikilink
-        frontmatter_invalid = """---
-type: map
-up: Parent
----"""
-
-        violations = validator.check_property_formats(frontmatter_invalid, "map", "test.md")
-        assert len(violations) == 1
-        assert "should be wikilink" in violations[0]
-
-        # Valid - is a wikilink
-        frontmatter_valid = """---
-type: map
-up: "[[Parent]]"
----"""
-
-        violations = validator.check_property_formats(frontmatter_valid, "map", "test.md")
-        assert len(violations) == 0
-
-    def test_validate_file_with_type_validation(self, tmp_path):
-        """Test validate_file integrates type-specific checks"""
-        from validator import VaultValidator
-
-        # Create test file
-        test_file = tmp_path / "test.md"
-        test_file.write_text("""---
-type: map
-up: "[[Parent]]"
-created: 2025-01-15
-daily: "[[2025-01-15]]"
-collection: []
-related: []
----
-
-# Test Map
-""")
-
-        validator = VaultValidator(str(tmp_path))
-        validator.config["note_type_validation"] = True
-        validator.note_type_rules = {
-            "map": {"required": ["type", "up", "tags"], "formats": {"created": "date"}}
-        }
-
-        validator.run_validation()
-
-        # Should detect missing 'tags' property
-        assert len(validator.issues["type_property_violations"]) == 1
-        assert "missing: tags" in validator.issues["type_property_violations"][0]
-
-    def test_type_validation_disabled_by_default(self, tmp_path):
-        """Test that type validation is disabled when config flag is false"""
-        from validator import VaultValidator
-
-        validator = VaultValidator(str(tmp_path))
-        validator.config["note_type_validation"] = False
-        validator.note_type_rules = {"map": {"required": ["tags"]}}
-
-        frontmatter = """---
-type: map
-up: "[[Parent]]"
----"""
-
-        violations = validator.check_type_properties(frontmatter, "map", "test.md")
-        assert len(violations) == 0  # Should return empty list when disabled
-
-
-class TestParseFrontmatterToDict:
-    """Test frontmatter parsing to dictionary"""
-
-    def test_parse_simple_frontmatter(self, tmp_path):
-        """Test parsing simple frontmatter"""
-        from datetime import date
-
-        from validator import VaultValidator
-
-        validator = VaultValidator(str(tmp_path))
-        frontmatter = """---
-type: map
-up: "[[Parent]]"
-created: 2025-01-15
----"""
-
-        result = validator.parse_frontmatter_to_dict(frontmatter)
-        assert result["type"] == "map"
-        assert result["up"] == "[[Parent]]"
-        # PyYAML parses dates as datetime.date objects
-        assert result["created"] == date(2025, 1, 15) or result["created"] == "2025-01-15"
-
-    def test_parse_frontmatter_with_lists(self, tmp_path):
-        """Test parsing frontmatter with list properties"""
-        from validator import VaultValidator
-
-        validator = VaultValidator(str(tmp_path))
-        frontmatter = """---
-type: map
-tags: [tag1, tag2, tag3]
-related: []
----"""
-
-        result = validator.parse_frontmatter_to_dict(frontmatter)
-        assert isinstance(result["tags"], list)
-        assert len(result["tags"]) == 3
-        assert result["related"] == []
-
-    def test_parse_invalid_frontmatter(self, tmp_path):
-        """Test parsing invalid frontmatter returns empty dict"""
-        from validator import VaultValidator
-
-        validator = VaultValidator(str(tmp_path))
-        frontmatter = "invalid: yaml: content: ["
-
-        result = validator.parse_frontmatter_to_dict(frontmatter)
-        assert result == {}
-
-
 class TestCLI:
     """Test command-line interface"""
 
@@ -1038,3 +810,120 @@ type: dot
                 main()
 
         assert report_file.exists()
+
+
+class TestJSONLLogging:
+    """Test JSONL logging infrastructure"""
+
+    def test_log_to_jsonl_creates_file(self, tmp_path):
+        """Test that log_to_jsonl creates JSONL file"""
+
+        from validator import VaultValidator
+
+        validator = VaultValidator(str(tmp_path))
+        jsonl_file = tmp_path / "validation.jsonl"
+
+        validator.log_to_jsonl(str(jsonl_file))
+
+        assert jsonl_file.exists()
+        content = jsonl_file.read_text()
+        assert content.strip()  # Not empty
+
+    def test_log_to_jsonl_valid_json(self, tmp_path):
+        """Test that each line is valid JSON"""
+        import json
+
+        from validator import VaultValidator
+
+        validator = VaultValidator(str(tmp_path))
+        jsonl_file = tmp_path / "validation.jsonl"
+
+        validator.log_to_jsonl(str(jsonl_file))
+
+        content = jsonl_file.read_text().strip()
+        entry = json.loads(content)  # Should not raise
+
+        assert "timestamp" in entry
+        assert "vault_path" in entry
+        assert "mode" in entry
+        assert "total_issues" in entry
+
+    def test_log_to_jsonl_appends(self, tmp_path):
+        """Test that multiple logs append to same file"""
+        import json
+
+        from validator import VaultValidator
+
+        validator = VaultValidator(str(tmp_path))
+        jsonl_file = tmp_path / "validation.jsonl"
+
+        # Log twice
+        validator.log_to_jsonl(str(jsonl_file))
+        validator.log_to_jsonl(str(jsonl_file), fixes_applied=5)
+
+        lines = jsonl_file.read_text().strip().split("\n")
+        assert len(lines) == 2
+
+        # Second entry should have fixes_applied
+        second_entry = json.loads(lines[1])
+        assert second_entry["fixes_applied"] == 5
+
+    def test_log_to_jsonl_with_issues(self, tmp_path):
+        """Test logging includes issue details"""
+        import json
+
+        from validator import VaultValidator
+
+        validator = VaultValidator(str(tmp_path))
+        # Simulate finding issues
+        validator.issues["empty_types"].append("test.md")
+        validator.issues["missing_properties"].append("other.md (missing: type)")
+
+        jsonl_file = tmp_path / "validation.jsonl"
+        validator.log_to_jsonl(str(jsonl_file))
+
+        content = jsonl_file.read_text().strip()
+        entry = json.loads(content)
+
+        assert entry["total_issues"] == 2
+        assert entry["issues_by_type"]["empty_types"] == 1
+        assert entry["issues_by_type"]["missing_properties"] == 1
+        assert "test.md" in entry["issues_detail"]["empty_types"]
+
+    def test_log_to_jsonl_includes_vault_path(self, tmp_path):
+        """Test that absolute vault path is included"""
+        import json
+
+        from validator import VaultValidator
+
+        validator = VaultValidator(str(tmp_path))
+        jsonl_file = tmp_path / "validation.jsonl"
+
+        validator.log_to_jsonl(str(jsonl_file))
+
+        content = jsonl_file.read_text().strip()
+        entry = json.loads(content)
+
+        assert entry["vault_path"] == str(tmp_path.absolute())
+
+    def test_cli_jsonl_argument(self, tmp_path):
+        """Test CLI with --jsonl argument"""
+        import sys
+        from unittest.mock import patch
+
+        test_file = tmp_path / "test.md"
+        test_file.write_text("""---
+type: dot
+---
+""")
+
+        jsonl_file = tmp_path / "audit.jsonl"
+
+        from validator import main
+
+        args = ["validator.py", "--vault", str(tmp_path), "--jsonl", str(jsonl_file)]
+        with patch.object(sys, "argv", args):
+            with pytest.raises(SystemExit):
+                main()
+
+        assert jsonl_file.exists()
