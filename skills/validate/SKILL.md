@@ -1,12 +1,13 @@
 ---
 name: validate
 license: MIT
-description: "Obsidian vault validation and auto-fix tool. Use when the user wants to (1) validate vault frontmatter against standards, (2) check for missing required properties, (3) fix common issues like unquoted wikilinks or wrong date formats, (4) audit vault compliance, or (5) run maintenance checks on their Obsidian vault. Triggers on keywords like validate vault, check frontmatter, fix vault issues, vault audit, maintenance check."
+version: 1.3.0
+description: "Obsidian vault validation and auto-fix tool with dynamic configuration and note-type specific validation. Use when the user wants to (1) validate vault frontmatter against standards, (2) check for missing required properties, (3) fix common issues like unquoted wikilinks or wrong date formats, (4) audit vault compliance with type-specific rules, or (5) run maintenance checks on their Obsidian vault. Triggers on keywords like validate vault, check frontmatter, fix vault issues, vault audit, maintenance check, note-type validation."
 ---
 
 # Obsidian Validator
 
-Validates Obsidian vault notes against configurable standards and auto-fixes common issues.
+Validates Obsidian vault notes against configurable standards and auto-fixes common issues. Version 1.3.0 adds dynamic configuration and note-type specific validation.
 
 ## Quick Start
 
@@ -34,6 +35,8 @@ The validator performs these checks:
 | Invalid Created | `created:` as wikilink instead of date | Yes |
 | Title Properties | Redundant `title:` in frontmatter | Yes - removes |
 | Date Mismatches | `created:` and `daily:` dates don't match | Yes - syncs |
+| Type Property Violations | Type-specific required properties missing (v1.3.0) | No |
+| Type Format Violations | Type-specific property format errors (v1.3.0) | No |
 
 ## Required Frontmatter Properties
 
@@ -57,6 +60,10 @@ The validator looks for config at: `.claude/config/validator.yaml`
 ### Key Configuration Options
 
 ```yaml
+version: 1.3.0
+dynamic_config: true          # Enable dynamic config loading (v1.3.0)
+note_type_validation: true    # Enable type-specific validation (v1.3.0)
+
 # Paths to exclude from validation
 exclude_paths:
   - +/                    # Inbox
@@ -76,6 +83,21 @@ type_rules:
   'Atlas/Sources/': source
   'Efforts/Projects/': project
   'Calendar/daily/': daily
+
+# Note-type specific validation rules (v1.3.0)
+note_type_validation_rules:
+  map:
+    required: [type, up]           # Required properties for maps
+    optional: [related, tags]      # Optional properties
+    formats:
+      created: date                # created must be YYYY-MM-DD
+      up: wikilink                 # up must be [[link]]
+  project:
+    required: [type, status]
+    optional: [due, priority]
+    formats:
+      status: string
+      due: date
 
 # Auto-fix toggles
 auto_fix:

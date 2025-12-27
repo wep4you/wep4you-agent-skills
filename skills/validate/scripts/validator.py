@@ -6,7 +6,12 @@
 """
 Vault Validator & Auto-Fix Tool
 Validates Obsidian vault against standards and auto-fixes common issues
-Version: 1.2.0 - Added missing required properties check (6 properties per vault-standards.md)
+Version: 1.3.0 - Dynamic config with note-type specific validation
+
+Features:
+- Settings.yaml integration for core properties and note types
+- Dynamic config loading from .claude/config/validator.yaml
+- Note-type specific property and format validation
 
 Usage:
     uv run scripts/validator.py --vault /path/to/vault
@@ -66,7 +71,7 @@ class VaultValidator:
                 print(f"⚠️  Error loading settings.yaml: {e}")
 
         # Fall back to validator.yaml if settings not loaded
-        self.config = self.load_config(config_path)
+        self.config = self.load_dynamic_config(config_path)
 
         self.issues: dict[str, list[str]] = {
             "empty_types": [],
@@ -78,6 +83,8 @@ class VaultValidator:
             "date_mismatches": [],
             "type_mismatches": [],
             "folder_underscores": [],
+            "type_property_violations": [],  # New: type-specific property violations
+            "type_format_violations": [],  # New: type-specific format violations
         }
 
         # Set required_properties from settings or fallback
@@ -110,6 +117,9 @@ class VaultValidator:
             config_rules = self.config.get("type_rules")
             self.type_rules = config_rules if isinstance(config_rules, dict) else type_rules_default
 
+        # Load note-type specific validation rules (new in 1.3.0)
+        self.note_type_rules = self.config.get("note_type_validation_rules", {})
+
     def _build_type_rules_from_settings(self) -> dict[str, str]:
         """Build type_rules dict from settings.yaml note_types."""
         rules: dict[str, str] = {}
@@ -133,8 +143,8 @@ class VaultValidator:
 
         return self.required_properties
 
-    def load_config(self, config_path: str | None = None) -> dict[str, Any]:
-        """Load configuration from YAML file"""
+    def load_dynamic_config(self, config_path: str | None = None) -> dict[str, Any]:
+        """Load configuration from YAML file with dynamic note-type rules support (v1.3.0)"""
         # Try to find config file
         if config_path:
             config_file = Path(config_path)
@@ -150,7 +160,12 @@ class VaultValidator:
             with open(config_file) as f:
                 config: dict[str, Any] = yaml.safe_load(f) or {}
                 print(f"✅ Loaded config: {config_file}")
-                print(f"   Version: {config.get('version', 'unknown')}\n")
+                version = config.get("version", "unknown")
+                dynamic_enabled = config.get("dynamic_config", False)
+                note_type_validation = config.get("note_type_validation", False)
+                print(f"   Version: {version}")
+                print(f"   Dynamic config: {dynamic_enabled}")
+                print(f"   Note-type validation: {note_type_validation}\n")
                 return config
         except Exception as e:
             print(f"⚠️  Error loading config: {e}")
@@ -160,7 +175,9 @@ class VaultValidator:
     def get_default_config(self) -> dict[str, Any]:
         """Return default configuration"""
         return {
-            "version": "1.0.0",
+            "version": "1.3.0",
+            "dynamic_config": False,
+            "note_type_validation": False,
             "exclude_paths": ["x/Templates/", ".obsidian/", ".git/"],
             "exclude_files": [],
             "auto_fix": {
@@ -173,6 +190,7 @@ class VaultValidator:
             },
             "type_rules": {},
             "skip_code_blocks": True,
+            "note_type_validation_rules": {},
         }
 
     def should_exclude_file(self, file_path: Path) -> bool:
@@ -232,6 +250,81 @@ class VaultValidator:
                 frontmatter_lines.append(line)
 
         return "\n".join(frontmatter_lines) if frontmatter_lines else None
+
+    def parse_frontmatter_to_dict(self, frontmatter: str) -> dict[str, Any]:
+        """Parse frontmatter string into a dictionary"""
+        try:
+            # Remove the --- delimiters
+            lines = frontmatter.split("\n")
+            yaml_content = "\n".join([line for line in lines if line.strip() != "---"])
+            return yaml.safe_load(yaml_content) or {}
+        except Exception:
+            return {}
+
+    def check_type_properties(
+        self, frontmatter: str, note_type: str, relative_path: str
+    ) -> list[str]:
+        """Check if note has required properties for its type (v1.3.0)"""
+        if not self.config.get("note_type_validation", False):
+            return []
+
+        violations = []
+        type_rules = self.note_type_rules.get(note_type, {})
+        required_props = type_rules.get("required", [])
+
+        if not required_props:
+            return []
+
+        fm_dict = self.parse_frontmatter_to_dict(frontmatter)
+
+        for prop in required_props:
+            if prop not in fm_dict or fm_dict[prop] is None or fm_dict[prop] == "":
+                violations.append(f"{relative_path} (type={note_type}, missing: {prop})")
+
+        return violations
+
+    def check_property_formats(
+        self, frontmatter: str, note_type: str, relative_path: str
+    ) -> list[str]:
+        """Validate property formats based on type rules (v1.3.0)"""
+        if not self.config.get("note_type_validation", False):
+            return []
+
+        violations = []
+        type_rules = self.note_type_rules.get(note_type, {})
+        format_rules = type_rules.get("formats", {})
+
+        if not format_rules:
+            return []
+
+        fm_dict = self.parse_frontmatter_to_dict(frontmatter)
+
+        for prop, expected_format in format_rules.items():
+            if prop not in fm_dict or fm_dict[prop] is None:
+                continue
+
+            value = str(fm_dict[prop])
+
+            # Validate date format
+            if expected_format == "date":
+                if not re.match(r"^\d{4}-\d{2}-\d{2}$", value):
+                    violations.append(
+                        f"{relative_path} (type={note_type}, {prop}: invalid date format)"
+                    )
+
+            # Validate wikilink format
+            elif expected_format == "wikilink":
+                if not re.match(r"^\[\[.*\]\]$", value):
+                    violations.append(
+                        f"{relative_path} (type={note_type}, {prop}: should be wikilink)"
+                    )
+
+            # Validate list format
+            elif expected_format == "list":
+                if not isinstance(fm_dict[prop], list):
+                    violations.append(f"{relative_path} (type={note_type}, {prop}: should be list)")
+
+        return violations
 
     def validate_file(self, file_path: Path) -> dict[str, list[str]]:
         """Run all validation checks on a single file"""
@@ -297,6 +390,25 @@ class VaultValidator:
             if created_match and daily_match:
                 if created_match.group(1) != daily_match.group(1):
                     self.issues["date_mismatches"].append(relative_path)
+
+            # Check 7: Type-specific property validation (v1.3.0)
+            if self.config.get("note_type_validation", False):
+                # Extract note type
+                type_match = re.search(r"^type:\s*(\w+)", frontmatter, re.MULTILINE)
+                if type_match:
+                    note_type = type_match.group(1)
+
+                    # Check required properties for this type
+                    prop_violations = self.check_type_properties(
+                        frontmatter, note_type, relative_path
+                    )
+                    self.issues["type_property_violations"].extend(prop_violations)
+
+                    # Check property formats for this type
+                    format_violations = self.check_property_formats(
+                        frontmatter, note_type, relative_path
+                    )
+                    self.issues["type_format_violations"].extend(format_violations)
 
         except Exception as e:
             print(f"Error validating {file_path}: {e}", file=sys.stderr)
