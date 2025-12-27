@@ -16,7 +16,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import yaml
 
@@ -102,7 +102,7 @@ DEFAULT_TYPE_PROPERTIES = {
 class FrontmatterManager:
     """Manages frontmatter property definitions and validation rules"""
 
-    def __init__(self, vault_path: Optional[str] = None) -> None:  # noqa: UP007
+    def __init__(self, vault_path: str | None = None) -> None:
         """
         Initialize frontmatter manager
 
@@ -337,7 +337,7 @@ class FrontmatterManager:
             prop_count = len(self.type_properties[type_name])
             print(f"  {type_name}: {prop_count} additional properties")
 
-    def get_required_properties(self, note_type: Optional[str] = None) -> dict[str, Any]:  # noqa: UP007
+    def get_required_properties(self, note_type: str | None = None) -> dict[str, Any]:
         """
         Get all required properties for a note type
 
