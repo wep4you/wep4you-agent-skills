@@ -346,8 +346,12 @@ class VaultValidator:
 
         return fixed
 
-    def fix_missing_types(self) -> int:
-        """Add missing type property to frontmatter"""
+    def fix_missing_properties(self) -> int:
+        """Add missing properties to frontmatter.
+
+        - type: inferred from folder location
+        - Other properties: set to empty string for user to fill in
+        """
         if not self.config.get("auto_fix", {}).get("empty_types", True):
             return 0
 
@@ -360,14 +364,22 @@ class VaultValidator:
             file_rel_path = entry.split(" (missing:")[0]
             missing_props = entry.split("(missing: ")[1].rstrip(")").split(", ")
 
-            # Only handle missing type property for now
-            if "type" not in missing_props:
-                continue
-
             file_path = self.vault_path / file_rel_path
-            inferred_type = self.infer_type(file_rel_path)
 
-            if not inferred_type:
+            # Build properties to add
+            props_to_add: list[str] = []
+
+            for prop in missing_props:
+                if prop == "type":
+                    # Infer type from folder
+                    inferred_type = self.infer_type(file_rel_path)
+                    if inferred_type:
+                        props_to_add.append(f"type: {inferred_type}")
+                else:
+                    # Set other properties to empty string
+                    props_to_add.append(f"{prop}:")
+
+            if not props_to_add:
                 continue
 
             try:
@@ -378,15 +390,16 @@ class VaultValidator:
 
                 for i, line in enumerate(lines):
                     new_lines.append(line)
-                    # Insert type after first ---
+                    # Insert properties after first ---
                     if line.strip() == "---" and not inserted and i == 0:
-                        new_lines.append(f"type: {inferred_type}")
+                        new_lines.extend(props_to_add)
                         inserted = True
 
                 if inserted:
                     new_content = "\n".join(new_lines)
                     file_path.write_text(new_content)
-                    print(f"✅ Added missing type to: {file_rel_path} → {inferred_type}")
+                    added_props = ", ".join(p.split(":")[0] for p in props_to_add)
+                    print(f"✅ Added missing properties to: {file_rel_path} → {added_props}")
                     fixed += 1
             except Exception as e:
                 print(f"❌ Error fixing {file_rel_path}: {e}", file=sys.stderr)
@@ -576,7 +589,7 @@ class VaultValidator:
 
         total_fixed = 0
         total_fixed += self.fix_empty_types()
-        total_fixed += self.fix_missing_types()
+        total_fixed += self.fix_missing_properties()
         total_fixed += self.fix_daily_links()
         total_fixed += self.fix_unquoted_wikilinks()
         total_fixed += self.fix_invalid_created()

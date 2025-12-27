@@ -482,8 +482,8 @@ created: 2025-01-15
         assert len(missing) == 0
 
 
-class TestFixMissingTypes:
-    """Test fix_missing_types function"""
+class TestFixMissingProperties:
+    """Test fix_missing_properties function"""
 
     def test_fix_missing_type_with_inferable_location(self, tmp_path):
         """Test adding missing type to file in known location"""
@@ -510,31 +510,68 @@ related: []
         # Should have missing type in issues
         assert len(validator.issues["missing_properties"]) > 0
 
-        fixed = validator.fix_missing_types()
+        fixed = validator.fix_missing_properties()
         assert fixed == 1
 
         new_content = test_file.read_text()
         assert "type: dot" in new_content
 
-    def test_fix_missing_type_skips_non_type_properties(self, tmp_path):
-        """Test that fix_missing_types only handles type property"""
-        test_file = tmp_path / "test.md"
+    def test_fix_missing_custom_properties_with_empty_value(self, tmp_path):
+        """Test that fix_missing_properties adds custom properties with empty value"""
+        test_dir = tmp_path / "Meetings"
+        test_dir.mkdir(parents=True)
+        test_file = test_dir / "test.md"
         test_file.write_text("""---
-type: dot
+type: meeting
 created: 2025-01-15
 ---
 
-# Content missing other properties
+# Content missing custom properties
 """)
 
         from validator import VaultValidator
 
         validator = VaultValidator(str(tmp_path), mode="auto")
+        # Simulate custom required properties
+        validator.required_properties = ["type", "created", "participants", "agenda"]
         validator.run_validation()
 
-        # Should have missing properties but not type
-        fixed = validator.fix_missing_types()
-        assert fixed == 0
+        # Should have missing properties (participants, agenda)
+        assert len(validator.issues["missing_properties"]) > 0
+
+        fixed = validator.fix_missing_properties()
+        assert fixed == 1
+
+        new_content = test_file.read_text()
+        # Custom properties should be added with empty value
+        assert "participants:" in new_content
+        assert "agenda:" in new_content
+
+    def test_fix_missing_multiple_properties(self, tmp_path):
+        """Test fixing multiple missing properties at once"""
+        dots_dir = tmp_path / "Atlas" / "Dots"
+        dots_dir.mkdir(parents=True)
+        test_file = dots_dir / "test.md"
+        test_file.write_text("""---
+created: 2025-01-15
+---
+
+# Content missing type and up
+""")
+
+        from validator import VaultValidator
+
+        validator = VaultValidator(str(tmp_path), mode="auto")
+        validator.type_rules = {"Atlas/Dots/": "dot"}
+        validator.required_properties = ["type", "up", "created"]
+        validator.run_validation()
+
+        fixed = validator.fix_missing_properties()
+        assert fixed == 1
+
+        new_content = test_file.read_text()
+        assert "type: dot" in new_content  # Inferred from folder
+        assert "up:" in new_content  # Empty value
 
 
 class TestConfigErrors:
