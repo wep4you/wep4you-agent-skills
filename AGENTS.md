@@ -342,4 +342,91 @@ git status  # MUST show "up to date with origin"
 - If push fails, resolve and retry until it succeeds
 - Create issues for any remaining/discovered work before ending session
 
+---
+
+## Git Worktree Best Practices
+
+This project uses **git worktrees** for parallel feature development. Following this structure prevents conflicts and keeps the main directory stable.
+
+### Directory Structure
+
+```
+/Users/<user>/dev/
+├── wep4you-agent-skills/           # Main repo - ALWAYS on 'main' branch
+│   └── .beads/                     # Beads database (shared across worktrees)
+└── wep4you-agent-skills-wt/        # Worktree parent directory
+    ├── feature-auth/               # Feature worktree
+    ├── fix-validation/             # Bugfix worktree
+    └── ...
+```
+
+### Key Rules
+
+1. **Main directory stays on `main`**: Never checkout feature branches in the main repo directory
+2. **Worktrees in sibling folder**: All feature work happens in `../wep4you-agent-skills-wt/`
+3. **One branch per worktree**: Each worktree tracks exactly one branch
+4. **Beads shared**: The `.beads/` database in main repo is accessible from all worktrees
+
+### Creating a Feature Worktree
+
+```bash
+# From main repo directory
+cd /Users/<user>/dev/wep4you-agent-skills
+
+# Create new feature branch + worktree
+git worktree add ../wep4you-agent-skills-wt/feature-name -b feature/feature-name
+
+# Or checkout existing remote branch
+git worktree add ../wep4you-agent-skills-wt/feature-name feature/feature-name
+```
+
+### Working in a Worktree
+
+```bash
+# Switch to worktree
+cd ../wep4you-agent-skills-wt/feature-name
+
+# Work normally - commits go to the feature branch
+git add .
+git commit -m "feat: add feature"
+git push -u origin feature/feature-name
+
+# Beads commands work (finds .beads in main repo)
+bd ready
+bd sync
+```
+
+### Cleaning Up After Merge
+
+```bash
+# From main repo
+cd /Users/<user>/dev/wep4you-agent-skills
+
+# Remove worktree (after PR merged)
+git worktree remove ../wep4you-agent-skills-wt/feature-name
+
+# Delete local branch
+git branch -d feature/feature-name
+
+# Clean up any stale worktree references
+git worktree prune
+```
+
+### Listing Worktrees
+
+```bash
+git worktree list
+```
+
+### Troubleshooting
+
+**"fatal: 'feature/x' is already checked out"**
+→ Branch is in use by another worktree. Use `git worktree list` to find it.
+
+**Beads not found in worktree**
+→ Run `bd` commands from main repo, or ensure `.beads/` symlink exists.
+
+**Worktree folder exists but branch deleted**
+→ Run `git worktree prune` to clean up orphaned references.
+
 <!-- bv-agent-instructions-v1 -->
