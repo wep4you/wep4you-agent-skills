@@ -335,9 +335,7 @@ def print_results(
 
 def main() -> int:
     """Main entry point."""
-    parser = argparse.ArgumentParser(
-        description="Validate SKILL.md files and plugin structure"
-    )
+    parser = argparse.ArgumentParser(description="Validate SKILL.md files and plugin structure")
     parser.add_argument(
         "--verbose", "-v", action="store_true", help="Show verbose output with warnings"
     )

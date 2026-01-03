@@ -9,11 +9,14 @@ import sys
 from unittest.mock import patch
 
 from validate_skills import (
+    PluginValidationResult,
     ValidationResult,
     extract_frontmatter,
     main,
+    print_plugin_results,
     print_results,
     validate_all_skills,
+    validate_plugin,
     validate_skill_md,
 )
 
@@ -385,5 +388,218 @@ class TestMain:
         (skill_dir / "SKILL.md").write_text("# No frontmatter")
 
         with patch.object(sys, "argv", ["validate-skills.py", "--skills-dir", str(tmp_path)]):
+            exit_code = main()
+            assert exit_code == 1
+
+
+class TestPluginValidationResult:
+    """Test PluginValidationResult dataclass"""
+
+    def test_is_valid_with_no_errors(self):
+        result = PluginValidationResult()
+        assert result.is_valid is True
+
+    def test_is_valid_with_errors(self):
+        result = PluginValidationResult(errors=["Some error"])
+        assert result.is_valid is False
+
+    def test_to_dict(self):
+        result = PluginValidationResult(
+            errors=["error1"],
+            warnings=["warning1"],
+            plugin_version="1.0.0",
+            skill_versions={"test": "1.0.0"},
+        )
+        d = result.to_dict()
+        assert d["valid"] is False
+        assert d["errors"] == ["error1"]
+        assert d["warnings"] == ["warning1"]
+        assert d["plugin_version"] == "1.0.0"
+        assert d["skill_versions"] == {"test": "1.0.0"}
+
+
+class TestValidatePlugin:
+    """Test plugin validation"""
+
+    def test_missing_plugin_dir(self, tmp_path):
+        result = validate_plugin(tmp_path)
+        assert "Missing .claude-plugin/ directory" in result.errors
+
+    def test_missing_plugin_json(self, tmp_path):
+        plugin_dir = tmp_path / ".claude-plugin"
+        plugin_dir.mkdir()
+        result = validate_plugin(tmp_path)
+        assert "Missing .claude-plugin/plugin.json" in result.errors
+
+    def test_invalid_plugin_json(self, tmp_path):
+        plugin_dir = tmp_path / ".claude-plugin"
+        plugin_dir.mkdir()
+        (plugin_dir / "plugin.json").write_text("invalid json{")
+        result = validate_plugin(tmp_path)
+        assert any("Invalid JSON" in e for e in result.errors)
+
+    def test_missing_required_fields(self, tmp_path):
+        plugin_dir = tmp_path / ".claude-plugin"
+        plugin_dir.mkdir()
+        (plugin_dir / "plugin.json").write_text("{}")
+        result = validate_plugin(tmp_path)
+        assert any("Missing required 'name'" in e for e in result.errors)
+        assert any("Missing required 'version'" in e for e in result.errors)
+        assert any("Missing required 'skills'" in e for e in result.errors)
+
+    def test_missing_recommended_fields(self, tmp_path):
+        plugin_dir = tmp_path / ".claude-plugin"
+        plugin_dir.mkdir()
+        (plugin_dir / "plugin.json").write_text(
+            '{"name": "test", "version": "1.0.0", "skills": []}'
+        )
+        result = validate_plugin(tmp_path)
+        assert any("Missing recommended 'description'" in w for w in result.warnings)
+        assert any("Missing recommended 'author'" in w for w in result.warnings)
+        assert any("Missing recommended 'license'" in w for w in result.warnings)
+
+    def test_missing_marketplace_json_warning(self, tmp_path):
+        plugin_dir = tmp_path / ".claude-plugin"
+        plugin_dir.mkdir()
+        (plugin_dir / "plugin.json").write_text(
+            '{"name": "test", "version": "1.0.0", "skills": [], '
+            '"description": "desc", "author": "auth", "license": "MIT"}'
+        )
+        result = validate_plugin(tmp_path)
+        assert any("marketplace.json" in w for w in result.warnings)
+
+    def test_invalid_marketplace_json(self, tmp_path):
+        plugin_dir = tmp_path / ".claude-plugin"
+        plugin_dir.mkdir()
+        (plugin_dir / "plugin.json").write_text(
+            '{"name": "test", "version": "1.0.0", "skills": []}'
+        )
+        (plugin_dir / "marketplace.json").write_text("not valid json")
+        result = validate_plugin(tmp_path)
+        assert any("marketplace.json" in e and "Invalid JSON" in e for e in result.errors)
+
+    def test_missing_commands_dir_warning(self, tmp_path):
+        plugin_dir = tmp_path / ".claude-plugin"
+        plugin_dir.mkdir()
+        (plugin_dir / "plugin.json").write_text(
+            '{"name": "test", "version": "1.0.0", "skills": []}'
+        )
+        result = validate_plugin(tmp_path)
+        assert any("commands/" in w for w in result.warnings)
+
+    def test_command_without_frontmatter(self, tmp_path):
+        plugin_dir = tmp_path / ".claude-plugin"
+        plugin_dir.mkdir()
+        (plugin_dir / "plugin.json").write_text(
+            '{"name": "test", "version": "1.0.0", "skills": []}'
+        )
+        commands_dir = tmp_path / "commands"
+        commands_dir.mkdir()
+        (commands_dir / "test.md").write_text("# No frontmatter")
+        result = validate_plugin(tmp_path)
+        assert any("test.md" in w and "frontmatter" in w for w in result.warnings)
+
+    def test_valid_plugin(self, tmp_path):
+        plugin_dir = tmp_path / ".claude-plugin"
+        plugin_dir.mkdir()
+        (plugin_dir / "plugin.json").write_text(
+            '{"name": "test", "version": "1.0.0", "skills": [], '
+            '"description": "desc", "author": "auth", "license": "MIT"}'
+        )
+        (plugin_dir / "marketplace.json").write_text('{"name": "marketplace"}')
+        commands_dir = tmp_path / "commands"
+        commands_dir.mkdir()
+        (commands_dir / "test.md").write_text("---\ndescription: test\n---\n")
+        result = validate_plugin(tmp_path)
+        assert result.is_valid
+        assert result.plugin_version == "1.0.0"
+
+    def test_collects_skill_versions(self, tmp_path):
+        plugin_dir = tmp_path / ".claude-plugin"
+        plugin_dir.mkdir()
+        (plugin_dir / "plugin.json").write_text(
+            '{"name": "test", "version": "1.0.0", "skills": []}'
+        )
+        skills_dir = tmp_path / "skills"
+        skill_dir = skills_dir / "test-skill"
+        skill_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text("---\nname: test-skill\nversion: 2.0.0\n---\n")
+        result = validate_plugin(tmp_path)
+        assert "test-skill" in result.skill_versions
+        assert result.skill_versions["test-skill"] == "2.0.0"
+
+
+class TestPrintPluginResults:
+    """Test plugin result printing"""
+
+    def test_json_output_valid(self, capsys):
+        result = PluginValidationResult(plugin_version="1.0.0")
+        exit_code = print_plugin_results(result, json_output=True)
+        captured = capsys.readouterr()
+        output = json.loads(captured.out)
+        assert output["plugin_validation"]["valid"] is True
+        assert exit_code == 0
+
+    def test_json_output_invalid(self, capsys):
+        result = PluginValidationResult(errors=["Error"])
+        exit_code = print_plugin_results(result, json_output=True)
+        captured = capsys.readouterr()
+        output = json.loads(captured.out)
+        assert output["plugin_validation"]["valid"] is False
+        assert exit_code == 1
+
+    def test_print_with_errors(self, capsys):
+        result = PluginValidationResult(errors=["Missing plugin.json"])
+        exit_code = print_plugin_results(result)
+        captured = capsys.readouterr()
+        assert "Plugin Validation Failed" in captured.out
+        assert "Missing plugin.json" in captured.out
+        assert exit_code == 1
+
+    def test_verbose_with_warnings(self, capsys):
+        result = PluginValidationResult(warnings=["Warning1"])
+        exit_code = print_plugin_results(result, verbose=True)
+        captured = capsys.readouterr()
+        assert "Warning1" in captured.out
+        assert exit_code == 0
+
+    def test_verbose_with_versions(self, capsys):
+        result = PluginValidationResult(
+            plugin_version="1.0.0", skill_versions={"skill1": "2.0.0"}
+        )
+        exit_code = print_plugin_results(result, verbose=True)
+        captured = capsys.readouterr()
+        assert "1.0.0" in captured.out
+        assert "skill1" in captured.out
+        assert exit_code == 0
+
+
+class TestMainPlugin:
+    """Test main with --plugin flag"""
+
+    def test_main_with_plugin_flag(self):
+        with patch.object(sys, "argv", ["validate-skills.py", "--plugin"]):
+            exit_code = main()
+            assert exit_code == 0
+
+    def test_main_with_plugin_and_verbose(self, capsys):
+        with patch.object(sys, "argv", ["validate-skills.py", "--plugin", "--verbose"]):
+            exit_code = main()
+            captured = capsys.readouterr()
+            assert "Plugin version" in captured.out or "validated successfully" in captured.out
+            assert exit_code == 0
+
+    def test_main_with_plugin_and_json(self, capsys):
+        with patch.object(sys, "argv", ["validate-skills.py", "--plugin", "--json"]):
+            exit_code = main()
+            captured = capsys.readouterr()
+            output = json.loads(captured.out)
+            assert "plugin_validation" in output
+            assert exit_code == 0
+
+    def test_main_plugin_missing_dir(self, tmp_path):
+        with patch.object(
+            sys, "argv", ["validate-skills.py", "--plugin", "--root-dir", str(tmp_path)]
+        ):
             exit_code = main()
             assert exit_code == 1
