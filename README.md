@@ -80,14 +80,14 @@ After installing the plugin, these commands are available:
 
 ## Quick Start (Claude Code)
 
-1. Starte Claude Code und führe `/plugin` aus
-2. Wähle **"Add Marketplace"** und füge ein: `https://github.com/wep4you/wep4you-agent-skills`
-3. Installiere das **"obsidian"** Plugin
+1. Open Claude Code and run `/plugin`
+2. Select **"Add Marketplace"** and enter: `https://github.com/wep4you/wep4you-agent-skills`
+3. Install the **"obsidian"** plugin
 
-**Fertig!** Nutze `/obsidian:init` um einen Vault einzurichten.
+**Done!** Use `/obsidian:init` to set up your vault.
 
 <details>
-<summary>Alternative Installationen</summary>
+<summary>Alternative Installation Methods</summary>
 
 ### Development Mode
 
