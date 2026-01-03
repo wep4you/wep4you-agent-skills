@@ -564,9 +564,7 @@ class TestPrintPluginResults:
         assert exit_code == 0
 
     def test_verbose_with_versions(self, capsys):
-        result = PluginValidationResult(
-            plugin_version="1.0.0", skill_versions={"skill1": "2.0.0"}
-        )
+        result = PluginValidationResult(plugin_version="1.0.0", skill_versions={"skill1": "2.0.0"})
         exit_code = print_plugin_results(result, verbose=True)
         captured = capsys.readouterr()
         assert "1.0.0" in captured.out
