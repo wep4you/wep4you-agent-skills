@@ -10,7 +10,7 @@ A Claude Code skills marketplace following the open [Agent Skills](https://agent
 
 ## Available Skills
 
-### Obsidian Plugin (v0.59.0)
+### Obsidian Plugin (v0.60.0)
 
 Complete PKM (Personal Knowledge Management) toolkit for Obsidian vaults.
 
@@ -78,25 +78,20 @@ After installing the plugin, these commands are available:
 - **Multi-Methodology Support**: PARA, LYT-ACE, Zettelkasten, Minimal
 - **Auto-Fix**: Validator can automatically fix common frontmatter issues
 
-## Quick Start
+## Quick Start (Claude Code)
 
-### Claude Code
+1. Starte Claude Code und führe `/plugin` aus
+2. Wähle **"Add Marketplace"** und füge ein: `https://github.com/wep4you/wep4you-agent-skills`
+3. Installiere das **"obsidian"** Plugin
 
-#### Option 1: Marketplace via `/plugin` (Recommended)
+**Fertig!** Nutze `/obsidian:init` um einen Vault einzurichten.
 
-1. Open Claude Code and run `/plugin`
-2. Select **"Add Marketplace"**
-3. Enter the repository URL:
-   ```
-   https://github.com/wep4you/wep4you-agent-skills
-   ```
-4. Press Enter to add the marketplace
-5. Browse and install the "obsidian" plugin
+<details>
+<summary>Alternative Installationen</summary>
 
-#### Option 2: Development Mode
+### Development Mode
 
 ```bash
-# Run Claude Code with local plugin directory
 claude --plugin-dir /path/to/wep4you-agent-skills
 ```
 
@@ -104,9 +99,10 @@ claude --plugin-dir /path/to/wep4you-agent-skills
 
 ```bash
 git clone https://github.com/wep4you/wep4you-agent-skills.git
-cd wep4you-agent-skills
-ln -s $(pwd)/skills/obsidian/* ~/.codex/skills/
+ln -s $(pwd)/wep4you-agent-skills/skills/* ~/.codex/skills/
 ```
+
+</details>
 
 ## Requirements
 
