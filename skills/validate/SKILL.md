@@ -1,13 +1,36 @@
 ---
 name: validate
 license: MIT
-version: 1.6.0
+version: "1.7.0"
 description: "Obsidian vault validation and auto-fix tool using settings.yaml as single source of truth. Detects missing frontmatter, validates required properties, and auto-fixes common issues. Use when the user wants to (1) validate vault frontmatter against standards, (2) check for missing required properties, (3) fix common issues like unquoted wikilinks or wrong date formats, (4) audit vault compliance with type-specific rules, (5) run maintenance checks on their Obsidian vault, or (6) log validation results for audit trails. Triggers on keywords like validate vault, check frontmatter, fix vault issues, vault audit, maintenance check, note-type validation, audit log."
 ---
 
 # Obsidian Validator
 
-Validates Obsidian vault notes against configurable standards and auto-fixes common issues. Version 1.6.0 uses settings.yaml as single source of truth and detects notes without frontmatter.
+Validates Obsidian vault notes against configurable standards and auto-fixes common issues.
+
+## Quick Start (v1.0.0)
+
+```bash
+# Report mode (default)
+uv run validate_command.py --vault /path/to/vault
+
+# Auto-fix mode (replaces --mode auto)
+uv run validate_command.py --vault /path/to/vault --fix
+
+# Filter by note type
+uv run validate_command.py --vault /path/to/vault --type project --fix
+
+# Disable JSONL audit logging
+uv run validate_command.py --vault /path/to/vault --no-jsonl
+```
+
+## Deprecated Flags
+
+| Deprecated | Replacement |
+|------------|-------------|
+| `--mode auto` | `--fix` |
+| `--mode report` | (default, no flag needed) |
 
 ## CRITICAL: Claude Code Behavior
 
@@ -15,28 +38,11 @@ Validates Obsidian vault notes against configurable standards and auto-fixes com
 
 1. Show brief summary of issues
 2. Ask: "Should I fix these issues automatically?" OR fix automatically
-3. Run `--mode auto` yourself
+3. Run `--fix` yourself
 4. Report results
 
-❌ WRONG: "To fix, run: uv run scripts/validator.py --mode auto"
+❌ WRONG: "To fix, run: uv run validate_command.py --vault . --fix"
 ✅ RIGHT: "Fixing issues..." [runs auto-fix] "✅ Fixed 2 issues."
-
-## Quick Start
-
-```bash
-# Report mode (show issues without fixing)
-# Audit log written to .claude/logs/validate.jsonl by default
-uv run scripts/validator.py --vault /path/to/vault
-
-# Auto-fix mode (fix issues automatically)
-uv run scripts/validator.py --vault /path/to/vault --mode auto
-
-# Disable JSONL audit logging
-uv run scripts/validator.py --vault /path/to/vault --no-jsonl
-
-# Custom JSONL log path
-uv run scripts/validator.py --vault /path/to/vault --jsonl custom-audit.jsonl
-```
 
 ## Validation Checks
 

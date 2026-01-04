@@ -1,5 +1,6 @@
 ---
 name: templates
+version: "1.0.0"
 license: MIT
 description: "Template management system for Obsidian vaults. Use when the user wants to (1) list available note templates, (2) create new templates, (3) apply templates to notes, (4) manage template variables, or (5) work with Templater plugin syntax. Triggers on keywords like template, create note from template, list templates, apply template, template variables."
 ---
@@ -8,20 +9,32 @@ description: "Template management system for Obsidian vaults. Use when the user 
 
 Manage note templates with support for Templater plugin and simple variable substitution.
 
+## Slash Commands (v1.0.0)
+
+| Command | Description |
+|---------|-------------|
+| `obsidian:templates` | List all templates |
+| `obsidian:templates list` | List all templates (explicit) |
+| `obsidian:templates show <name>` | Show template content |
+| `obsidian:templates create <name>` | Create new template |
+| `obsidian:templates edit <name>` | Edit template in editor |
+| `obsidian:templates delete <name>` | Delete template |
+| `obsidian:templates apply <template> <file>` | Apply template to file |
+
 ## Quick Start
 
 ```bash
 # List all available templates
-uv run skills/templates/scripts/templates.py --list
+uv run templates_command.py --vault .
 
 # Show template content
-uv run skills/templates/scripts/templates.py --show map/basic
+uv run templates_command.py --vault . show map/basic
 
 # Create new template
-uv run skills/templates/scripts/templates.py --create my-template
+uv run templates_command.py --vault . create my-template
 
 # Apply template to file
-uv run skills/templates/scripts/templates.py --apply map/basic "Atlas/Maps/New Map.md" --var up="Home" --var title="New Map"
+uv run templates_command.py --vault . apply map/basic "Atlas/Maps/New Map.md" --var up="Home" --var title="New Map"
 ```
 
 ## Features

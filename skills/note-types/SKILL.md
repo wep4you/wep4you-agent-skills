@@ -1,11 +1,27 @@
 ---
 name: note-types
-version: "0.53.0"
+version: "1.0.0"
 license: MIT
 description: "Manage Obsidian note type definitions including folders, properties, and templates. Use when the user wants to (1) define new note types, (2) manage note type configurations, (3) set up folder and property mappings, (4) create note type templates, or (5) view existing note types. Triggers on keywords like note types, note type config, manage note types, define note type, note type wizard."
 ---
 
 # Obsidian Note Types Manager
+
+## Slash Commands (v1.0.0)
+
+| Command | Description |
+|---------|-------------|
+| `obsidian:types` | List all note types |
+| `obsidian:types list` | List all note types (explicit) |
+| `obsidian:types show <name>` | Show details for a note type |
+| `obsidian:types add <name> --config '{...}'` | Add with full JSON config |
+| `obsidian:types edit <name> --config '{...}'` | Edit with JSON config |
+| `obsidian:types remove <name> --yes` | Remove a note type |
+| `obsidian:types wizard` | Interactive wizard |
+
+## Deprecated Command
+
+The `/note-types` and `obsidian:note-types` commands are deprecated. Use `obsidian:types` instead.
 
 ## ⚠️ MANDATORY: Pass --config DIRECTLY to the Script
 
@@ -23,37 +39,24 @@ DO NOT:
 ### ADD Example
 User types:
 ```
-/obsidian:note-types --add meeting --config '{"folder": "Meetings/", "required_props": ["date"]}'
+obsidian:types add meeting --config '{"folder": "Meetings/", "required_props": ["date"]}'
 ```
 Execute:
 ```bash
-uv run note_types.py --add meeting --config '{"folder": "Meetings/", "required_props": ["date"]}'
+uv run types_command.py --vault . add meeting --config '{"folder": "Meetings/", "required_props": ["date"]}'
 ```
 
 ### EDIT Example
 User types:
 ```
-/obsidian:note-types --edit meeting --config '{"description": "Updated", "icon": "video"}'
+obsidian:types edit meeting --config '{"description": "Updated", "icon": "video"}'
 ```
 Execute:
 ```bash
-uv run note_types.py --edit meeting --config '{"description": "Updated", "icon": "video"}'
+uv run types_command.py --vault . edit meeting --config '{"description": "Updated", "icon": "video"}'
 ```
 
 **DO NOT read or manually edit settings.yaml!**
-
----
-
-## Slash Commands
-
-| Command | Description |
-|---------|-------------|
-| `obsidian:note-types --help` | Show all options with examples |
-| `obsidian:note-types --list` | List all note types |
-| `obsidian:note-types --show <name>` | Show details for a note type |
-| `obsidian:note-types --add <name> --config '{...}'` | Add with full JSON config |
-| `obsidian:note-types --edit <name> --config '{...}'` | Edit with JSON config |
-| `obsidian:note-types --remove <name> --yes` | Remove a note type |
 
 ## Quick Start
 

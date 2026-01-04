@@ -1,87 +1,106 @@
 ---
 description: Manage Obsidian vault configuration (settings.yaml)
-argument-hint: [set|edit|diff|reset] [key value]
+argument-hint: [show|edit|validate|methodologies|create|diff]
 allowed-tools: Bash(uv run:*)
 ---
 
-# Config Management
+# obsidian:config - Configuration Management
 
-Manage the Obsidian vault settings file (.claude/settings.yaml).
+Unified configuration management for Obsidian vaults.
 
 ## Execution
 
-Run the config management tool:
-
 ```bash
-uv run "${CLAUDE_PLUGIN_ROOT}/skills/config/scripts/settings_loader.py" --vault . --show
+uv run "${CLAUDE_PLUGIN_ROOT}/skills/config/scripts/config_command.py" --vault . [subcommand]
 ```
 
-## Commands
+## Subcommands
 
-### Set Value
+### Show Configuration (default)
 ```bash
-uv run "${CLAUDE_PLUGIN_ROOT}/skills/config/scripts/settings_loader.py" --vault . --set <key> <value>
+uv run "${CLAUDE_PLUGIN_ROOT}/skills/config/scripts/config_command.py" --vault .
+uv run "${CLAUDE_PLUGIN_ROOT}/skills/config/scripts/config_command.py" --vault . show --verbose
 ```
-Set a specific configuration value. Supports nested keys with dot notation.
-Creates a backup before modifying.
+Display current vault configuration. Use `--verbose` for full details.
 
-Examples:
-- `--set validation.strict_types false`
-- `--set methodology para`
+Output formats: `--format text|json|yaml`
 
-### Edit Config
+### Edit Settings
 ```bash
-uv run "${CLAUDE_PLUGIN_ROOT}/skills/config/scripts/settings_loader.py" --vault . --edit
+uv run "${CLAUDE_PLUGIN_ROOT}/skills/config/scripts/config_command.py" --vault . edit
 ```
-Open the settings file in your default editor ($EDITOR).
-Creates a backup before editing.
+Open settings.yaml in your default editor ($EDITOR).
+Creates automatic backup before editing.
+
+### Validate Configuration
+```bash
+uv run "${CLAUDE_PLUGIN_ROOT}/skills/config/scripts/config_command.py" --vault . validate
+uv run "${CLAUDE_PLUGIN_ROOT}/skills/config/scripts/config_command.py" --vault . validate --format json
+```
+Check configuration structure for errors. Returns exit code 0 if valid.
+
+### List Methodologies
+```bash
+uv run "${CLAUDE_PLUGIN_ROOT}/skills/config/scripts/config_command.py" --vault . methodologies
+```
+Show available PKM methodologies with descriptions:
+- **lyt-ace**: Linking Your Thinking + ACE Framework
+- **para**: Projects, Areas, Resources, Archives
+- **zettelkasten**: Traditional slip-box method
+- **minimal**: Simple starter configuration
+- **custom**: Empty configuration
+
+### Create Settings
+```bash
+uv run "${CLAUDE_PLUGIN_ROOT}/skills/config/scripts/config_command.py" --vault . create --methodology para
+uv run "${CLAUDE_PLUGIN_ROOT}/skills/config/scripts/config_command.py" --vault . create --methodology lyt-ace --force
+```
+Create default settings.yaml with chosen methodology.
+Use `--force` to overwrite existing settings (creates backup first).
 
 ### Show Diff
 ```bash
-uv run "${CLAUDE_PLUGIN_ROOT}/skills/config/scripts/settings_loader.py" --vault . --diff
+uv run "${CLAUDE_PLUGIN_ROOT}/skills/config/scripts/config_command.py" --vault . diff
 ```
-Show differences between current settings and defaults.
-
-### Reset Settings
-```bash
-uv run "${CLAUDE_PLUGIN_ROOT}/skills/config/scripts/settings_loader.py" --vault . --reset <methodology>
-```
-Reset settings to a specific methodology (lyt-ace, para, zettelkasten, minimal, custom).
-Creates a backup before resetting.
-
-Examples:
-- `--reset para --yes` (reset to PARA without confirmation)
-- `--reset list` (show available methodologies)
+Compare current settings with default values.
 
 ## Configuration File
 
-Location: `.claude/settings.yaml` (in vault root)
+**Location**: `.claude/settings.yaml` (in vault root)
 
 The settings file controls:
 - Methodology and folder structure
 - Core properties required in all notes
-- Note type definitions
+- Note type definitions with folder hints
 - Validation rules
 - Excluded paths and files
 
 ## Backups
 
-All destructive operations (edit, set, reset) automatically create timestamped backups in:
-`.claude/backups/`
+All destructive operations create timestamped backups in:
+`.claude/backups/settings_YYYYMMDD_HHMMSS.yaml`
 
 ## Examples
 
-Set a validation rule:
+Show configuration as JSON:
 ```bash
-uv run "${CLAUDE_PLUGIN_ROOT}/skills/config/scripts/settings_loader.py" --vault . --set validation.strict_types false
+uv run "${CLAUDE_PLUGIN_ROOT}/skills/config/scripts/config_command.py" --vault . show --format json
 ```
 
-Compare your settings with defaults:
+Validate and check for errors:
 ```bash
-uv run "${CLAUDE_PLUGIN_ROOT}/skills/config/scripts/settings_loader.py" --vault . --diff
+uv run "${CLAUDE_PLUGIN_ROOT}/skills/config/scripts/config_command.py" --vault . validate
 ```
 
-Reset to PARA methodology:
+Create new PARA vault:
 ```bash
-uv run "${CLAUDE_PLUGIN_ROOT}/skills/config/scripts/settings_loader.py" --vault . --reset para --yes
+uv run "${CLAUDE_PLUGIN_ROOT}/skills/config/scripts/config_command.py" --vault ~/notes create --methodology para
 ```
+
+## Deprecated Commands
+
+The following commands are deprecated (use subcommands instead):
+- `/config-show` -> `obsidian:config show`
+- `/config-create` -> `obsidian:config create`
+- `/config-validate` -> `obsidian:config validate`
+- `/config-methodologies` -> `obsidian:config methodologies`

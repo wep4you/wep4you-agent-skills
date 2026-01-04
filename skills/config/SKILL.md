@@ -1,6 +1,6 @@
 ---
 name: config
-version: "0.5.0"
+version: "1.0.0"
 license: MIT
 description: "Configuration loader and manager for Obsidian vault settings. Use when the user wants to (1) load vault configuration, (2) customize note type definitions, (3) manage frontmatter defaults, (4) merge configuration files, (5) validate configuration structure, or (6) save custom vault settings. Triggers on keywords like load config, vault settings, note type config, frontmatter defaults, merge configs, validate configuration."
 ---
@@ -9,16 +9,25 @@ description: "Configuration loader and manager for Obsidian vault settings. Use 
 
 Loads, manages, and merges YAML configuration files for Obsidian vault management with support for vault-specific overrides.
 
-## Slash Commands
+## Slash Commands (v1.0.0)
 
 | Command | Description |
 |---------|-------------|
-| `obsidian:config-show` | Show vault settings from `.claude/settings.yaml` |
-| `obsidian:config-show --type map` | Show specific note type configuration |
-| `obsidian:config-validate` | Validate vault settings structure |
-| `obsidian:config-create` | Create default settings if missing |
-| `obsidian:config-methodologies` | List available methodologies |
-| `obsidian:config-methodologies para` | Show methodology details |
+| `obsidian:config` | Show current vault configuration |
+| `obsidian:config show` | Show detailed configuration (with `--verbose`) |
+| `obsidian:config edit` | Edit settings in system editor |
+| `obsidian:config validate` | Validate configuration structure |
+| `obsidian:config methodologies` | List available methodologies |
+| `obsidian:config create --methodology para` | Create default settings |
+| `obsidian:config diff` | Show difference from defaults |
+
+## Deprecated Commands
+
+The following commands are deprecated and will be removed in v2.0.0:
+- `/config-show` → `obsidian:config show`
+- `/config-create` → `obsidian:config create`
+- `/config-validate` → `obsidian:config validate`
+- `/config-methodologies` → `obsidian:config methodologies`
 
 ## Architecture
 

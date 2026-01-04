@@ -1,30 +1,44 @@
 ---
 name: frontmatter
+version: "1.0.0"
 license: MIT
 description: "Frontmatter property management for Obsidian vaults. Use when the user wants to (1) manage core frontmatter properties, (2) configure type-specific properties, (3) list property definitions, (4) add or remove properties, (5) get required properties for validation. Triggers on keywords like frontmatter properties, manage properties, configure frontmatter, list properties, add property."
 ---
 
 # Frontmatter Property Management
 
-Manages core and type-specific frontmatter properties for Obsidian vault notes with configurable validation rules.
+Manages core and type-specific frontmatter properties for Obsidian vault notes.
+
+## Slash Commands (v1.0.0)
+
+| Command | Description |
+|---------|-------------|
+| `obsidian:props` | List core properties |
+| `obsidian:props core` | List core properties (explicit) |
+| `obsidian:props core add <name>` | Add a core property |
+| `obsidian:props core remove <name>` | Remove a core property |
+| `obsidian:props type <name>` | List properties for a note type |
+| `obsidian:props required` | List required properties |
+| `obsidian:props types` | List all types with properties |
+
+## Deprecated Command
+
+The `/frontmatter` command is deprecated. Use `obsidian:props` instead.
 
 ## Quick Start
 
 ```bash
 # List core properties
-uv run skills/frontmatter/scripts/frontmatter.py list-core
+uv run props_command.py --vault . core
 
-# List type-specific properties
-uv run skills/frontmatter/scripts/frontmatter.py list-type dot
+# List properties for a type
+uv run props_command.py --vault . type project
 
 # Add a new core property
-uv run skills/frontmatter/scripts/frontmatter.py add-core tags "list[string]" --description "Note tags"
-
-# Add type-specific property
-uv run skills/frontmatter/scripts/frontmatter.py add-type-prop project status string --required
+uv run props_command.py --vault . core add author
 
 # Get required properties for a type
-uv run skills/frontmatter/scripts/frontmatter.py get-required project
+uv run props_command.py --vault . required --type project
 ```
 
 ## Core Properties
