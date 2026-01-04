@@ -63,10 +63,10 @@ folder_structure:
   notes: Notes/
   daily: Daily/
 
-# Default UP links per folder (point to _Readme notes in each folder)
+# Default UP links per folder (point to MOC notes in each folder)
 up_links:
-  "Notes/": "[[Notes/_Readme]]"
-  "Daily/": "[[Daily/_Readme]]"
+  "Notes/": "[[Notes/_Notes_MOC]]"
+  "Daily/": "[[Daily/_Daily_MOC]]"
 
 # =============================================================================
 # EXTENDED DOCUMENTATION (Additional context, not used by init_vault.py)

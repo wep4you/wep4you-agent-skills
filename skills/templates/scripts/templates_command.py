@@ -42,17 +42,20 @@ COLOR_DIM = "\033[2m"
 COLOR_RESET = "\033[0m"
 
 
-def cmd_list(manager: TemplateManager, output_format: str = "text") -> int:
-    """List all templates.
+def cmd_list(
+    manager: TemplateManager, output_format: str = "text", source: str = "all"
+) -> int:
+    """List templates.
 
     Args:
         manager: TemplateManager instance
         output_format: Output format
+        source: Filter by source (all, plugin, vault)
 
     Returns:
         Exit code
     """
-    templates = manager.list_templates()
+    templates = manager.list_templates(source=source)
 
     if output_format == "json":
         print(json.dumps(templates, indent=2))
@@ -217,11 +220,25 @@ Examples:
         default="text",
         help="Output format (default: text)",
     )
+    parser.add_argument(
+        "--source",
+        "-s",
+        choices=["vault", "plugin", "all"],
+        default="vault",
+        help="Filter by source (default: vault)",
+    )
 
     subparsers = parser.add_subparsers(dest="command", help="Subcommand")
 
     # list
-    subparsers.add_parser("list", help="List all templates")
+    list_parser = subparsers.add_parser("list", help="List templates")
+    list_parser.add_argument(
+        "--source",
+        "-s",
+        choices=["vault", "plugin", "all"],
+        default="vault",
+        help="Filter by source (default: vault)",
+    )
 
     # show
     show_parser = subparsers.add_parser("show", help="Show template content")
@@ -258,7 +275,8 @@ Examples:
 
     # Route to handler
     if args.command is None or args.command == "list":
-        return cmd_list(manager, args.format)
+        source = getattr(args, "source", "all")
+        return cmd_list(manager, args.format, source)
     elif args.command == "show":
         return cmd_show(manager, args.name)
     elif args.command == "create":

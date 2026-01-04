@@ -58,27 +58,32 @@ class TemplateManager:
         # Default to templates directory in project root
         return Path(__file__).parent.parent.parent.parent / "templates"
 
-    def _find_vault_templates_dir(self) -> Path | None:
-        """Find vault-specific templates directory"""
+    def _find_vault_templates_dirs(self) -> list[Path]:
+        """Find all vault-specific templates directories"""
         candidates = [
+            self.vault_path / "x" / "templates",  # Created by init
             self.vault_path / ".obsidian" / "templates",
             self.vault_path / "Templates",
             self.vault_path / "templates",
         ]
 
-        for candidate in candidates:
-            if candidate.exists() and candidate.is_dir():
-                return candidate
+        return [c for c in candidates if c.exists() and c.is_dir()]
 
-        return None
+    def _find_vault_templates_dir(self) -> Path | None:
+        """Find primary vault-specific templates directory (for backward compat)"""
+        dirs = self._find_vault_templates_dirs()
+        return dirs[0] if dirs else None
 
     def _detect_templater(self) -> bool:
         """Detect if Templater plugin is installed"""
         templater_dir = self.vault_path / ".obsidian" / "plugins" / "templater-obsidian"
         return templater_dir.exists() and templater_dir.is_dir()
 
-    def list_templates(self) -> list[dict[str, Any]]:
-        """List all available templates
+    def list_templates(self, source: str = "all") -> list[dict[str, Any]]:
+        """List available templates
+
+        Args:
+            source: Filter by source - "all", "plugin", or "vault"
 
         Returns:
             List of template info dicts with name, path, source
@@ -86,7 +91,7 @@ class TemplateManager:
         templates = []
 
         # Plugin templates
-        if self.plugin_templates_dir.exists():
+        if source in ("all", "plugin") and self.plugin_templates_dir.exists():
             for template_dir in self.plugin_templates_dir.iterdir():
                 if template_dir.is_dir():
                     for template_file in template_dir.glob("*.md"):
@@ -99,17 +104,32 @@ class TemplateManager:
                             }
                         )
 
-        # Vault templates
-        if self.vault_templates_dir:
-            for template_file in self.vault_templates_dir.glob("*.md"):
-                templates.append(
-                    {
-                        "name": template_file.stem,
-                        "path": str(template_file),
-                        "source": "vault",
-                        "type": "custom",
-                    }
-                )
+        # Vault templates (search all vault template directories)
+        if source in ("all", "vault"):
+            for vault_dir in self._find_vault_templates_dirs():
+                # Check for type subdirectories (like x/templates/project/)
+                for item in vault_dir.iterdir():
+                    if item.is_dir():
+                        # Type-specific templates (e.g., x/templates/project/*.md)
+                        for template_file in item.glob("*.md"):
+                            templates.append(
+                                {
+                                    "name": f"{item.name}/{template_file.stem}",
+                                    "path": str(template_file),
+                                    "source": "vault",
+                                    "type": item.name,
+                                }
+                            )
+                    elif item.is_file() and item.suffix == ".md":
+                        # Root-level templates
+                        templates.append(
+                            {
+                                "name": item.stem,
+                                "path": str(item),
+                                "source": "vault",
+                                "type": "custom",
+                            }
+                        )
 
         return sorted(templates, key=lambda x: x["name"])
 
@@ -220,7 +240,7 @@ class TemplateManager:
 
         Args:
             template_name: Template name
-            target_file: Target file path
+            target_file: Target file path (relative to vault)
             variables: Variable substitutions
 
         Returns:
@@ -249,13 +269,13 @@ class TemplateManager:
         # Apply variable substitution
         content = self._substitute_variables(content, variables)
 
-        # Write to target file
-        target_path = Path(target_file)
+        # Write to target file (relative to vault path)
+        target_path = self.vault_path / target_file
         target_path.parent.mkdir(parents=True, exist_ok=True)
 
         try:
             target_path.write_text(content)
-            print(f"✅ Applied template to: {target_path}")
+            print(f"✅ Applied template to: {target_path.relative_to(self.vault_path)}")
             return True
         except Exception as e:
             print(f"❌ Error applying template: {e}")
@@ -270,11 +290,19 @@ class TemplateManager:
         Returns:
             Path to template or None if not found
         """
-        # Try vault templates first
-        if self.vault_templates_dir:
-            vault_template = self.vault_templates_dir / f"{name}.md"
-            if vault_template.exists():
-                return vault_template
+        # Try vault templates first (all directories)
+        for vault_dir in self._find_vault_templates_dirs():
+            if "/" in name:
+                # Type-specific template (e.g., 'project/template')
+                template_type, template_name = name.split("/", 1)
+                vault_template = vault_dir / template_type / f"{template_name}.md"
+                if vault_template.exists():
+                    return vault_template
+            else:
+                # Root-level template
+                vault_template = vault_dir / f"{name}.md"
+                if vault_template.exists():
+                    return vault_template
 
         # Try plugin templates
         if "/" in name:

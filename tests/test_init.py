@@ -353,7 +353,7 @@ class TestCreateHomeNote:
 
         content = home_path.read_text()
         assert "LYT + ACE Framework" in content
-        assert "type: home" in content
+        assert "type: map" in content
 
     def test_home_note_dry_run(self, tmp_path: Path) -> None:
         """Test dry-run mode doesn't create Home.md"""

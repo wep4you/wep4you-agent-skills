@@ -1376,7 +1376,7 @@ def generate_template_note(
         if prop == "type":
             continue
         elif prop == "up":
-            lines.append('up: "[[]]"')
+            lines.append('up: "[[{{up}}]]"')
         elif prop == "created":
             lines.append("created: {{date}}")
         elif prop == "tags":
@@ -1533,7 +1533,7 @@ def get_content_folders(methodology: str) -> list[str]:
 def get_all_content_folders(methodology: str) -> list[str]:
     """Get all content folders including subfolders (excluding + and x).
 
-    Used for _Readme.md generation - returns all folders.
+    Used for MOC file generation - returns all folders.
 
     Args:
         methodology: Methodology key
@@ -1580,7 +1580,7 @@ def generate_all_bases_content(methodology: str) -> str:
         "    - '!file.inFolder(\"+\")'",
         "    - '!file.inFolder(\"x\")'",
         '    - file.folder != "/"',
-        '    - file.name != "_Readme"',
+        '    - \'!file.name.startsWith("_") || !file.name.endsWith("_MOC")\'',
         "views:",
         "  - type: table",
         "    name: All",
@@ -1683,18 +1683,46 @@ FOLDER_DESCRIPTIONS: dict[str, dict[str, str]] = {
 }
 
 
-def generate_folder_readme_content(
+def get_moc_filename(folder_path: str) -> str:
+    """Get the MOC filename for a folder.
+
+    Args:
+        folder_path: Path of the folder (e.g., "Projects", "Atlas/Dots")
+
+    Returns:
+        MOC filename (e.g., "_Projects_MOC.md", "_Dots_MOC.md")
+    """
+    # Get display name (last part of path)
+    display_name = folder_path.rstrip("/").split("/")[-1]
+    return f"_{display_name}_MOC.md"
+
+
+def get_moc_link(folder_path: str) -> str:
+    """Get the wikilink to a folder's MOC file.
+
+    Args:
+        folder_path: Path of the folder (e.g., "Projects/", "Atlas/Dots/")
+
+    Returns:
+        Wikilink to MOC (e.g., "[[Projects/_Projects_MOC]]")
+    """
+    folder = folder_path.rstrip("/")
+    display_name = folder.split("/")[-1]
+    return f"[[{folder}/_{display_name}_MOC]]"
+
+
+def generate_folder_moc_content(
     folder_path: str,
     methodology: str,
 ) -> str:
-    """Generate _Readme.md content for a folder.
+    """Generate MOC (Map of Content) file content for a folder.
 
     Args:
         folder_path: Path of the folder (e.g., "Projects", "Atlas/Dots")
         methodology: Methodology key
 
     Returns:
-        Markdown content for the _Readme.md
+        Markdown content for the MOC file
     """
     descriptions = FOLDER_DESCRIPTIONS.get(methodology, {})
     description = descriptions.get(folder_path, f"Notes and content for {folder_path}.")
@@ -1718,13 +1746,15 @@ created: "{{{{date}}}}"
     return content
 
 
-def create_folder_readmes(
+def create_folder_mocs(
     vault_path: Path,
     methodology: str,
     dry_run: bool = False,
     note_types_filter: list[str] | None = None,
 ) -> list[Path]:
-    """Create _Readme.md files in each content folder.
+    """Create MOC (Map of Content) files in each content folder.
+
+    MOC files are named _<FolderName>_MOC.md (e.g., _Projects_MOC.md).
 
     Args:
         vault_path: Path to the vault root
@@ -1740,7 +1770,7 @@ def create_folder_readmes(
     content_folders = get_all_content_folders(methodology)
     created_files: list[Path] = []
 
-    print("\nCreating folder _Readme.md files (MAPs)...")
+    print("\nCreating folder MOC files...")
 
     for folder in content_folders:
         # Skip folders that weren't created due to filtering
@@ -1761,18 +1791,23 @@ def create_folder_readmes(
         if not dry_run and not folder_path.exists():
             continue
 
-        readme_path = folder_path / "_Readme.md"
-        content = generate_folder_readme_content(folder, methodology)
+        moc_filename = get_moc_filename(folder)
+        moc_path = folder_path / moc_filename
+        content = generate_folder_moc_content(folder, methodology)
 
         if dry_run:
-            print(f"  [DRY RUN] Would create: {readme_path}")
+            print(f"  [DRY RUN] Would create: {moc_path}")
         else:
-            readme_path.parent.mkdir(parents=True, exist_ok=True)
-            readme_path.write_text(content)
-            print(f"  ✓ Created: {readme_path}")
-            created_files.append(readme_path)
+            moc_path.parent.mkdir(parents=True, exist_ok=True)
+            moc_path.write_text(content)
+            print(f"  ✓ Created: {moc_path}")
+            created_files.append(moc_path)
 
     return created_files
+
+
+# Backward compatibility alias
+create_folder_readmes = create_folder_mocs
 
 
 def show_migration_hint(has_existing_content: bool) -> None:
@@ -2044,7 +2079,8 @@ def build_settings_yaml(
         "up_links": method_config.get("up_links", {}),
         "exclude": {
             "paths": ["+/", "x/", ".obsidian/", ".claude/", ".git/"],
-            "files": ["Home.md", "README.md", "_Readme.md"],
+            "files": ["Home.md", "README.md"],
+            "patterns": ["_*_MOC.md"],  # MOC files in each folder
         },
         "formats": {
             "date": "YYYY-MM-DD",
@@ -2163,31 +2199,87 @@ This is the **primary source of truth** for:
 - Validation rules
 - Folder structure
 
-## Validation
+---
 
-To validate this vault, run:
+## Slash Command Reference
 
-```bash
-/obsidian:validate
-```
+### Validation (`/obsidian:validate`)
 
-Or via CLI:
+| Command | Description |
+|---------|-------------|
+| `/obsidian:validate` | Validate all notes |
+| `/obsidian:validate --fix` | Auto-fix issues |
+| `/obsidian:validate --type project` | Validate specific type |
+| `/obsidian:validate --path Atlas/` | Validate specific path |
+| `/obsidian:validate --report report.md` | Save report to file |
 
-```bash
-uv run skills/validate/scripts/validator.py --vault . --mode report
-```
+### Configuration (`/obsidian:config`)
 
-## Managing Settings
+| Command | Description |
+|---------|-------------|
+| `/obsidian:config` | Show current configuration |
+| `/obsidian:config show --verbose` | Show detailed config |
+| `/obsidian:config show --format json` | JSON output |
+| `/obsidian:config validate` | Validate settings.yaml |
+| `/obsidian:config edit` | Open in editor |
+| `/obsidian:config diff` | Compare with defaults |
+| `/obsidian:config methodologies` | List methodologies |
 
-View current settings:
-```bash
-/obsidian:config show
-```
+### Note Types (`/obsidian:types`)
 
-Validate settings:
-```bash
-/obsidian:config validate
-```
+| Command | Description |
+|---------|-------------|
+| `/obsidian:types` | List all note types |
+| `/obsidian:types show project` | Show type details |
+| `/obsidian:types add meeting` | Add new type |
+| `/obsidian:types edit project` | Edit type |
+| `/obsidian:types remove meeting` | Remove type |
+| `/obsidian:types wizard` | Interactive wizard |
+
+### Properties (`/obsidian:props`)
+
+| Command | Description |
+|---------|-------------|
+| `/obsidian:props` | List core properties |
+| `/obsidian:props core add rank` | Add core property |
+| `/obsidian:props core remove rank` | Remove core property |
+| `/obsidian:props type project` | Show type properties |
+| `/obsidian:props required --type project` | Required properties |
+
+### Templates (`/obsidian:templates`)
+
+| Command | Description |
+|---------|-------------|
+| `/obsidian:templates` | List vault templates |
+| `/obsidian:templates --source plugin` | List plugin templates |
+| `/obsidian:templates --source all` | List all templates |
+| `/obsidian:templates show area` | Show template content |
+| `/obsidian:templates create meeting` | Create new template |
+| `/obsidian:templates edit area` | Edit template |
+| `/obsidian:templates delete meeting` | Delete template |
+| `/obsidian:templates apply area Note.md --var up=Home` | Apply template |
+
+### Re-Initialize (`/obsidian:init`)
+
+| Command | Description |
+|---------|-------------|
+| `/obsidian:init --action reset` | Reset vault |
+| `/obsidian:init --action continue` | Update existing |
+| `/obsidian:init --check` | Check vault status |
+
+---
+
+## Templates
+
+Templates are stored in `x/templates/` as `{type}.md` files.
+
+Use `{{variable}}` syntax for placeholders:
+- `{{title}}` - Note title
+- `{{date}}` - Current date (YYYY-MM-DD)
+- `{{up}}` - Parent link
+- `{{time}}` - Current time
+
+Example: `/obsidian:templates apply area Areas/NewArea.md --var up="Home"`
 """
 
     if dry_run:
@@ -2209,7 +2301,7 @@ def create_home_note(vault_path: Path, methodology: str, dry_run: bool = False) 
     home_path = vault_path / "Home.md"
 
     content = f"""---
-type: home
+type: map
 created: "{{{{date}}}}"
 ---
 
@@ -2590,8 +2682,8 @@ def init_vault(
     # Create all_bases.base for Obsidian Bases plugin
     create_all_bases_file(vault_path, methodology, dry_run)
 
-    # Create _Readme.md (MOC) in each content folder
-    create_folder_readmes(vault_path, methodology, dry_run, note_types_filter)
+    # Create MOC file (_<FolderName>_MOC.md) in each content folder
+    create_folder_mocs(vault_path, methodology, dry_run, note_types_filter)
 
     # Initialize git repository if requested
     if config is not None and config.init_git:

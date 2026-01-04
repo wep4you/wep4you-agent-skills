@@ -756,8 +756,8 @@ class TestVaultStructure:
         folder = temp_vault / "Blog"
         assert folder.exists()
 
-    def test_add_creates_readme(self, temp_vault):
-        """Test that add creates _Readme.md in folder"""
+    def test_add_creates_moc(self, temp_vault):
+        """Test that add creates MOC file (_Blog_MOC.md) in folder"""
         bases_folder = temp_vault / "x" / "bases"
         bases_folder.mkdir(parents=True)
         (bases_folder / "all_bases.base").write_text("# All\n")
@@ -765,9 +765,9 @@ class TestVaultStructure:
         manager = NoteTypesManager(str(temp_vault))
         manager.add_type("blog", interactive=False)
 
-        readme = temp_vault / "Blog" / "_Readme.md"
-        assert readme.exists()
-        content = readme.read_text()
+        moc = temp_vault / "Blog" / "_Blog_MOC.md"
+        assert moc.exists()
+        content = moc.read_text()
         assert "type: map" in content
         assert "Blog" in content
 
@@ -956,7 +956,7 @@ class TestCorePropertiesIntegration:
 
         # All core properties should be in template (init format)
         assert 'type: "blog"' in content  # Quoted value
-        assert 'up: "[[]]"' in content  # Empty link
+        assert 'up: "[[{{up}}]]"' in content  # Variable placeholder
         assert "created: {{date}}" in content  # Placeholder
         assert "tags: []" in content  # Empty array
 
@@ -974,12 +974,12 @@ class TestCorePropertiesIntegration:
 
         # All core properties should be in sample (init format, with values)
         assert 'type: "blog"' in content  # Quoted value
-        assert 'up: "[[_Readme]]"' in content  # Link to readme
+        assert 'up: "[[_Blog_MOC]]"' in content  # Link to MOC
         assert "created:" in content  # Date filled in
         assert "tags: [blog]" in content  # Type tag
 
-    def test_readme_has_init_format(self, temp_vault):
-        """Test that created _Readme.md matches init skill format (simple MAP)"""
+    def test_moc_has_init_format(self, temp_vault):
+        """Test that created MOC file matches init skill format (simple MAP)"""
         bases_folder = temp_vault / "x" / "bases"
         bases_folder.mkdir(parents=True)
         (bases_folder / "all_bases.base").write_text("views:\n  - type: table\n    name: All\n")
@@ -987,10 +987,10 @@ class TestCorePropertiesIntegration:
         manager = NoteTypesManager(str(temp_vault))
         manager.add_type("blog", interactive=False)
 
-        readme = temp_vault / "Blog" / "_Readme.md"
-        content = readme.read_text()
+        moc = temp_vault / "Blog" / "_Blog_MOC.md"
+        content = moc.read_text()
 
-        # Readme uses init skill's simple MAP format
+        # MOC uses init skill's simple MAP format
         assert "type: map" in content
         assert 'created: "{{date}}"' in content  # Placeholder
         assert "## Contents" in content  # Section header
@@ -1011,7 +1011,7 @@ class TestCompleteAddRemoveCycle:
 
         # Check all artifacts exist
         assert (temp_vault / "Meeting").exists(), "Folder not created"
-        assert (temp_vault / "Meeting" / "_Readme.md").exists(), "Readme not created"
+        assert (temp_vault / "Meeting" / "_Meeting_MOC.md").exists(), "MOC not created"
         assert (temp_vault / "Meeting" / "Sample Meeting.md").exists(), "Sample not created"
         template = temp_vault / "x" / "templates" / "meeting.md"
         assert template.exists(), "Template not created"
@@ -1031,7 +1031,7 @@ class TestCompleteAddRemoveCycle:
         manager.add_type("meeting", interactive=False)
 
         # Verify artifacts exist before remove
-        assert (temp_vault / "Meeting" / "_Readme.md").exists()
+        assert (temp_vault / "Meeting" / "_Meeting_MOC.md").exists()
         assert (temp_vault / "Meeting" / "Sample Meeting.md").exists()
         assert (temp_vault / "x" / "templates" / "meeting.md").exists()
 
@@ -1041,7 +1041,7 @@ class TestCompleteAddRemoveCycle:
         # Check all artifacts are removed
         template = temp_vault / "x" / "templates" / "meeting.md"
         assert not template.exists(), "Template not removed"
-        assert not (temp_vault / "Meeting" / "_Readme.md").exists(), "Readme not removed"
+        assert not (temp_vault / "Meeting" / "_Meeting_MOC.md").exists(), "MOC not removed"
         assert not (temp_vault / "Meeting" / "Sample Meeting.md").exists(), "Sample not removed"
 
         # Folder should be removed if empty
@@ -1068,8 +1068,8 @@ class TestCompleteAddRemoveCycle:
         # Folder should still exist with the user's file
         assert (temp_vault / "Meeting").exists(), "Folder with user files was removed"
         assert (temp_vault / "Meeting" / "My Meeting.md").exists(), "User file was removed"
-        # But readme and sample should be gone
-        assert not (temp_vault / "Meeting" / "_Readme.md").exists()
+        # But MOC and sample should be gone
+        assert not (temp_vault / "Meeting" / "_Meeting_MOC.md").exists()
         assert not (temp_vault / "Meeting" / "Sample Meeting.md").exists()
 
     def test_add_skips_bases_if_missing(self, temp_vault, capsys):
@@ -1325,14 +1325,14 @@ class TestEditWithFolderRename:
         assert 'up: "[[Parent]]"' in content
         assert "created: 2024-01-01" in content
 
-    def test_edit_skips_readme(self, temp_vault):
-        """Test that editing skips _Readme.md when updating frontmatter"""
+    def test_edit_skips_moc(self, temp_vault):
+        """Test that editing skips MOC file when updating frontmatter"""
         manager = NoteTypesManager(str(temp_vault))
 
         # Add a type
         manager.add_type("meeting", interactive=False)
         folder_path = temp_vault / "Meeting"
-        readme_path = folder_path / "_Readme.md"
+        moc_path = folder_path / "_Meeting_MOC.md"
 
         # Edit to add new property
         manager.edit_type(
@@ -1341,8 +1341,8 @@ class TestEditWithFolderRename:
             config={"required_props": ["newprop"]},
         )
 
-        # Readme should not have newprop added (it's type: map)
-        content = readme_path.read_text()
+        # MOC should not have newprop added (it's type: map)
+        content = moc_path.read_text()
         assert "newprop:" not in content
 
     def test_edit_updates_bases_file_on_folder_rename(self, temp_vault):
@@ -1377,17 +1377,17 @@ class TestEditWithFolderRename:
         content = bases_file.read_text()
         assert "Meetings" in content
 
-    def test_edit_updates_readme_reference_on_folder_rename(self, temp_vault):
-        """Test that _Readme.md embed reference is updated on folder rename"""
+    def test_edit_updates_moc_reference_on_folder_rename(self, temp_vault):
+        """Test that MOC file is renamed and embed reference is updated on folder rename"""
         manager = NoteTypesManager(str(temp_vault))
 
         # Add a type
         manager.add_type("meeting", interactive=False)
         old_folder = temp_vault / "Meeting"
-        readme_path = old_folder / "_Readme.md"
+        moc_path = old_folder / "_Meeting_MOC.md"
 
         # Verify old reference
-        content = readme_path.read_text()
+        content = moc_path.read_text()
         assert "#Meeting" in content
 
         # Edit to rename folder
@@ -1397,7 +1397,7 @@ class TestEditWithFolderRename:
             config={"folder": "Meetings/"},
         )
 
-        # Verify new reference
-        new_readme_path = temp_vault / "Meetings" / "_Readme.md"
-        content = new_readme_path.read_text()
+        # Verify new MOC file with new reference
+        new_moc_path = temp_vault / "Meetings" / "_Meetings_MOC.md"
+        content = new_moc_path.read_text()
         assert "#Meetings" in content

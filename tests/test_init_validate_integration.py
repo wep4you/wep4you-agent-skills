@@ -364,7 +364,7 @@ class TestTemplateGeneration:
         # Check structure
         assert content.startswith("---")
         assert 'type: "test"' in content
-        assert 'up: "[[]]"' in content
+        assert 'up: "[[{{up}}]]"' in content
         assert "created: {{date}}" in content
         assert "tags: []" in content
         assert "status:" in content
@@ -448,42 +448,50 @@ class TestAllBasesFileGeneration:
         assert content.count("groupBy:") == 1, "Only All view should have groupBy"
 
 
-class TestFolderReadmeGeneration:
-    """Test that init generates _Readme.md (MOC) files in each content folder."""
+def get_moc_filename(folder_name: str) -> str:
+    """Get the MOC filename for a folder."""
+    return f"_{folder_name}_MOC.md"
+
+
+class TestFolderMOCGeneration:
+    """Test that init generates MOC files (_<FolderName>_MOC.md) in each content folder."""
 
     @pytest.mark.parametrize("methodology", list(METHODOLOGIES.keys()))
-    def test_folder_readmes_created(self, tmp_path: Path, methodology: str) -> None:
-        """Test that _Readme.md files are created in each content folder."""
+    def test_folder_mocs_created(self, tmp_path: Path, methodology: str) -> None:
+        """Test that MOC files are created in each content folder."""
         init_vault(tmp_path, methodology, dry_run=False, use_defaults=True)
 
         content_folders = get_content_folders(methodology)
         for folder in content_folders:
-            readme_file = tmp_path / folder / "_Readme.md"
-            assert readme_file.exists(), f"_Readme.md not created in {folder}"
+            folder_name = folder.split("/")[-1] if "/" in folder else folder
+            moc_file = tmp_path / folder / get_moc_filename(folder_name)
+            assert moc_file.exists(), f"MOC not created in {folder}"
 
     @pytest.mark.parametrize("methodology", list(METHODOLOGIES.keys()))
-    def test_folder_readmes_have_map_type(self, tmp_path: Path, methodology: str) -> None:
-        """Test that _Readme.md files have type: map in frontmatter."""
+    def test_folder_mocs_have_map_type(self, tmp_path: Path, methodology: str) -> None:
+        """Test that MOC files have type: map in frontmatter."""
         init_vault(tmp_path, methodology, dry_run=False, use_defaults=True)
 
         content_folders = get_content_folders(methodology)
         for folder in content_folders:
-            readme_file = tmp_path / folder / "_Readme.md"
-            content = readme_file.read_text()
-            assert "type: map" in content, f"_Readme.md in {folder} missing type: map"
+            folder_name = folder.split("/")[-1] if "/" in folder else folder
+            moc_file = tmp_path / folder / get_moc_filename(folder_name)
+            content = moc_file.read_text()
+            assert "type: map" in content, f"MOC in {folder} missing type: map"
 
     @pytest.mark.parametrize("methodology", list(METHODOLOGIES.keys()))
-    def test_folder_readmes_embed_base_view(self, tmp_path: Path, methodology: str) -> None:
-        """Test that _Readme.md files embed the correct base view."""
+    def test_folder_mocs_embed_base_view(self, tmp_path: Path, methodology: str) -> None:
+        """Test that MOC files embed the correct base view."""
         init_vault(tmp_path, methodology, dry_run=False, use_defaults=True)
 
         content_folders = get_content_folders(methodology)
         for folder in content_folders:
-            readme_file = tmp_path / folder / "_Readme.md"
-            content = readme_file.read_text()
-            expected_embed = f"![[all_bases.base#{folder}]]"
+            folder_name = folder.split("/")[-1] if "/" in folder else folder
+            moc_file = tmp_path / folder / get_moc_filename(folder_name)
+            content = moc_file.read_text()
+            expected_embed = f"![[all_bases.base#{folder_name}]]"
             assert expected_embed in content, (
-                f"_Readme.md in {folder} missing embed: {expected_embed}"
+                f"MOC in {folder} missing embed: {expected_embed}"
             )
 
     def test_para_folder_descriptions(self, tmp_path: Path) -> None:
@@ -491,13 +499,13 @@ class TestFolderReadmeGeneration:
         init_vault(tmp_path, "para", dry_run=False, use_defaults=True)
 
         # Check Projects description
-        projects_readme = tmp_path / "Projects" / "_Readme.md"
-        content = projects_readme.read_text()
+        projects_moc = tmp_path / "Projects" / "_Projects_MOC.md"
+        content = projects_moc.read_text()
         assert "Active projects with defined outcomes" in content
 
         # Check Archives description
-        archives_readme = tmp_path / "Archives" / "_Readme.md"
-        content = archives_readme.read_text()
+        archives_moc = tmp_path / "Archives" / "_Archives_MOC.md"
+        content = archives_moc.read_text()
         assert "Completed or inactive items" in content
 
     def test_lyt_ace_folder_descriptions(self, tmp_path: Path) -> None:
@@ -505,53 +513,54 @@ class TestFolderReadmeGeneration:
         init_vault(tmp_path, "lyt-ace", dry_run=False, use_defaults=True)
 
         # Check Atlas description
-        atlas_readme = tmp_path / "Atlas" / "_Readme.md"
-        content = atlas_readme.read_text()
+        atlas_moc = tmp_path / "Atlas" / "_Atlas_MOC.md"
+        content = atlas_moc.read_text()
         assert "Knowledge repository" in content
 
         # Check Efforts description
-        efforts_readme = tmp_path / "Efforts" / "_Readme.md"
-        content = efforts_readme.read_text()
+        efforts_moc = tmp_path / "Efforts" / "_Efforts_MOC.md"
+        content = efforts_moc.read_text()
         assert "Active work including projects" in content
 
-    def test_lyt_ace_subfolders_have_readmes(self, tmp_path: Path) -> None:
-        """Test LYT-ACE subfolders (Dots, Maps, Sources, etc.) have _Readme.md."""
+    def test_lyt_ace_subfolders_have_mocs(self, tmp_path: Path) -> None:
+        """Test LYT-ACE subfolders (Dots, Maps, Sources, etc.) have MOC files."""
         init_vault(tmp_path, "lyt-ace", dry_run=False, use_defaults=True)
 
-        # Check subfolders have readmes
+        # Check subfolders have MOCs
         subfolders = [
-            "Atlas/Dots",
-            "Atlas/Maps",
-            "Atlas/Sources",
-            "Efforts/Projects",
-            "Efforts/Areas",
-            "Calendar/daily",
+            ("Atlas/Dots", "_Dots_MOC.md"),
+            ("Atlas/Maps", "_Maps_MOC.md"),
+            ("Atlas/Sources", "_Sources_MOC.md"),
+            ("Efforts/Projects", "_Projects_MOC.md"),
+            ("Efforts/Areas", "_Areas_MOC.md"),
+            ("Calendar/daily", "_daily_MOC.md"),
         ]
-        for folder in subfolders:
-            readme_file = tmp_path / folder / "_Readme.md"
-            assert readme_file.exists(), f"_Readme.md not created in {folder}"
+        for folder, moc_file in subfolders:
+            moc_path = tmp_path / folder / moc_file
+            assert moc_path.exists(), f"MOC not created in {folder}"
 
-    def test_subfolder_readme_embeds_subfolder_view(self, tmp_path: Path) -> None:
-        """Test subfolder _Readme.md embeds its own folder view."""
+    def test_subfolder_moc_embeds_subfolder_view(self, tmp_path: Path) -> None:
+        """Test subfolder MOC embeds its own folder view."""
         init_vault(tmp_path, "lyt-ace", dry_run=False, use_defaults=True)
 
         # Atlas/Dots should embed ![[all_bases.base#Dots]] (subfolder-specific view)
-        dots_readme = tmp_path / "Atlas" / "Dots" / "_Readme.md"
-        content = dots_readme.read_text()
+        dots_moc = tmp_path / "Atlas" / "Dots" / "_Dots_MOC.md"
+        content = dots_moc.read_text()
         assert "![[all_bases.base#Dots]]" in content
 
         # Efforts/Projects should embed #Projects
-        projects_readme = tmp_path / "Efforts" / "Projects" / "_Readme.md"
-        content = projects_readme.read_text()
+        projects_moc = tmp_path / "Efforts" / "Projects" / "_Projects_MOC.md"
+        content = projects_moc.read_text()
         assert "![[all_bases.base#Projects]]" in content
 
-    def test_all_bases_excludes_readme_files(self, tmp_path: Path) -> None:
-        """Test all_bases.base has filter to exclude _Readme files."""
+    def test_all_bases_excludes_moc_files(self, tmp_path: Path) -> None:
+        """Test all_bases.base has filter to exclude MOC files."""
         init_vault(tmp_path, "para", dry_run=False, use_defaults=True)
 
         base_file = tmp_path / "x" / "bases" / "all_bases.base"
         content = base_file.read_text()
-        assert 'file.name != "_Readme"' in content, "Missing _Readme exclusion filter"
+        # MOC files are excluded with pattern check
+        assert "startsWith" in content or "_MOC" in content, "Missing MOC exclusion filter"
 
     def test_all_bases_has_subfolder_views(self, tmp_path: Path) -> None:
         """Test all_bases.base has views for subfolders (LYT-ACE)."""

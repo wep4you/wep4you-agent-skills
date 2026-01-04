@@ -640,3 +640,142 @@ class TestEdgeCases:
         # Check frontmatter is preserved
         assert content.startswith("---")
         assert "type: map" in content
+
+
+class TestTemplateSourceFiltering:
+    """Test --source filtering functionality"""
+
+    def test_list_templates_source_all(self, temp_vault: Path) -> None:
+        """Test listing all templates (default)"""
+        # Create vault template
+        vault_template = temp_vault / ".obsidian" / "templates" / "custom.md"
+        vault_template.write_text("# Custom")
+
+        manager = TemplateManager(str(temp_vault))
+        templates = manager.list_templates(source="all")
+
+        sources = {t["source"] for t in templates}
+        assert "plugin" in sources
+        assert "vault" in sources
+
+    def test_list_templates_source_plugin_only(self, temp_vault: Path) -> None:
+        """Test listing only plugin templates"""
+        # Create vault template
+        vault_template = temp_vault / ".obsidian" / "templates" / "custom.md"
+        vault_template.write_text("# Custom")
+
+        manager = TemplateManager(str(temp_vault))
+        templates = manager.list_templates(source="plugin")
+
+        sources = {t["source"] for t in templates}
+        assert "plugin" in sources
+        assert "vault" not in sources
+
+    def test_list_templates_source_vault_only(self, temp_vault: Path) -> None:
+        """Test listing only vault templates"""
+        # Create vault template
+        vault_template = temp_vault / ".obsidian" / "templates" / "custom.md"
+        vault_template.write_text("# Custom")
+
+        manager = TemplateManager(str(temp_vault))
+        templates = manager.list_templates(source="vault")
+
+        sources = {t["source"] for t in templates}
+        assert "vault" in sources
+        assert "plugin" not in sources
+
+
+class TestXTemplatesDirectory:
+    """Test x/templates/ directory discovery (created by init)"""
+
+    def test_find_x_templates_directory(self, tmp_path: Path) -> None:
+        """Test discovering x/templates/ directory"""
+        vault = tmp_path / "vault"
+        vault.mkdir()
+
+        # Create x/templates structure (as init does)
+        x_templates = vault / "x" / "templates"
+        x_templates.mkdir(parents=True)
+
+        manager = TemplateManager(str(vault))
+        dirs = manager._find_vault_templates_dirs()
+
+        assert any("x/templates" in str(d) or "x\\templates" in str(d) for d in dirs)
+
+    def test_list_templates_from_x_templates(self, tmp_path: Path) -> None:
+        """Test listing templates from x/templates/"""
+        vault = tmp_path / "vault"
+        vault.mkdir()
+
+        # Create x/templates with type subdirectories (as init does)
+        x_templates = vault / "x" / "templates"
+        project_dir = x_templates / "project"
+        project_dir.mkdir(parents=True)
+        (project_dir / "template.md").write_text("# Project Template")
+
+        area_dir = x_templates / "area"
+        area_dir.mkdir(parents=True)
+        (area_dir / "template.md").write_text("# Area Template")
+
+        manager = TemplateManager(str(vault))
+        templates = manager.list_templates(source="vault")
+
+        names = [t["name"] for t in templates]
+        assert "project/template" in names
+        assert "area/template" in names
+
+    def test_resolve_template_from_x_templates(self, tmp_path: Path) -> None:
+        """Test resolving template path from x/templates/"""
+        vault = tmp_path / "vault"
+        vault.mkdir()
+
+        # Create x/templates with type subdirectory
+        x_templates = vault / "x" / "templates"
+        project_dir = x_templates / "project"
+        project_dir.mkdir(parents=True)
+        template_file = project_dir / "template.md"
+        template_file.write_text("# Project")
+
+        manager = TemplateManager(str(vault))
+        path = manager._resolve_template_path("project/template")
+
+        assert path is not None
+        assert path == template_file
+
+    def test_show_template_from_x_templates(self, tmp_path: Path) -> None:
+        """Test showing template content from x/templates/"""
+        vault = tmp_path / "vault"
+        vault.mkdir()
+
+        # Create x/templates template
+        x_templates = vault / "x" / "templates"
+        project_dir = x_templates / "project"
+        project_dir.mkdir(parents=True)
+        (project_dir / "my-template.md").write_text("# My Project Template")
+
+        manager = TemplateManager(str(vault))
+        content = manager.show_template("project/my-template")
+
+        assert content is not None
+        assert "My Project Template" in content
+
+    def test_x_templates_priority_over_other_vault_dirs(self, tmp_path: Path) -> None:
+        """Test x/templates/ is checked first among vault dirs"""
+        vault = tmp_path / "vault"
+        vault.mkdir()
+
+        # Create both x/templates and .obsidian/templates
+        x_templates = vault / "x" / "templates"
+        x_templates.mkdir(parents=True)
+        (x_templates / "shared.md").write_text("# From x/templates")
+
+        obsidian_templates = vault / ".obsidian" / "templates"
+        obsidian_templates.mkdir(parents=True)
+        (obsidian_templates / "shared.md").write_text("# From .obsidian")
+
+        manager = TemplateManager(str(vault))
+        content = manager.show_template("shared")
+
+        # x/templates should take priority
+        assert content is not None
+        assert "From x/templates" in content

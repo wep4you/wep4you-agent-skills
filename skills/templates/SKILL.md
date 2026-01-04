@@ -1,6 +1,6 @@
 ---
 name: templates
-version: "1.0.0"
+version: "1.1.0"
 license: MIT
 description: "Template management system for Obsidian vaults. Use when the user wants to (1) list available note templates, (2) create new templates, (3) apply templates to notes, (4) manage template variables, or (5) work with Templater plugin syntax. Triggers on keywords like template, create note from template, list templates, apply template, template variables."
 ---
@@ -9,12 +9,14 @@ description: "Template management system for Obsidian vaults. Use when the user 
 
 Manage note templates with support for Templater plugin and simple variable substitution.
 
-## Slash Commands (v1.0.0)
+## Slash Commands (v1.1.0)
 
 | Command | Description |
 |---------|-------------|
-| `obsidian:templates` | List all templates |
-| `obsidian:templates list` | List all templates (explicit) |
+| `obsidian:templates` | List vault templates (default) |
+| `obsidian:templates list` | List vault templates (explicit) |
+| `obsidian:templates list --source plugin` | List only plugin templates |
+| `obsidian:templates list --source all` | List all templates |
 | `obsidian:templates show <name>` | Show template content |
 | `obsidian:templates create <name>` | Create new template |
 | `obsidian:templates edit <name>` | Edit template in editor |
@@ -49,10 +51,26 @@ The skill automatically discovers templates from multiple locations:
    - `source/basic.md` - Source note template
    - `map/templater.md` - Map with Templater syntax
 
-2. **Vault Templates**: Custom templates in your vault
+2. **Vault Templates**: Custom templates in your vault (searched in order)
+   - `x/templates/` - Created by `/obsidian:init` (priority)
    - `.obsidian/templates/`
    - `Templates/`
    - `templates/`
+
+### Source Filtering
+
+Use `--source` to filter templates by origin:
+
+```bash
+# List vault templates (default)
+uv run templates_command.py --vault .
+
+# List only plugin templates
+uv run templates_command.py --vault . --source plugin
+
+# List all templates (vault + plugin)
+uv run templates_command.py --vault . --source all
+```
 
 ### Templater Support
 

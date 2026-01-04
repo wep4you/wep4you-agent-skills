@@ -1,7 +1,7 @@
 {
   "name": "obsidian",
   "description": "Obsidian vault validation and PKM workflow tools. Includes vault initialization, configuration management, note type definitions, property management, templates, and frontmatter validation.",
-  "version": "1.0.10",
+  "version": "1.0.14",
   "author": {
     "name": "Peter Weiss",
     "url": "https://github.com/wep4you"

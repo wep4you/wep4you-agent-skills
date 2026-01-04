@@ -12,30 +12,40 @@ A Claude Code skills marketplace following the open [Agent Skills](https://agent
 
 ## Available Skills
 
-### Obsidian Plugin (v1.0.0)
+### Obsidian Plugin (v1.0.14)
 
 Complete PKM (Personal Knowledge Management) toolkit for Obsidian vaults.
 
 | Skill | Description | Version |
 |-------|-------------|---------|
-| [init](skills/init/) | Initialize vault with methodology wizard (PARA, LYT-ACE, Zettelkasten, Minimal) | 1.0.0 |
-| [config](skills/config/) | Configuration loader and settings management with backup | 1.0.0 |
+| [init](skills/init/) | Initialize vault with methodology wizard (PARA, LYT-ACE, Zettelkasten, Minimal) | 0.34.14 |
+| [config](skills/config/) | Configuration loader and settings management with backup | 1.0.1 |
 | [validate](skills/validate/) | Validate and auto-fix frontmatter with JSONL audit logging | 1.0.0 |
-| [note-types](skills/note-types/) | Manage note type definitions (folders, properties, templates) | 1.0.0 |
+| [note-types](skills/note-types/) | Manage note type definitions (folders, properties, templates) | 1.0.2 |
 | [frontmatter](skills/frontmatter/) | Manage frontmatter properties for note types | 1.0.0 |
-| [templates](skills/templates/) | Create, view, and manage note templates | 1.0.0 |
+| [templates](skills/templates/) | Create, view, and manage note templates with source filtering | 1.1.0 |
 
 ## Complete Slash Command Reference
 
 All commands use the unified `obsidian:` namespace (v1.0.0+).
 
-### Vault Initialization
+### Vault Initialization (`/obsidian:init`)
 
 | Command | Description | Example |
 |---------|-------------|---------|
 | `/obsidian:init` | Initialize vault with wizard | `/obsidian:init ~/my-vault` |
-| `/obsidian:init --list` | List methodologies | |
-| `/obsidian:init --git` | Initialize with git repo | |
+| `/obsidian:init --list` | List available methodologies | |
+| `/obsidian:init -m para` | Use specific methodology | `/obsidian:init ~/vault -m lyt-ace` |
+| `/obsidian:init --quick` | Quick setup with defaults | |
+| `/obsidian:init --git yes` | Initialize with git repo | |
+| `/obsidian:init --git no` | Skip git initialization | |
+| `/obsidian:init --action reset` | Reset existing vault | |
+| `/obsidian:init --action continue` | Continue with existing vault | |
+| `/obsidian:init --ranking-system rank` | Use 1-5 ranking (default) | |
+| `/obsidian:init --ranking-system priority` | Use priority text | |
+| `/obsidian:init --note-types all` | Include all note types | |
+| `/obsidian:init --core-properties all` | Include all properties | |
+| `/obsidian:init --check` | Check vault status (JSON) | |
 
 ### Configuration (`/obsidian:config`)
 
@@ -88,13 +98,21 @@ All commands use the unified `obsidian:` namespace (v1.0.0+).
 
 | Command | Description | Example |
 |---------|-------------|---------|
-| `/obsidian:templates` | List templates | |
-| `/obsidian:templates list` | List templates | |
-| `/obsidian:templates show map/basic` | Show content | |
-| `/obsidian:templates create meeting` | Create template | |
-| `/obsidian:templates edit meeting` | Edit template | |
-| `/obsidian:templates delete meeting` | Delete template | |
-| `/obsidian:templates apply map/basic Note.md` | Apply template | `/obsidian:templates apply map/basic Note.md --var title=MyNote` |
+| `/obsidian:templates` | List vault templates (default) | |
+| `/obsidian:templates list` | List vault templates | |
+| `/obsidian:templates list --source plugin` | List plugin templates | |
+| `/obsidian:templates list --source all` | List all templates | |
+| `/obsidian:templates show area` | Show template content | |
+| `/obsidian:templates create meeting` | Create new template | |
+| `/obsidian:templates edit area` | Edit template in editor | |
+| `/obsidian:templates delete meeting` | Delete vault template | |
+| `/obsidian:templates apply area Note.md` | Apply template to file | |
+| `/obsidian:templates apply ... --var up=Home` | Apply with variables | `/obsidian:templates apply area Area.md --var up="Home"` |
+
+**Template Sources:**
+- **vault**: Templates from `x/templates/` (as `{type}.md`), `.obsidian/templates/`, `Templates/` (default)
+- **plugin**: Built-in templates from the plugin (e.g., `map/basic`, `dot/basic`)
+- **all**: Both vault and plugin templates
 
 ## Key Features
 
