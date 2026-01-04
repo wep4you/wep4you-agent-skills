@@ -6,69 +6,95 @@
 [![OpenAI Codex](https://img.shields.io/badge/OpenAI%20Codex-Compatible-blue)](https://openai.com)
 [![Security](https://img.shields.io/badge/Security-Scanned-brightgreen)](https://github.com/wep4you/wep4you-agent-skills/actions)
 
+**Repository**: [github.com/wep4you/wep4you-agent-skills](https://github.com/wep4you/wep4you-agent-skills)
+
 A Claude Code skills marketplace following the open [Agent Skills](https://agentskills.io) specification. Cross-platform compatible with Claude Code, OpenAI Codex, and GitHub Copilot.
 
 ## Available Skills
 
-### Obsidian Plugin (v0.60.0)
+### Obsidian Plugin (v1.0.0)
 
 Complete PKM (Personal Knowledge Management) toolkit for Obsidian vaults.
 
 | Skill | Description | Version |
 |-------|-------------|---------|
-| [init](skills/init/) | Initialize vault with methodology wizard (PARA, LYT-ACE, Zettelkasten, Minimal) | 0.31.0 |
-| [config](skills/config/) | Configuration loader and settings management with backup | 0.5.0 |
-| [validate](skills/validate/) | Validate and auto-fix frontmatter with JSONL audit logging | 1.6.0 |
-| [note-types](skills/note-types/) | Manage note type definitions (folders, properties, templates) | 0.53.0 |
+| [init](skills/init/) | Initialize vault with methodology wizard (PARA, LYT-ACE, Zettelkasten, Minimal) | 1.0.0 |
+| [config](skills/config/) | Configuration loader and settings management with backup | 1.0.0 |
+| [validate](skills/validate/) | Validate and auto-fix frontmatter with JSONL audit logging | 1.0.0 |
+| [note-types](skills/note-types/) | Manage note type definitions (folders, properties, templates) | 1.0.0 |
 | [frontmatter](skills/frontmatter/) | Manage frontmatter properties for note types | 1.0.0 |
 | [templates](skills/templates/) | Create, view, and manage note templates | 1.0.0 |
 
-### Slash Commands
+## Complete Slash Command Reference
 
-After installing the plugin, these commands are available:
+All commands use the unified `obsidian:` namespace (v1.0.0+).
 
-**Vault Initialization**
-| Command | Description |
-|---------|-------------|
-| `/obsidian:init` | Initialize vault with interactive wizard |
+### Vault Initialization
 
-**Configuration Management**
-| Command | Description |
-|---------|-------------|
-| `/obsidian:config-show` | Show vault settings from `.claude/settings.yaml` |
-| `/obsidian:config-validate` | Validate settings.yaml structure |
-| `/obsidian:config set KEY VALUE` | Set a config value (with backup) |
-| `/obsidian:config diff` | Show differences from defaults |
-| `/obsidian:config reset METHODOLOGY` | Reset to a methodology |
+| Command | Description | Example |
+|---------|-------------|---------|
+| `/obsidian:init` | Initialize vault with wizard | `/obsidian:init ~/my-vault` |
+| `/obsidian:init --list` | List methodologies | |
+| `/obsidian:init --git` | Initialize with git repo | |
 
-**Validation**
-| Command | Description |
-|---------|-------------|
-| `/obsidian:validate` | Validate vault frontmatter (auto-fix available) |
+### Configuration (`/obsidian:config`)
 
-**Note Types**
-| Command | Description |
-|---------|-------------|
-| `/obsidian:note-types list` | List all note types |
-| `/obsidian:note-types add NAME` | Add new note type with folder + template |
-| `/obsidian:note-types edit NAME` | Edit note type (renames folders, updates frontmatter) |
-| `/obsidian:note-types remove NAME` | Remove a note type |
+| Command | Description | Example |
+|---------|-------------|---------|
+| `/obsidian:config` | Show configuration | |
+| `/obsidian:config show` | Show config (verbose) | `/obsidian:config show --verbose` |
+| `/obsidian:config show --format json` | JSON output | |
+| `/obsidian:config validate` | Validate settings.yaml | |
+| `/obsidian:config create` | Create new settings | `/obsidian:config create --methodology para` |
+| `/obsidian:config methodologies` | List methodologies | |
+| `/obsidian:config edit` | Open in editor | |
+| `/obsidian:config diff` | Compare with defaults | |
 
-**Frontmatter**
-| Command | Description |
-|---------|-------------|
-| `/frontmatter list` | List all core properties |
-| `/frontmatter list --type NAME` | Show properties for a note type |
-| `/frontmatter add --property NAME --type TYPE` | Add property to note type |
-| `/frontmatter remove --property NAME --type TYPE` | Remove property from note type |
+### Validation (`/obsidian:validate`)
 
-**Templates**
-| Command | Description |
-|---------|-------------|
-| `/templates list` | List all templates |
-| `/templates show NAME` | Show template content |
-| `/templates create --name NAME --type TYPE` | Create new template |
-| `/templates delete --name NAME` | Delete template |
+| Command | Description | Example |
+|---------|-------------|---------|
+| `/obsidian:validate` | Validate frontmatter | |
+| `/obsidian:validate --fix` | Auto-fix issues | |
+| `/obsidian:validate --type project` | Validate note type | |
+| `/obsidian:validate --path Atlas/` | Validate path | |
+| `/obsidian:validate --report report.md` | Save report | |
+
+### Note Types (`/obsidian:types`)
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `/obsidian:types` | List all types | |
+| `/obsidian:types list` | List all types | |
+| `/obsidian:types show project` | Show type details | |
+| `/obsidian:types add meeting` | Add new type | `/obsidian:types add meeting --config '{...}'` |
+| `/obsidian:types edit project` | Edit type | |
+| `/obsidian:types remove meeting` | Remove type | |
+| `/obsidian:types wizard` | Interactive wizard | |
+
+### Properties (`/obsidian:props`)
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `/obsidian:props` | List core properties | |
+| `/obsidian:props core` | List core properties | |
+| `/obsidian:props core add rank` | Add core property | |
+| `/obsidian:props core remove rank` | Remove core property | |
+| `/obsidian:props type project` | Type properties | |
+| `/obsidian:props required` | Required properties | `/obsidian:props required --type project` |
+| `/obsidian:props types` | All types with props | |
+
+### Templates (`/obsidian:templates`)
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `/obsidian:templates` | List templates | |
+| `/obsidian:templates list` | List templates | |
+| `/obsidian:templates show map/basic` | Show content | |
+| `/obsidian:templates create meeting` | Create template | |
+| `/obsidian:templates edit meeting` | Edit template | |
+| `/obsidian:templates delete meeting` | Delete template | |
+| `/obsidian:templates apply map/basic Note.md` | Apply template | `/obsidian:templates apply map/basic Note.md --var title=MyNote` |
 
 ## Key Features
 

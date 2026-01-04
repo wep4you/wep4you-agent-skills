@@ -141,13 +141,14 @@ folder_structure:
     - Efforts/Areas/
   calendar: Calendar/daily/
 
-# Default UP links per folder
+# Default UP links per folder (point to _Readme notes in each folder)
 up_links:
-  "Atlas/Dots/": "[[Atlas/Maps/Dots]]"
-  "Atlas/Sources/": "[[Atlas/Maps/Sources]]"
-  "Efforts/Projects/": "[[Atlas/Maps/Projects]]"
-  "Efforts/Areas/": "[[Atlas/Maps/Areas]]"
-  "Calendar/daily/": "[[Atlas/Maps/Calendar]]"
+  "Atlas/Dots/": "[[Atlas/Dots/_Readme]]"
+  "Atlas/Sources/": "[[Atlas/Sources/_Readme]]"
+  "Atlas/Maps/": "[[Atlas/_Readme]]"
+  "Efforts/Projects/": "[[Efforts/Projects/_Readme]]"
+  "Efforts/Areas/": "[[Efforts/Areas/_Readme]]"
+  "Calendar/daily/": "[[Calendar/daily/_Readme]]"
 
 # =============================================================================
 # EXTENDED DOCUMENTATION (Additional context, not used by init_vault.py)

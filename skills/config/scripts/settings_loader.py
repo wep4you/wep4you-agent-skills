@@ -304,6 +304,29 @@ def should_exclude(settings: Settings, file_path: Path) -> bool:
     if file_path.name in settings.exclude_files:
         return True
 
+    # Always exclude system documentation files in vault root
+    # These files use type: "system" and don't follow note type validation rules
+    system_files = {"AGENTS.md", "CLAUDE.md", "README.md", "Home.md"}
+    if file_path.name in system_files:
+        # Only exclude if in vault root (check no subfolder in path)
+        # If none of these methodology folders appear in path, file is in vault root
+        methodology_folders = [
+            "Atlas/",
+            "Calendar/",
+            "Efforts/",
+            "Projects/",
+            "Areas/",
+            "Resources/",
+            "Archives/",
+            "Notes/",
+            "Daily/",
+            "Zettel/",
+            "References/",
+            "Literature/",
+        ]
+        if not any(folder in file_path_str for folder in methodology_folders):
+            return True
+
     return False
 
 

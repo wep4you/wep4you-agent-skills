@@ -155,6 +155,11 @@ class VaultValidator:
             if pattern in relative_path:
                 return True
 
+        # Exclude system files in vault root
+        default_exclude_files = ["AGENTS.md", "CLAUDE.md", "README.md"]
+        if file_path.name in default_exclude_files and file_path.parent == self.vault_path:
+            return True
+
         return False
 
     def scan_vault(self, path_filter: str | None = None) -> list[Path]:

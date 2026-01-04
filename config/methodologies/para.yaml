@@ -96,12 +96,12 @@ folder_structure:
   resources: Resources/
   archives: Archives/
 
-# Default UP links per folder
+# Default UP links per folder (point to _Readme notes in each folder)
 up_links:
-  "Projects/": "[[Projects]]"
-  "Areas/": "[[Areas]]"
-  "Resources/": "[[Resources]]"
-  "Archives/": "[[Archives]]"
+  "Projects/": "[[Projects/_Readme]]"
+  "Areas/": "[[Areas/_Readme]]"
+  "Resources/": "[[Resources/_Readme]]"
+  "Archives/": "[[Archives/_Readme]]"
 
 # =============================================================================
 # EXTENDED DOCUMENTATION (Additional context, not used by init_vault.py)

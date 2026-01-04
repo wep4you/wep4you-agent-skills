@@ -96,10 +96,12 @@ folder_structure:
   fleeting: Fleeting/
   references: References/
 
-# Default UP links per folder
+# Default UP links per folder (point to _Readme notes in each folder)
 up_links:
-  "Permanent/": "[[Index]]"
-  "Literature/": "[[Literature Index]]"
+  "Permanent/": "[[Permanent/_Readme]]"
+  "Literature/": "[[Literature/_Readme]]"
+  "Fleeting/": "[[Fleeting/_Readme]]"
+  "References/": "[[References/_Readme]]"
 
 # =============================================================================
 # EXTENDED DOCUMENTATION (Additional context, not used by init_vault.py)

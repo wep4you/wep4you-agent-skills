@@ -1,7 +1,7 @@
 {
   "name": "obsidian",
   "description": "Obsidian vault validation and PKM workflow tools. Includes vault initialization, configuration management, note type definitions, property management, templates, and frontmatter validation.",
-  "version": "1.0.0",
+  "version": "1.0.10",
   "author": {
     "name": "Peter Weiss",
     "url": "https://github.com/wep4you"
@@ -29,34 +29,5 @@
   ],
   "commands": [
     "./commands/"
-  ],
-  "deprecation": {
-    "version": "1.0.0",
-    "deprecated_commands": {
-      "frontmatter": {
-        "replacement": "obsidian:props",
-        "removed_in": "2.0.0"
-      },
-      "note-types": {
-        "replacement": "obsidian:types",
-        "removed_in": "2.0.0"
-      },
-      "config-show": {
-        "replacement": "obsidian:config show",
-        "removed_in": "2.0.0"
-      },
-      "config-create": {
-        "replacement": "obsidian:config create",
-        "removed_in": "2.0.0"
-      },
-      "config-validate": {
-        "replacement": "obsidian:config validate",
-        "removed_in": "2.0.0"
-      },
-      "config-methodologies": {
-        "replacement": "obsidian:config methodologies",
-        "removed_in": "2.0.0"
-      }
-    }
-  }
+  ]
 }

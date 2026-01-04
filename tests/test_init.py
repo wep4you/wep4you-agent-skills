@@ -20,15 +20,21 @@ from init_vault import (
     METHODOLOGIES,
     NoteTypeConfig,
     WizardConfig,
+    apply_ranking_system,
     build_settings_yaml,
     choose_methodology_interactive,
+    create_agent_docs,
     create_folder_structure,
+    create_gitignore,
     create_home_note,
     create_readme,
     create_sample_notes,
     create_settings_yaml,
     detect_existing_vault,
+    generate_agents_md,
+    generate_claude_md,
     generate_sample_note,
+    init_git_repo,
     init_vault,
     main,
     print_methodologies,
@@ -37,9 +43,11 @@ from init_vault import (
     wizard_step_confirm,
     wizard_step_custom_note_types,
     wizard_step_frontmatter,
+    wizard_step_git_init,
     wizard_step_note_types,
     wizard_step_per_type_properties,
     wizard_step_quick_or_custom,
+    wizard_step_ranking_system,
 )
 
 
@@ -461,9 +469,10 @@ class TestMainCLI:
         args = [str(vault_path), "--wizard"]
 
         # Mock is_interactive to return True and the full wizard flow
+        # Input sequence: methodology, setup mode, ranking system, git init, confirm
         with patch("sys.argv", ["init_vault.py", *args]):
             with patch("init_vault.is_interactive", return_value=True):
-                with patch("builtins.input", side_effect=["zettelkasten", "q", "y"]):
+                with patch("builtins.input", side_effect=["zettelkasten", "q", "r", "n", "y"]):
                     exit_code = main()
 
         assert exit_code == 0
@@ -630,27 +639,35 @@ class TestResetVault:
     """Tests for vault reset functionality"""
 
     def test_reset_removes_content(self, tmp_path: Path) -> None:
-        """Test that reset removes all content"""
+        """Test that reset removes all content except protected folders"""
         vault_path = tmp_path / "reset"
         vault_path.mkdir()
         (vault_path / "Notes").mkdir()
         (vault_path / "test.md").write_text("# Test")
 
-        reset_vault(vault_path, keep_obsidian=True)
+        reset_vault(vault_path)
 
         assert not (vault_path / "Notes").exists()
         assert not (vault_path / "test.md").exists()
 
-    def test_reset_keeps_obsidian(self, tmp_path: Path) -> None:
-        """Test that reset keeps .obsidian folder"""
-        vault_path = tmp_path / "keep-obsidian"
+    def test_reset_keeps_protected_folders(self, tmp_path: Path) -> None:
+        """Test that reset keeps protected folders (.obsidian, .git, .github, .vscode)"""
+        vault_path = tmp_path / "keep-protected"
         vault_path.mkdir()
         (vault_path / ".obsidian").mkdir()
+        (vault_path / ".git").mkdir()
+        (vault_path / ".github").mkdir()
+        (vault_path / ".vscode").mkdir()
         (vault_path / "Notes").mkdir()
 
-        reset_vault(vault_path, keep_obsidian=True)
+        reset_vault(vault_path)
 
+        # Protected folders are preserved
         assert (vault_path / ".obsidian").exists()
+        assert (vault_path / ".git").exists()
+        assert (vault_path / ".github").exists()
+        assert (vault_path / ".vscode").exists()
+        # Regular content is removed
         assert not (vault_path / "Notes").exists()
 
 
@@ -723,6 +740,240 @@ class TestWizardSteps:
             result = wizard_step_confirm(config)
         assert result is False
 
+    def test_wizard_step_ranking_system_rank(self) -> None:
+        """Test ranking system selection - rank"""
+        with patch("builtins.input", return_value="r"):
+            result = wizard_step_ranking_system()
+        assert result == "rank"
+
+    def test_wizard_step_ranking_system_default(self) -> None:
+        """Test ranking system selection - default (empty = rank)"""
+        with patch("builtins.input", return_value=""):
+            result = wizard_step_ranking_system()
+        assert result == "rank"
+
+    def test_wizard_step_ranking_system_priority(self) -> None:
+        """Test ranking system selection - priority"""
+        with patch("builtins.input", return_value="p"):
+            result = wizard_step_ranking_system()
+        assert result == "priority"
+
+    def test_wizard_step_git_init_yes(self) -> None:
+        """Test git init selection - yes"""
+        with patch("builtins.input", return_value="y"):
+            result = wizard_step_git_init()
+        assert result is True
+
+    def test_wizard_step_git_init_no(self) -> None:
+        """Test git init selection - no"""
+        with patch("builtins.input", return_value="n"):
+            result = wizard_step_git_init()
+        assert result is False
+
+    def test_wizard_step_git_init_default(self) -> None:
+        """Test git init selection - default (empty = no)"""
+        with patch("builtins.input", return_value=""):
+            result = wizard_step_git_init()
+        assert result is False
+
+
+class TestGitInit:
+    """Tests for git initialization functions"""
+
+    def test_create_gitignore(self, tmp_path: Path) -> None:
+        """Test .gitignore file creation"""
+        vault_path = tmp_path / "git-test"
+        vault_path.mkdir()
+
+        create_gitignore(vault_path)
+
+        gitignore = vault_path / ".gitignore"
+        assert gitignore.exists()
+
+        content = gitignore.read_text()
+        assert ".obsidian/workspace.json" in content
+        assert ".DS_Store" in content
+        assert ".claude/logs/" in content
+        assert ".claude/backups/" in content
+
+    def test_init_git_repo_already_exists(self, tmp_path: Path) -> None:
+        """Test git init skips if .git already exists"""
+        vault_path = tmp_path / "existing-git"
+        vault_path.mkdir()
+        (vault_path / ".git").mkdir()
+
+        result = init_git_repo(vault_path, "minimal")
+        assert result is True  # Returns True (already initialized)
+
+    def test_init_git_repo_dry_run(self, tmp_path: Path) -> None:
+        """Test git init dry run mode"""
+        vault_path = tmp_path / "git-dry-run"
+        vault_path.mkdir()
+
+        result = init_git_repo(vault_path, "minimal", dry_run=True)
+        assert result is True
+        # .git should not be created in dry run
+        assert not (vault_path / ".git").exists()
+
+
+class TestApplyRankingSystem:
+    """Tests for apply_ranking_system function"""
+
+    def test_apply_rank_to_project(self) -> None:
+        """Test applying rank system adds rank as required"""
+        note_types = {
+            "project": {
+                "properties": {
+                    "additional_required": ["status"],
+                    "optional": ["deadline", "priority"],
+                }
+            },
+            "note": {"properties": {"additional_required": [], "optional": []}},
+        }
+        result = apply_ranking_system(note_types, "rank")
+
+        # Project should have rank added, priority removed from optional
+        assert "rank" in result["project"]["properties"]["additional_required"]
+        assert "priority" not in result["project"]["properties"]["optional"]
+        # Note type should be unchanged
+        assert result["note"]["properties"]["additional_required"] == []
+
+    def test_apply_priority_to_project(self) -> None:
+        """Test applying priority system moves priority to required"""
+        note_types = {
+            "project": {
+                "properties": {
+                    "additional_required": ["status"],
+                    "optional": ["deadline", "priority"],
+                }
+            },
+        }
+        result = apply_ranking_system(note_types, "priority")
+
+        # Priority should be in required, not optional
+        assert "priority" in result["project"]["properties"]["additional_required"]
+        assert "priority" not in result["project"]["properties"]["optional"]
+
+    def test_apply_rank_to_area(self) -> None:
+        """Test that area type also gets ranking applied"""
+        note_types = {
+            "area": {
+                "properties": {
+                    "additional_required": [],
+                    "optional": [],
+                }
+            },
+        }
+        result = apply_ranking_system(note_types, "rank")
+        assert "rank" in result["area"]["properties"]["additional_required"]
+
+    def test_original_not_modified(self) -> None:
+        """Test that original note_types is not modified"""
+        note_types = {
+            "project": {
+                "properties": {
+                    "additional_required": ["status"],
+                    "optional": ["priority"],
+                }
+            },
+        }
+        apply_ranking_system(note_types, "rank")
+        # Original should still have priority in optional
+        assert "priority" in note_types["project"]["properties"]["optional"]
+        assert "rank" not in note_types["project"]["properties"]["additional_required"]
+
+
+class TestAgentDocs:
+    """Tests for AGENTS.md and CLAUDE.md generation"""
+
+    def test_generate_agents_md_content(self) -> None:
+        """Test AGENTS.md content generation - agent-focused instructions"""
+        note_types = {
+            "project": {
+                "description": "Active projects",
+                "folder_hints": ["Projects/"],
+                "properties": {
+                    "additional_required": ["status", "rank"],
+                    "optional": ["deadline"],
+                },
+                "validation": {"allow_empty_up": False},
+            }
+        }
+        # Note: note_types and core_properties are kept for API compat but not used
+        content = generate_agents_md("para", note_types, ["type", "up", "created"])
+
+        # Core structure (following AGENTS.md standard)
+        assert "# AGENTS.md" in content
+        assert "PARA" in content  # Methodology name
+        assert "## Project Overview" in content
+        assert "settings.yaml" in content  # References settings.yaml
+        # Commands section
+        assert "## Commands" in content
+        assert "/obsidian:validate" in content
+        # Project structure
+        assert "## Project Structure" in content
+        # Code style (frontmatter)
+        assert "## Code Style" in content
+        assert "type:" in content
+        assert "created:" in content
+        # Testing section
+        assert "## Testing" in content
+        # Boundaries section (three-tier)
+        assert "## Boundaries" in content
+        assert "Always Do" in content
+        assert "Ask First" in content
+        assert "Never Do" in content
+        # UP-Links
+        assert "## UP-Links" in content
+        assert "logical parent" in content
+        assert "MOC" in content
+        # Git workflow
+        assert "## Git Workflow" in content
+
+    def test_generate_claude_md_content(self) -> None:
+        """Test CLAUDE.md content generation - minimal with @AGENTS.md include"""
+        content = generate_claude_md()
+
+        # Minimal structure with AGENTS.md reference
+        assert "# CLAUDE.md" in content
+        assert "@AGENTS.md" in content  # Include directive for AGENTS.md
+        # Claude-specific section
+        assert "## Claude-Specific" in content
+        assert "/memory" in content
+        # Obsidian plugin commands
+        assert "## Obsidian Plugin" in content
+        assert "/obsidian:validate" in content
+
+    def test_create_agent_docs(self, tmp_path: Path) -> None:
+        """Test creating agent docs files"""
+        vault_path = tmp_path / "agent-docs-test"
+        vault_path.mkdir()
+
+        note_types = METHODOLOGIES["minimal"]["note_types"]
+        core_properties = METHODOLOGIES["minimal"]["core_properties"]
+
+        create_agent_docs(vault_path, "minimal", note_types, core_properties)
+
+        assert (vault_path / "AGENTS.md").exists()
+        assert (vault_path / "CLAUDE.md").exists()
+
+        agents_content = (vault_path / "AGENTS.md").read_text()
+        assert "Minimal" in agents_content
+
+    def test_create_agent_docs_dry_run(self, tmp_path: Path) -> None:
+        """Test agent docs dry run"""
+        vault_path = tmp_path / "agent-docs-dry"
+        vault_path.mkdir()
+
+        note_types = METHODOLOGIES["minimal"]["note_types"]
+        core_properties = METHODOLOGIES["minimal"]["core_properties"]
+
+        create_agent_docs(vault_path, "minimal", note_types, core_properties, dry_run=True)
+
+        # Files should not be created in dry run
+        assert not (vault_path / "AGENTS.md").exists()
+        assert not (vault_path / "CLAUDE.md").exists()
+
 
 class TestSampleNotes:
     """Tests for sample note generation"""
@@ -763,6 +1014,42 @@ class TestSampleNotes:
 
         assert 'author: "Unknown"' in content
         assert 'url: ""' in content
+
+    def test_generate_sample_note_with_rank(self) -> None:
+        """Test sample note with rank property"""
+        note_type_config = {
+            "description": "Project note",
+            "folder_hints": ["Projects/"],
+            "properties": {"additional_required": ["status", "rank"], "optional": []},
+        }
+        content = generate_sample_note(
+            "project",
+            note_type_config,
+            ["type", "created"],
+            "para",
+            {},
+        )
+
+        assert 'status: "active"' in content
+        assert "rank: 3" in content  # Default middle rank
+
+    def test_generate_sample_note_with_priority(self) -> None:
+        """Test sample note with priority property"""
+        note_type_config = {
+            "description": "Project note",
+            "folder_hints": ["Projects/"],
+            "properties": {"additional_required": ["status", "priority"], "optional": []},
+        }
+        content = generate_sample_note(
+            "project",
+            note_type_config,
+            ["type", "created"],
+            "para",
+            {},
+        )
+
+        assert 'status: "active"' in content
+        assert 'priority: "medium"' in content
 
     def test_create_sample_notes(self, tmp_path: Path) -> None:
         """Test creating sample notes"""

@@ -340,10 +340,13 @@ class TestTemplateGeneration:
         init_vault(tmp_path, "lyt-ace", dry_run=False, use_defaults=True)
 
         # Check project template has optional properties as comments
+        # Note: With default ranking_system="rank", priority is not optional
+        # (it's replaced by rank as additional_required)
         project_template = tmp_path / "x" / "templates" / "project.md"
         content = project_template.read_text()
         assert "# deadline:" in content, "Project template missing deadline comment"
-        assert "# priority:" in content, "Project template missing priority comment"
+        # rank is now required (additional_required), not optional
+        assert "rank:" in content, "Project template missing rank property"
 
     def test_generate_template_note_structure(self) -> None:
         """Test the generate_template_note function output structure."""
