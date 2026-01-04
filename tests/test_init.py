@@ -651,7 +651,7 @@ class TestResetVault:
         assert not (vault_path / "test.md").exists()
 
     def test_reset_keeps_protected_folders(self, tmp_path: Path) -> None:
-        """Test that reset keeps protected folders (.obsidian, .git, .github, .vscode)"""
+        """Test that reset keeps protected folders (.obsidian, .github, .vscode) but deletes .git"""
         vault_path = tmp_path / "keep-protected"
         vault_path.mkdir()
         (vault_path / ".obsidian").mkdir()
@@ -664,9 +664,10 @@ class TestResetVault:
 
         # Protected folders are preserved
         assert (vault_path / ".obsidian").exists()
-        assert (vault_path / ".git").exists()
         assert (vault_path / ".github").exists()
         assert (vault_path / ".vscode").exists()
+        # .git is intentionally removed to allow fresh initialization
+        assert not (vault_path / ".git").exists()
         # Regular content is removed
         assert not (vault_path / "Notes").exists()
 

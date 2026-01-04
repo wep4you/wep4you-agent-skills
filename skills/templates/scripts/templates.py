@@ -27,6 +27,48 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+import yaml
+
+
+def _load_vault_settings(vault_path: Path) -> dict[str, Any] | None:
+    """Load vault settings to get note type folder hints.
+
+    Args:
+        vault_path: Path to the vault
+
+    Returns:
+        Settings dict or None if not found
+    """
+    settings_path = vault_path / ".claude" / "settings.yaml"
+    if settings_path.exists():
+        try:
+            return yaml.safe_load(settings_path.read_text())
+        except Exception:
+            return None
+    return None
+
+
+def _get_folder_for_type(settings: dict[str, Any] | None, note_type: str) -> str | None:
+    """Get the default folder for a note type from settings.
+
+    Args:
+        settings: Vault settings dict
+        note_type: Note type name (e.g., 'area', 'project')
+
+    Returns:
+        Folder path (e.g., 'Efforts/Areas/') or None
+    """
+    if not settings:
+        return None
+
+    note_types = settings.get("note_types", {})
+    type_config = note_types.get(note_type, {})
+    folder_hints = type_config.get("folder_hints", [])
+
+    if folder_hints:
+        return folder_hints[0]
+    return None
+
 
 class TemplateManager:
     """Manages Obsidian note templates with Templater support"""
@@ -239,12 +281,16 @@ class TemplateManager:
         """Apply template to file
 
         Args:
-            template_name: Template name
-            target_file: Target file path (relative to vault)
+            template_name: Template name (e.g., 'area', 'project/basic')
+            target_file: Target file path (relative to vault, or just filename)
             variables: Variable substitutions
 
         Returns:
             True if applied successfully
+
+        Note:
+            If target_file is just a filename (no directory), the folder will be
+            auto-detected from the template type's folder_hints in settings.yaml.
         """
         template_path = self._resolve_template_path(template_name)
         if not template_path:
@@ -252,6 +298,21 @@ class TemplateManager:
             return False
 
         content = template_path.read_text()
+
+        # Auto-detect folder if target_file has no directory
+        target = Path(target_file)
+        if target.parent == Path(".") or str(target.parent) == ".":
+            # No directory specified - try to get folder from template type
+            # Template type is the first part of template_name (e.g., 'area' from 'area/basic')
+            template_type = template_name.split("/")[0] if "/" in template_name else template_name
+
+            # Load settings and get folder for this type
+            settings = _load_vault_settings(self.vault_path)
+            folder = _get_folder_for_type(settings, template_type)
+
+            if folder:
+                target_file = f"{folder}{target.name}"
+                print(f"📁 Auto-detected folder: {folder}")
 
         # Substitute variables
         if variables is None:

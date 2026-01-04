@@ -89,10 +89,14 @@ class WizardConfig:
 # The definitions are loaded from YAML files in config/methodologies/
 
 # Folders protected during vault reset (never deleted)
-PROTECTED_FOLDERS = frozenset({".obsidian", ".git", ".github", ".vscode"})
+# Note: .git is NOT protected - reset should allow fresh git initialization
+PROTECTED_FOLDERS = frozenset({".obsidian", ".github", ".vscode"})
+
+# Folders to exclude from backups (large or regenerable)
+BACKUP_EXCLUDE_FOLDERS = frozenset({".obsidian", ".git", ".github", ".vscode"})
 
 # Files protected during vault reset (kept and updated instead of deleted)
-PROTECTED_FILES = frozenset({"README.md", "AGENTS.md", "CLAUDE.md", "Home.md"})
+PROTECTED_FILES = frozenset({"README.md", "AGENTS.md", "CLAUDE.md", "Home.md", ".gitignore"})
 
 # Note types that support ranking (project-like notes)
 RANKABLE_NOTE_TYPES = frozenset({"project", "area"})
@@ -277,8 +281,8 @@ def create_vault_backup(vault_path: Path) -> Path | None:
     try:
         with zipfile.ZipFile(backup_path, "w", zipfile.ZIP_DEFLATED) as zipf:
             for item in vault_path.rglob("*"):
-                # Skip protected folders (.obsidian, .git, .github, .vscode)
-                if any(protected in item.parts for protected in PROTECTED_FOLDERS):
+                # Skip folders excluded from backup (.obsidian, .git, .github, .vscode)
+                if any(excluded in item.parts for excluded in BACKUP_EXCLUDE_FOLDERS):
                     continue
                 if item.is_file():
                     arcname = item.relative_to(vault_path)
@@ -296,9 +300,10 @@ def reset_vault(vault_path: Path) -> None:
     """Reset vault to clean state.
 
     Creates a backup ZIP before deleting any files.
-    Protected folders (.obsidian, .git, .github, .vscode) are preserved.
-    Protected files (README.md, AGENTS.md, CLAUDE.md, Home.md) are preserved
-    and will be updated during initialization.
+    Protected folders (.obsidian, .github, .vscode) are preserved.
+    Note: .git is deleted to allow fresh git initialization.
+    Protected files (README.md, AGENTS.md, CLAUDE.md, Home.md, .gitignore)
+    are preserved and will be updated during initialization.
 
     Args:
         vault_path: Path to the vault
@@ -311,7 +316,8 @@ def reset_vault(vault_path: Path) -> None:
     print("\nResetting vault...")
 
     for item in vault_path.iterdir():
-        # Skip protected system folders (.obsidian, .git, .github, .vscode)
+        # Skip protected system folders (.obsidian, .github, .vscode)
+        # Note: .git is NOT protected - it will be deleted for fresh init
         if item.name in PROTECTED_FOLDERS:
             print(f"  - Keeping: {item.name}/")
             continue
@@ -746,12 +752,19 @@ def wizard_step_git_init() -> bool:  # pragma: no cover
         print("  Please enter 'y' or 'n'.")
 
 
-def create_gitignore(vault_path: Path) -> None:
-    """Create .gitignore file for the vault.
+def create_gitignore(vault_path: Path, dry_run: bool = False) -> None:
+    """Create .gitignore file for the vault if it doesn't exist.
 
     Args:
         vault_path: Path to the vault root
+        dry_run: If True, only print what would be done
     """
+    gitignore_path = vault_path / ".gitignore"
+
+    # Skip if already exists
+    if gitignore_path.exists():
+        return
+
     gitignore_content = """# Obsidian
 .obsidian/workspace.json
 .obsidian/workspace-mobile.json
@@ -772,14 +785,18 @@ Thumbs.db
 *.swo
 *~
 """
-    gitignore_path = vault_path / ".gitignore"
+    if dry_run:
+        print("[DRY RUN] Would create .gitignore")
+        return
+
     gitignore_path.write_text(gitignore_content)
+    print("✓ Created: .gitignore")
 
 
 def init_git_repo(vault_path: Path, methodology: str, dry_run: bool = False) -> bool:
     """Initialize a git repository in the vault.
 
-    Creates .gitignore, initializes git, and makes initial commit.
+    Initializes git and makes initial commit. Assumes .gitignore already exists.
 
     Args:
         vault_path: Path to the vault root
@@ -808,15 +825,10 @@ def init_git_repo(vault_path: Path, methodology: str, dry_run: bool = False) -> 
 
     if dry_run:
         print("[DRY RUN] Would initialize git repository")
-        print("[DRY RUN] Would create .gitignore")
         print(f'[DRY RUN] Would commit: "Initial vault setup with {method_name}"')
         return True
 
     try:
-        # Create .gitignore first
-        create_gitignore(vault_path)
-        print("✓ Created: .gitignore")
-
         # Initialize git repo
         # Security: git_path is from shutil.which(), args are hardcoded
         subprocess.run(  # noqa: S603
@@ -2684,6 +2696,9 @@ def init_vault(
 
     # Create MOC file (_<FolderName>_MOC.md) in each content folder
     create_folder_mocs(vault_path, methodology, dry_run, note_types_filter)
+
+    # Create .gitignore (always, regardless of git init choice)
+    create_gitignore(vault_path, dry_run)
 
     # Initialize git repository if requested
     if config is not None and config.init_git:
