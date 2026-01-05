@@ -490,9 +490,7 @@ class TestFolderMOCGeneration:
             moc_file = tmp_path / folder / get_moc_filename(folder_name)
             content = moc_file.read_text()
             expected_embed = f"![[all_bases.base#{folder_name}]]"
-            assert expected_embed in content, (
-                f"MOC in {folder} missing embed: {expected_embed}"
-            )
+            assert expected_embed in content, f"MOC in {folder} missing embed: {expected_embed}"
 
     def test_para_folder_descriptions(self, tmp_path: Path) -> None:
         """Test PARA folders have correct descriptions."""

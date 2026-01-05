@@ -830,26 +830,26 @@ note_types:
 
         # Area template
         (x_templates / "area.md").write_text(
-            '''---
+            """---
 type: "{{type}}"
 up: "[[{{up}}]]"
 created: {{date}}
 ---
 
 # {{title}}
-'''
+"""
         )
 
         # Project template
         (x_templates / "project.md").write_text(
-            '''---
+            """---
 type: "{{type}}"
 up: "[[{{up}}]]"
 created: {{date}}
 ---
 
 # {{title}}
-'''
+"""
         )
 
         return vault

@@ -42,9 +42,7 @@ COLOR_DIM = "\033[2m"
 COLOR_RESET = "\033[0m"
 
 
-def cmd_list(
-    manager: TemplateManager, output_format: str = "text", source: str = "all"
-) -> int:
+def cmd_list(manager: TemplateManager, output_format: str = "text", source: str = "all") -> int:
     """List templates.
 
     Args:
