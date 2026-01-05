@@ -779,3 +779,167 @@ class TestXTemplatesDirectory:
         # x/templates should take priority
         assert content is not None
         assert "From x/templates" in content
+
+
+class TestTemplateApplyIntegration:
+    """Integration tests for template apply functionality.
+
+    These tests verify bugs found during manual testing:
+    - Auto-folder detection from template type
+    - Auto-UP link set to folder MOC
+    - Correct bracket formatting in UP links
+    """
+
+    @pytest.fixture
+    def vault_with_settings(self, tmp_path: Path) -> Path:
+        """Create vault with settings.yaml for folder hints."""
+        vault = tmp_path / "vault"
+        vault.mkdir()
+
+        # Create .claude/settings.yaml with folder hints
+        claude_dir = vault / ".claude"
+        claude_dir.mkdir()
+        (claude_dir / "settings.yaml").write_text(
+            """
+version: "1.0"
+methodology: lyt-ace
+note_types:
+  area:
+    description: Area notes
+    folder_hints:
+      - Efforts/Areas/
+  project:
+    description: Project notes
+    folder_hints:
+      - Efforts/Projects/
+  map:
+    description: Map notes
+    folder_hints:
+      - Atlas/Maps/
+"""
+        )
+
+        # Create folder structure
+        (vault / "Efforts" / "Areas").mkdir(parents=True)
+        (vault / "Efforts" / "Projects").mkdir(parents=True)
+        (vault / "Atlas" / "Maps").mkdir(parents=True)
+
+        # Create vault templates (in x/templates as created by init)
+        x_templates = vault / "x" / "templates"
+        x_templates.mkdir(parents=True)
+
+        # Area template
+        (x_templates / "area.md").write_text(
+            '''---
+type: "{{type}}"
+up: "[[{{up}}]]"
+created: {{date}}
+---
+
+# {{title}}
+'''
+        )
+
+        # Project template
+        (x_templates / "project.md").write_text(
+            '''---
+type: "{{type}}"
+up: "[[{{up}}]]"
+created: {{date}}
+---
+
+# {{title}}
+'''
+        )
+
+        return vault
+
+    def test_apply_template_auto_folder_detection(self, vault_with_settings: Path) -> None:
+        """Test that template apply auto-detects folder from template type.
+
+        Bug: /obsidian:templates apply area Note.md created file in root
+        Expected: Should create in Efforts/Areas/Note.md
+        """
+        manager = TemplateManager(str(vault_with_settings))
+
+        # Apply template with just filename (no folder)
+        result = manager.apply_template("area", "TestNote.md")
+
+        assert result is True
+        # File should be created in Efforts/Areas/, not root
+        assert (vault_with_settings / "Efforts" / "Areas" / "TestNote.md").exists()
+        assert not (vault_with_settings / "TestNote.md").exists()
+
+    def test_apply_template_auto_up_link_to_moc(self, vault_with_settings: Path) -> None:
+        """Test that template apply auto-sets UP link to folder's MOC.
+
+        Bug: UP link was empty when not provided
+        Expected: Should auto-set to [[_Areas_MOC]] for area template
+        """
+        manager = TemplateManager(str(vault_with_settings))
+
+        # Apply template without providing UP variable
+        result = manager.apply_template("area", "TestNote.md")
+
+        assert result is True
+        content = (vault_with_settings / "Efforts" / "Areas" / "TestNote.md").read_text()
+
+        # UP should be auto-set to folder's MOC
+        assert "[[_Areas_MOC]]" in content
+        # Should NOT have double brackets
+        assert "[[[[" not in content
+        assert "]]]]" not in content
+
+    def test_apply_template_up_link_correct_brackets(self, vault_with_settings: Path) -> None:
+        """Test that UP link has correct bracket formatting.
+
+        Bug: UP link was [[[[_Areas_MOC]]]] instead of [[_Areas_MOC]]
+        Cause: Template has up: "[[{{up}}]]" and code added brackets to variable
+        """
+        manager = TemplateManager(str(vault_with_settings))
+
+        result = manager.apply_template("project", "MyProject.md")
+
+        assert result is True
+        content = (vault_with_settings / "Efforts" / "Projects" / "MyProject.md").read_text()
+
+        # Check for correct format: up: "[[_Projects_MOC]]"
+        assert 'up: "[[_Projects_MOC]]"' in content
+        # Should NOT have double brackets
+        assert "[[[[" not in content
+
+    def test_apply_template_explicit_folder_still_works(self, vault_with_settings: Path) -> None:
+        """Test that explicit folder path still works."""
+        manager = TemplateManager(str(vault_with_settings))
+
+        # Apply with explicit path
+        result = manager.apply_template("area", "Efforts/Areas/ExplicitPath.md")
+
+        assert result is True
+        assert (vault_with_settings / "Efforts" / "Areas" / "ExplicitPath.md").exists()
+
+    def test_apply_template_explicit_up_not_overwritten(self, vault_with_settings: Path) -> None:
+        """Test that explicit UP variable is not overwritten."""
+        manager = TemplateManager(str(vault_with_settings))
+
+        # Apply with explicit UP
+        result = manager.apply_template("area", "TestNote.md", variables={"up": "CustomParent"})
+
+        assert result is True
+        content = (vault_with_settings / "Efforts" / "Areas" / "TestNote.md").read_text()
+
+        # Should use provided UP, not auto-detected
+        assert "[[CustomParent]]" in content
+        assert "_Areas_MOC" not in content
+
+    def test_apply_template_type_variable_set(self, vault_with_settings: Path) -> None:
+        """Test that type variable is auto-set from template name."""
+        manager = TemplateManager(str(vault_with_settings))
+
+        result = manager.apply_template("area", "TestNote.md")
+
+        assert result is True
+        content = (vault_with_settings / "Efforts" / "Areas" / "TestNote.md").read_text()
+
+        # Type should be set from template name
+        assert 'type: "area"' in content

@@ -1427,3 +1427,204 @@ class TestBuildSettingsYamlWithConfig:
         assert settings["core_properties"]["optional"] == ["tags"]
         assert settings["core_properties"]["custom"] == ["priority"]
         assert "priority" in settings["core_properties"]["all"]
+
+
+class TestManualTestingBugfixesIntegration:
+    """Integration tests for bugs found during manual testing.
+
+    These tests ensure regressions don't occur for fixes made during manual testing.
+    """
+
+    # HOME.md integration tests
+
+    def test_home_md_filename_is_uppercase(self, tmp_path: Path) -> None:
+        """Bug: HOME.md should be uppercase, not Home.md"""
+        vault_path = tmp_path / "home-test"
+        init_vault(vault_path, "lyt-ace", dry_run=False)
+
+        # Check actual filenames in directory (macOS is case-insensitive for exists())
+        md_files = [f.name for f in vault_path.iterdir() if f.suffix == ".md"]
+        # Should be HOME.md (uppercase)
+        assert "HOME.md" in md_files
+        # Should NOT contain Home.md (lowercase)
+        assert "Home.md" not in md_files
+
+    def test_home_md_date_substituted_not_placeholder(self, tmp_path: Path) -> None:
+        """Bug: HOME.md date was {{date}} placeholder instead of actual date"""
+        vault_path = tmp_path / "home-date-test"
+        init_vault(vault_path, "para", dry_run=False)
+
+        content = (vault_path / "HOME.md").read_text()
+
+        # Should NOT contain {{date}} placeholder
+        assert "{{date}}" not in content
+        # Should contain a properly formatted date (YYYY-MM-DD pattern)
+        import re
+
+        assert re.search(r"created: \"?\d{4}-\d{2}-\d{2}\"?", content)
+
+    def test_home_md_has_correct_frontmatter(self, tmp_path: Path) -> None:
+        """Test HOME.md has proper frontmatter structure"""
+        vault_path = tmp_path / "home-frontmatter-test"
+        init_vault(vault_path, "zettelkasten", dry_run=False)
+
+        content = (vault_path / "HOME.md").read_text()
+
+        # Should have type: map
+        assert "type: map" in content
+        # Should have created date
+        assert "created:" in content
+
+    # .gitignore integration tests
+
+    def test_gitignore_created_during_init(self, tmp_path: Path) -> None:
+        """Bug: .gitignore was not created during init"""
+        vault_path = tmp_path / "gitignore-init-test"
+        init_vault(vault_path, "minimal", dry_run=False)
+
+        gitignore = vault_path / ".gitignore"
+        assert gitignore.exists()
+
+    def test_gitignore_created_before_git_init(self, tmp_path: Path) -> None:
+        """Test .gitignore is created even without git init"""
+        vault_path = tmp_path / "gitignore-no-git-test"
+        # Don't pass git=True - just check .gitignore is created
+        init_vault(vault_path, "para", dry_run=False)
+
+        gitignore = vault_path / ".gitignore"
+        assert gitignore.exists()
+        # Should have standard entries
+        content = gitignore.read_text()
+        assert ".obsidian/workspace.json" in content
+
+    def test_gitignore_idempotent(self, tmp_path: Path) -> None:
+        """Test .gitignore creation is idempotent (doesn't duplicate content)"""
+        vault_path = tmp_path / "gitignore-idempotent-test"
+        vault_path.mkdir()
+
+        # Create first time
+        create_gitignore(vault_path)
+        first_content = (vault_path / ".gitignore").read_text()
+
+        # Create second time (should not duplicate)
+        create_gitignore(vault_path)
+        second_content = (vault_path / ".gitignore").read_text()
+
+        assert first_content == second_content
+
+    def test_gitignore_preserved_during_reset(self, tmp_path: Path) -> None:
+        """Bug: .gitignore should be preserved during reset"""
+        vault_path = tmp_path / "gitignore-reset-test"
+        vault_path.mkdir()
+
+        # Create .gitignore with custom content
+        gitignore = vault_path / ".gitignore"
+        gitignore.write_text("# Custom content\n*.log\n")
+
+        # Add some content to reset
+        (vault_path / "Notes").mkdir()
+        (vault_path / "test.md").write_text("# Test")
+
+        # Reset vault (should preserve .gitignore)
+        reset_vault(vault_path)
+
+        # .gitignore should still exist
+        assert gitignore.exists()
+        # Content could be updated but file should exist
+        assert gitignore.read_text()
+
+    # Git behavior integration tests
+
+    def test_git_protected_during_reset_by_default(self, tmp_path: Path) -> None:
+        """Bug: .git should be protected by default during reset"""
+        vault_path = tmp_path / "git-protected-test"
+        vault_path.mkdir()
+        (vault_path / ".git").mkdir()
+        (vault_path / ".git" / "config").write_text("[core]\n")
+        (vault_path / "Notes").mkdir()
+
+        # Reset vault without specifying git behavior
+        reset_vault(vault_path)
+
+        # .git should be preserved
+        assert (vault_path / ".git").exists()
+        assert (vault_path / ".git" / "config").exists()
+        # Regular content should be removed
+        assert not (vault_path / "Notes").exists()
+
+    def test_init_with_git_creates_repository(self, tmp_path: Path) -> None:
+        """Test init_git_repo creates .git directory"""
+        vault_path = tmp_path / "git-init-test"
+        vault_path.mkdir()
+
+        # First create .gitignore (required before git init)
+        create_gitignore(vault_path)
+
+        # Then initialize git
+        result = init_git_repo(vault_path, "minimal")
+
+        assert result is True
+        assert (vault_path / ".git").exists()
+        assert (vault_path / ".gitignore").exists()
+
+    def test_protected_files_preserved_during_reset(self, tmp_path: Path) -> None:
+        """Test PROTECTED_FILES are preserved during reset"""
+        vault_path = tmp_path / "protected-files-test"
+        vault_path.mkdir()
+
+        # Create protected files
+        (vault_path / "README.md").write_text("# Custom README")
+        (vault_path / "AGENTS.md").write_text("# Custom AGENTS")
+        (vault_path / "CLAUDE.md").write_text("# Custom CLAUDE")
+        (vault_path / "HOME.md").write_text("# Custom HOME")
+        (vault_path / ".gitignore").write_text("# Custom gitignore")
+
+        # Create non-protected content
+        (vault_path / "Notes").mkdir()
+        (vault_path / "random.md").write_text("# Random")
+
+        # Reset
+        reset_vault(vault_path)
+
+        # Protected files should still exist
+        assert (vault_path / "README.md").exists()
+        assert (vault_path / "AGENTS.md").exists()
+        assert (vault_path / "CLAUDE.md").exists()
+        assert (vault_path / "HOME.md").exists()
+        assert (vault_path / ".gitignore").exists()
+
+        # Non-protected content should be removed
+        assert not (vault_path / "Notes").exists()
+        assert not (vault_path / "random.md").exists()
+
+    def test_protected_folders_preserved_during_reset(self, tmp_path: Path) -> None:
+        """Test PROTECTED_FOLDERS (.obsidian, .git, .github, .vscode) are preserved"""
+        vault_path = tmp_path / "protected-folders-test"
+        vault_path.mkdir()
+
+        # Create protected folders with content
+        (vault_path / ".obsidian").mkdir()
+        (vault_path / ".obsidian" / "app.json").write_text("{}")
+        (vault_path / ".git").mkdir()
+        (vault_path / ".git" / "config").write_text("[core]")
+        (vault_path / ".github").mkdir()
+        (vault_path / ".github" / "workflows").mkdir()
+        (vault_path / ".vscode").mkdir()
+        (vault_path / ".vscode" / "settings.json").write_text("{}")
+
+        # Create non-protected content
+        (vault_path / "Notes").mkdir()
+
+        # Reset
+        reset_vault(vault_path)
+
+        # All protected folders should exist
+        assert (vault_path / ".obsidian").exists()
+        assert (vault_path / ".obsidian" / "app.json").exists()
+        assert (vault_path / ".git").exists()
+        assert (vault_path / ".git" / "config").exists()
+        assert (vault_path / ".github").exists()
+        assert (vault_path / ".vscode").exists()
+
+        # Non-protected content removed
+        assert not (vault_path / "Notes").exists()
