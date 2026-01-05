@@ -301,22 +301,32 @@ class TemplateManager:
 
         # Auto-detect folder if target_file has no directory
         target = Path(target_file)
+        folder = None
+        template_type = template_name.split("/")[0] if "/" in template_name else template_name
+
         if target.parent == Path(".") or str(target.parent) == ".":
             # No directory specified - try to get folder from template type
-            # Template type is the first part of template_name (e.g., 'area' from 'area/basic')
-            template_type = template_name.split("/")[0] if "/" in template_name else template_name
-
-            # Load settings and get folder for this type
             settings = _load_vault_settings(self.vault_path)
             folder = _get_folder_for_type(settings, template_type)
 
             if folder:
                 target_file = f"{folder}{target.name}"
                 print(f"📁 Auto-detected folder: {folder}")
+        else:
+            # Directory specified - use it for MOC detection
+            folder = str(target.parent) + "/"
 
         # Substitute variables
         if variables is None:
             variables = {}
+
+        # Auto-set UP variable to folder's MOC if not provided
+        if "up" not in variables and folder:
+            # Extract folder name from path (e.g., "Efforts/Areas/" -> "Areas")
+            folder_name = folder.rstrip("/").split("/")[-1]
+            moc_link = f"[[_{folder_name}_MOC]]"
+            variables["up"] = moc_link
+            print(f"🔗 Auto-set UP link: {moc_link}")
 
         # Add default variables
         defaults = {
@@ -324,6 +334,7 @@ class TemplateManager:
             "time": datetime.now().strftime("%H:%M"),
             "datetime": datetime.now().strftime("%Y-%m-%d %H:%M"),
             "title": Path(target_file).stem,
+            "type": template_type,
         }
         variables = {**defaults, **variables}
 

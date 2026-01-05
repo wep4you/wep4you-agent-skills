@@ -342,24 +342,27 @@ class TestCreateReadme:
 
 
 class TestCreateHomeNote:
-    """Test Home.md creation"""
+    """Test HOME.md creation"""
 
     def test_create_home_note(self, tmp_path: Path) -> None:
-        """Test Home.md creation"""
+        """Test HOME.md creation"""
         create_home_note(tmp_path, "lyt-ace", dry_run=False)
 
-        home_path = tmp_path / "Home.md"
+        home_path = tmp_path / "HOME.md"
         assert home_path.exists()
 
         content = home_path.read_text()
         assert "LYT + ACE Framework" in content
         assert "type: map" in content
+        # Verify date is properly substituted (not {{date}})
+        assert "{{date}}" not in content
+        assert "created:" in content
 
     def test_home_note_dry_run(self, tmp_path: Path) -> None:
-        """Test dry-run mode doesn't create Home.md"""
+        """Test dry-run mode doesn't create HOME.md"""
         create_home_note(tmp_path, "minimal", dry_run=True)
 
-        assert not (tmp_path / "Home.md").exists()
+        assert not (tmp_path / "HOME.md").exists()
 
 
 class TestInitVault:
@@ -377,9 +380,9 @@ class TestInitVault:
         # Check settings.yaml (PRIMARY config)
         assert (vault_path / ".claude" / "settings.yaml").exists()
 
-        # Check README and Home
+        # Check README and HOME
         assert (vault_path / "README.md").exists()
-        assert (vault_path / "Home.md").exists()
+        assert (vault_path / "HOME.md").exists()
 
     def test_init_vault_para(self, tmp_path: Path) -> None:
         """Test complete PARA vault initialization"""

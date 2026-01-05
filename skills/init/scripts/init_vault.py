@@ -96,7 +96,7 @@ PROTECTED_FOLDERS = frozenset({".obsidian", ".github", ".vscode"})
 BACKUP_EXCLUDE_FOLDERS = frozenset({".obsidian", ".git", ".github", ".vscode"})
 
 # Files protected during vault reset (kept and updated instead of deleted)
-PROTECTED_FILES = frozenset({"README.md", "AGENTS.md", "CLAUDE.md", "Home.md", ".gitignore"})
+PROTECTED_FILES = frozenset({"README.md", "AGENTS.md", "CLAUDE.md", "HOME.md", ".gitignore"})
 
 # Note types that support ranking (project-like notes)
 RANKABLE_NOTE_TYPES = frozenset({"project", "area"})
@@ -2091,7 +2091,7 @@ def build_settings_yaml(
         "up_links": method_config.get("up_links", {}),
         "exclude": {
             "paths": ["+/", "x/", ".obsidian/", ".claude/", ".git/"],
-            "files": ["Home.md", "README.md"],
+            "files": ["HOME.md", "README.md"],
             "patterns": ["_*_MOC.md"],  # MOC files in each folder
         },
         "formats": {
@@ -2302,7 +2302,7 @@ Example: `/obsidian:templates apply area Areas/NewArea.md --var up="Home"`
 
 
 def create_home_note(vault_path: Path, methodology: str, dry_run: bool = False) -> None:
-    """Create a Home.md file in the vault root.
+    """Create a HOME.md file in the vault root.
 
     Args:
         vault_path: Path to the vault root
@@ -2310,11 +2310,12 @@ def create_home_note(vault_path: Path, methodology: str, dry_run: bool = False) 
         dry_run: If True, only print what would be created
     """
     method_config = METHODOLOGIES[methodology]
-    home_path = vault_path / "Home.md"
+    home_path = vault_path / "HOME.md"
+    today = date.today().isoformat()
 
     content = f"""---
 type: map
-created: "{{{{date}}}}"
+created: "{today}"
 ---
 
 # Home
