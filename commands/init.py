@@ -1,4 +1,8 @@
-#!/usr/bin/env -S uv run --script
+#!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.10"
+# dependencies = ["pyyaml>=6.0"]
+# ///
 """
 Vault Initialization Wrapper for Claude Code.
 
@@ -21,7 +25,12 @@ import subprocess
 import sys
 from pathlib import Path
 
-from skills.core.prompts import (
+# Add project root to path for imports (needed when running as standalone script)
+_project_root = Path(__file__).resolve().parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
+
+from skills.core.prompts import (  # noqa: E402
     output_abort,
     output_action_prompt,
     output_custom_properties_prompt,
