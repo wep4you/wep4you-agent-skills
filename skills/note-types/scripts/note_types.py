@@ -27,6 +27,8 @@ from typing import Any
 
 import yaml
 
+from skills.core.settings import settings_exist
+
 # Settings file path (relative to vault root)
 SETTINGS_FILE = ".claude/settings.yaml"
 
@@ -68,7 +70,7 @@ class NoteTypesManager:
 
     def _load_settings(self) -> None:
         """Load settings from .claude/settings.yaml."""
-        if not self.settings_path.exists():
+        if not settings_exist(self.vault_path):
             print(f"Settings file not found: {self.settings_path}")
             print("Run 'obsidian:init' first to initialize your vault.")
             sys.exit(1)
