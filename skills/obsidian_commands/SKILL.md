@@ -19,7 +19,7 @@ Core infrastructure for the obsidian: command namespace. Provides:
 This module is the foundation for CLI restructuring in v1.0.0:
 
 ```
-obsidian-commands/
+obsidian_commands/
 ├── __init__.py      # Package exports
 ├── deprecation.py   # Deprecation warning system
 ├── router.py        # Command routing logic
@@ -72,13 +72,13 @@ if check_deprecation("frontmatter"):
 
 ```bash
 # List all commands
-uv run skills/obsidian-commands/router.py --list
+uv run skills/obsidian_commands/router.py --list
 
 # Check if command is deprecated
-uv run skills/obsidian-commands/deprecation.py --check frontmatter
+uv run skills/obsidian_commands/deprecation.py --check frontmatter
 
 # List deprecated commands
-uv run skills/obsidian-commands/deprecation.py --list
+uv run skills/obsidian_commands/deprecation.py --list
 ```
 
 ## Integration

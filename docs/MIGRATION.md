@@ -172,15 +172,15 @@ obsidian:props types --format json
 
 List all available commands:
 ```bash
-uv run skills/obsidian-commands/router.py --list
+uv run skills/obsidian_commands/router.py --list
 ```
 
 Check if a command is deprecated:
 ```bash
-uv run skills/obsidian-commands/deprecation.py --check frontmatter
+uv run skills/obsidian_commands/deprecation.py --check frontmatter
 ```
 
 List all deprecated commands:
 ```bash
-uv run skills/obsidian-commands/deprecation.py --list
+uv run skills/obsidian_commands/deprecation.py --list
 ```

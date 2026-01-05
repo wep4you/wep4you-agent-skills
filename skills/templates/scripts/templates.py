@@ -42,7 +42,8 @@ def _load_vault_settings(vault_path: Path) -> dict[str, Any] | None:
     settings_path = vault_path / ".claude" / "settings.yaml"
     if settings_path.exists():
         try:
-            return yaml.safe_load(settings_path.read_text())
+            result: dict[str, Any] | None = yaml.safe_load(settings_path.read_text())
+            return result
         except Exception:
             return None
     return None
@@ -66,7 +67,8 @@ def _get_folder_for_type(settings: dict[str, Any] | None, note_type: str) -> str
     folder_hints = type_config.get("folder_hints", [])
 
     if folder_hints:
-        return folder_hints[0]
+        folder: str = folder_hints[0]
+        return folder
     return None
 
 
@@ -304,7 +306,7 @@ class TemplateManager:
         folder = None
         template_type = template_name.split("/")[0] if "/" in template_name else template_name
 
-        if target.parent == Path(".") or str(target.parent) == ".":
+        if target.parent == Path() or str(target.parent) == ".":
             # No directory specified - try to get folder from template type
             settings = _load_vault_settings(self.vault_path)
             folder = _get_folder_for_type(settings, template_type)

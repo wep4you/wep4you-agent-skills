@@ -4,12 +4,13 @@ rules:
   # =============================================================================
 
   # Dangerous imports that could indicate malicious code
-  # Note: subprocess is allowed in scripts/ for running uv commands
+  # Note: subprocess is allowed in scripts/ and obsidian_commands/ for running uv commands
   - id: dangerous-import-subprocess
     pattern: import subprocess
     paths:
       exclude:
-        - scripts/*
+        - "**/scripts/*"
+        - "**/obsidian_commands/*"
     message: "Subprocess import detected - review for command injection risks"
     languages: [python]
     severity: WARNING

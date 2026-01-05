@@ -69,7 +69,7 @@ exclude = [
     ".venv",
     "__pycache__",
     "*.egg-info",
-    "skills/obsidian-commands",  # Deprecated module
+    "skills/obsidian_commands",  # Command router module
 ]
 
 [tool.ruff.lint]
@@ -130,7 +130,7 @@ markers = [
 
 [tool.coverage.run]
 source = ["skills", "scripts"]
-omit = ["*/tests/*", "*/__pycache__/*", "commands/*", "skills/obsidian-commands/*"]
+omit = ["*/tests/*", "*/__pycache__/*", "commands/*", "skills/obsidian_commands/*"]
 branch = true
 
 [tool.coverage.report]
