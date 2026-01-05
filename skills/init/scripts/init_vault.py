@@ -1837,9 +1837,12 @@ def generate_folder_moc_content(
     # Get display name (last part of path) - also used as base view name
     display_name = folder_path.split("/")[-1] if "/" in folder_path else folder_path
 
+    # Use actual date, not placeholder
+    today = date.today().isoformat()
+
     content = f"""---
 type: map
-created: "{{{{date}}}}"
+created: "{today}"
 ---
 
 # {display_name}

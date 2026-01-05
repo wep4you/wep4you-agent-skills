@@ -1475,6 +1475,24 @@ class TestManualTestingBugfixesIntegration:
         # Should have created date
         assert "created:" in content
 
+    def test_moc_notes_date_substituted_not_placeholder(self, tmp_path: Path) -> None:
+        """Bug: MOC notes had {{date}} placeholder instead of actual date"""
+        vault_path = tmp_path / "moc-date-test"
+        init_vault(vault_path, "lyt-ace", dry_run=False)
+
+        # Check a MOC file (e.g., _Maps_MOC.md)
+        moc_path = vault_path / "Atlas" / "Maps" / "_Maps_MOC.md"
+        assert moc_path.exists()
+
+        content = moc_path.read_text()
+
+        # Should NOT contain {{date}} placeholder
+        assert "{{date}}" not in content
+        # Should contain a properly formatted date (YYYY-MM-DD pattern)
+        import re
+
+        assert re.search(r"created: \"?\d{4}-\d{2}-\d{2}\"?", content)
+
     # .gitignore integration tests
 
     def test_gitignore_created_during_init(self, tmp_path: Path) -> None:
