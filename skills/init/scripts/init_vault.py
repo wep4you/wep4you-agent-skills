@@ -2920,6 +2920,11 @@ Examples:
         help="Initialize git repository with initial commit",
     )
     parser.add_argument(
+        "--git-keep",
+        action="store_true",
+        help="Keep existing git repository and commit changes",
+    )
+    parser.add_argument(
         "--check",
         action="store_true",
         help="Check if vault exists and show status (no changes made)",
@@ -3110,11 +3115,11 @@ Examples:
                 # Initialize new git repo
                 print("\nInitializing git repository...")
                 init_git_repo(vault_path, methodology_name, args.dry_run)
-            elif git_action_after_reset == "keep":
+            elif args.git_keep or git_action_after_reset == "keep":
                 # Commit changes to existing repo
                 print("\nCommitting changes to existing repository...")
                 git_commit_changes(
-                    vault_path, f"Vault reset with {methodology_name}", args.dry_run
+                    vault_path, f"Vault updated with {methodology_name}", args.dry_run
                 )
 
         return 0

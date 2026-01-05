@@ -786,7 +786,7 @@ def execute_init(
     custom_properties: list[str] | None = None,
     per_type_properties: dict[str, list[str]] | None = None,
     ranking_system: str = "rank",
-    init_git: bool = False,
+    git_action: str = "no",
 ) -> int:
     """Execute the actual vault initialization.
 
@@ -799,7 +799,7 @@ def execute_init(
         custom_properties: List of custom properties to add globally
         per_type_properties: Dict of type -> list of additional properties
         ranking_system: Ranking system for projects (rank or priority)
-        init_git: Whether to initialize a git repository
+        git_action: Git handling: 'yes' (init), 'no' (skip), 'keep' (commit to existing)
     """
     script = get_script_path()
 
@@ -807,8 +807,10 @@ def execute_init(
     cmd.extend(["--ranking-system", ranking_system])
     if reset:
         cmd.append("--reset")
-    if init_git:
+    if git_action == "yes":
         cmd.append("--git")
+    elif git_action == "keep":
+        cmd.append("--git-keep")
     if note_types:
         cmd.extend(["--note-types", ",".join(note_types)])
     if core_properties:
@@ -1097,7 +1099,6 @@ def main() -> int:
                 return 0
 
             # Execute with all parameters
-            init_git = args.git == "yes"
             return execute_init(
                 vault_path,
                 args.methodology,
@@ -1107,7 +1108,7 @@ def main() -> int:
                 custom_properties=custom_properties,
                 per_type_properties=per_type_properties,
                 ranking_system=args.ranking_system or "rank",
-                init_git=init_git,
+                git_action=args.git or "no",
             )
 
     # STEP 3: New/empty vault - prompt for methodology
@@ -1201,7 +1202,6 @@ def main() -> int:
         return 0
 
     # STEP 8: Execute initialization
-    init_git = args.git == "yes"
     return execute_init(
         vault_path,
         args.methodology,
@@ -1210,7 +1210,7 @@ def main() -> int:
         custom_properties=custom_properties,
         per_type_properties=per_type_properties,
         ranking_system=args.ranking_system or "rank",
-        init_git=init_git,
+        git_action=args.git or "no",
     )
 
 
