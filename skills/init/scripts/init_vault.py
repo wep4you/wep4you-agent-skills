@@ -388,7 +388,13 @@ def main() -> int:  # pragma: no cover
                     return 0
 
             git_existed = (vault_path / ".git").exists()
-            if git_existed and not args.git and not use_wizard and is_interactive():
+
+            # Handle git reset: if --git is passed and .git exists, delete it
+            if git_existed and args.git:
+                shutil.rmtree(vault_path / ".git")
+                print("  - Removed: .git/ (will be re-initialized)")
+            # Interactive mode without --git flag
+            elif git_existed and not args.git and not use_wizard and is_interactive():
                 git_action_after_reset = wizard_step_git_reset()
                 if git_action_after_reset == "reset":
                     shutil.rmtree(vault_path / ".git")

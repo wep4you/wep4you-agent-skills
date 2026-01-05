@@ -543,9 +543,11 @@ def build_settings_yaml(
                 existing_required = existing_props.get("additional_required", [])
                 existing_optional = existing_props.get("optional", [])
                 new_required = list(set(existing_required + props_list))
+                # Remove from optional if now required (no duplicates!)
+                new_optional = [p for p in existing_optional if p not in new_required]
                 note_types[type_name]["properties"] = {
                     "additional_required": new_required,
-                    "optional": existing_optional,
+                    "optional": new_optional,
                 }
 
     if config and config.per_type_properties:

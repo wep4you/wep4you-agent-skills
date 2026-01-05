@@ -150,6 +150,7 @@ def output_methodology_prompt(vault_path: str, action: str | None = None) -> Non
             },
         ],
         "next_step": next_cmd,
+        "IMPORTANT": "ONLY call commands/init.py - NEVER call skills/init/scripts/*.py directly!",
     }
     print(json.dumps(prompt, indent=2))
 
