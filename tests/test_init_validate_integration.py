@@ -21,6 +21,7 @@ if str(_REPO_ROOT) not in sys.path:
 
 from config.methodologies.loader import METHODOLOGIES
 from skills.core.settings import load_settings
+from skills.core.utils.paths import get_moc_filename
 from skills.init.scripts.content_generators import generate_template_note
 from skills.init.scripts.init_vault import init_vault
 from skills.init.scripts.vault_utils import get_content_folders
@@ -444,11 +445,6 @@ class TestAllBasesFileGeneration:
         # Parse views - All should have groupBy, others shouldn't
         # Count occurrences - should be exactly 1 (for All view)
         assert content.count("groupBy:") == 1, "Only All view should have groupBy"
-
-
-def get_moc_filename(folder_name: str) -> str:
-    """Get the MOC filename for a folder."""
-    return f"_{folder_name}_MOC.md"
 
 
 class TestFolderMOCGeneration:

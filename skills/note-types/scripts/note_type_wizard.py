@@ -25,29 +25,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from note_types import NoteTypesManager
 
-
-def get_moc_filename(folder_name: str) -> str:
-    """Get the MOC filename for a folder.
-
-    Args:
-        folder_name: The folder name (last component of path)
-
-    Returns:
-        MOC filename like '_Projects_MOC.md'
-    """
-    return f"_{folder_name}_MOC.md"
-
-
-def get_moc_link(folder_name: str) -> str:
-    """Get the wikilink to a folder's MOC file (without path).
-
-    Args:
-        folder_name: The folder name (last component of path)
-
-    Returns:
-        Wikilink like '[[_Projects_MOC]]'
-    """
-    return f"[[_{folder_name}_MOC]]"
+from skills.core.utils.paths import get_moc_filename, get_moc_link
 
 
 def interactive_type_definition(

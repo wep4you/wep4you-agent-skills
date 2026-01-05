@@ -10,6 +10,8 @@ from __future__ import annotations
 from datetime import date
 from pathlib import Path
 
+from skills.core.utils.paths import extract_folder_name, get_moc_filename
+
 # Default folder descriptions by methodology
 FOLDER_DESCRIPTIONS: dict[str, dict[str, str]] = {
     "lyt-ace": {
@@ -69,7 +71,7 @@ def generate_moc_content(
         description = descriptions.get(folder_path, f"Notes and content for {folder_path}.")
 
     # Get display name (last part of path)
-    display_name = folder_path.split("/")[-1] if "/" in folder_path else folder_path
+    display_name = extract_folder_name(folder_path)
 
     lines = [
         "---",
@@ -93,19 +95,6 @@ def generate_moc_content(
     lines.append("")
 
     return "\n".join(lines)
-
-
-def get_moc_filename(folder_path: str) -> str:
-    """Get the MOC filename for a folder.
-
-    Args:
-        folder_path: Path of the folder
-
-    Returns:
-        MOC filename (e.g., "_Projects_MOC.md")
-    """
-    display_name = folder_path.split("/")[-1] if "/" in folder_path else folder_path
-    return f"_{display_name}_MOC.md"
 
 
 def update_moc(

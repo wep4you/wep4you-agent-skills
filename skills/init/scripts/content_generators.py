@@ -26,6 +26,7 @@ if str(_REPO_ROOT) not in sys.path:
 
 from config.methodologies.loader import METHODOLOGIES  # noqa: E402
 from skills.core.models import WizardConfig  # noqa: E402
+from skills.core.utils.paths import get_moc_filename  # noqa: E402
 from skills.init.scripts.vault_utils import get_all_content_folders  # noqa: E402
 
 # =============================================================================
@@ -447,12 +448,6 @@ FOLDER_DESCRIPTIONS: dict[str, dict[str, str]] = {
         "Daily": "Daily journal entries and reflections.",
     },
 }
-
-
-def get_moc_filename(folder_path: str) -> str:
-    """Get the MOC filename for a folder."""
-    display_name = folder_path.rstrip("/").split("/")[-1]
-    return f"_{display_name}_MOC.md"
 
 
 def generate_folder_moc_content(folder_path: str, methodology: str) -> str:

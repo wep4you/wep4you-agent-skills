@@ -8,14 +8,17 @@ for MOC (Map of Content) files and other vault structures.
 from __future__ import annotations
 
 
-def get_moc_filename(folder_name: str) -> str:
+def get_moc_filename(folder_path: str) -> str:
     """Get the MOC (Map of Content) filename for a folder.
 
     MOC files use a consistent naming convention with an underscore prefix
     and _MOC suffix to distinguish them from regular notes.
 
+    Handles both simple folder names and full paths - extracts the last
+    component of the path to use as the folder name.
+
     Args:
-        folder_name: The folder name (last component of path, e.g., "Projects")
+        folder_path: A folder path like "Efforts/Projects" or just "Projects"
 
     Returns:
         MOC filename like '_Projects_MOC.md'
@@ -23,9 +26,10 @@ def get_moc_filename(folder_name: str) -> str:
     Example:
         >>> get_moc_filename("Projects")
         '_Projects_MOC.md'
-        >>> get_moc_filename("Areas")
-        '_Areas_MOC.md'
+        >>> get_moc_filename("Atlas/Dots")
+        '_Dots_MOC.md'
     """
+    folder_name = extract_folder_name(folder_path)
     return f"_{folder_name}_MOC.md"
 
 
