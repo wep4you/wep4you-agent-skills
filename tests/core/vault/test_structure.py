@@ -494,9 +494,7 @@ class TestMockedMethodologies:
 
     def test_mocked_methodology_folders(self, mock_methodologies):
         """Test folder retrieval with mocked methodology."""
-        with patch(
-            "skills.core.vault.structure.METHODOLOGIES", mock_methodologies
-        ):
+        with patch("skills.core.vault.structure.METHODOLOGIES", mock_methodologies):
             folders = get_methodology_folders("test-method")
 
             assert "Folder1" in folders
@@ -505,9 +503,7 @@ class TestMockedMethodologies:
 
     def test_mocked_methodology_with_filter(self, mock_methodologies):
         """Test folder filtering with mocked methodology."""
-        with patch(
-            "skills.core.vault.structure.METHODOLOGIES", mock_methodologies
-        ):
+        with patch("skills.core.vault.structure.METHODOLOGIES", mock_methodologies):
             folders = get_methodology_folders("test-method", note_types_filter=["note1"])
 
             assert "Folder1" in folders
@@ -516,9 +512,7 @@ class TestMockedMethodologies:
 
     def test_mocked_create_structure(self, tmp_path, mock_methodologies, capsys):
         """Test folder creation with mocked methodology."""
-        with patch(
-            "skills.core.vault.structure.METHODOLOGIES", mock_methodologies
-        ):
+        with patch("skills.core.vault.structure.METHODOLOGIES", mock_methodologies):
             create_folder_structure(tmp_path, "test-method")
             captured = capsys.readouterr()
 

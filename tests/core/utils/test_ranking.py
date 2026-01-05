@@ -359,9 +359,7 @@ class TestMissingPropertiesDict:
 
     def test_missing_properties_creates_it(self):
         """Test that missing properties dict is created."""
-        note_types = {
-            "project": {}
-        }
+        note_types = {"project": {}}
         result = apply_ranking_system(note_types, "rank")
         assert "properties" in result["project"]
         assert "additional_required" in result["project"]["properties"]
@@ -437,10 +435,14 @@ class TestIdempotency:
         result1 = apply_ranking_system(note_types, "rank")
         result2 = apply_ranking_system(result1, "rank")
 
-        assert result1["project"]["properties"]["additional_required"] == \
-               result2["project"]["properties"]["additional_required"]
-        assert result1["project"]["properties"]["optional"] == \
-               result2["project"]["properties"]["optional"]
+        assert (
+            result1["project"]["properties"]["additional_required"]
+            == result2["project"]["properties"]["additional_required"]
+        )
+        assert (
+            result1["project"]["properties"]["optional"]
+            == result2["project"]["properties"]["optional"]
+        )
 
 
 class TestPriorityInOptionalList:

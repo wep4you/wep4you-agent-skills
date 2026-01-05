@@ -295,7 +295,8 @@ def output_properties_prompt(
 ) -> None:
     """Output prompt for property selection (All vs Custom choice)."""
     method = METHODOLOGIES.get(methodology)
-    core_properties = method.get("core_properties", ["type", "up", "created", "tags"]) if method else []
+    default_props = ["type", "up", "created", "tags"]
+    core_properties = method.get("core_properties", default_props) if method else []
     props_list = ", ".join(core_properties)
 
     next_cmd = build_next_step_command(
@@ -340,7 +341,8 @@ def output_properties_select_prompt(
 ) -> None:
     """Output prompt for individual property selection (multi-select)."""
     method = METHODOLOGIES.get(methodology)
-    core_properties = method.get("core_properties", ["type", "up", "created", "tags"]) if method else []
+    default_props = ["type", "up", "created", "tags"]
+    core_properties = method.get("core_properties", default_props) if method else []
 
     mandatory = {"type", "created"}
     options = []

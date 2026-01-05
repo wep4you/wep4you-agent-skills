@@ -15,7 +15,7 @@ import yaml
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "skills" / "note-types" / "scripts"))
 
-from note_types import NoteTypesManager, display_type_list, display_type_details
+from note_types import NoteTypesManager, display_type_details, display_type_list
 
 
 @pytest.fixture
@@ -340,10 +340,13 @@ class TestNoteTypesManager:
         original_props = manager.note_types["project"]["properties"]
 
         # Only update description and icon
-        manager.update_type("project", {
-            "description": "Just updated",
-            "icon": "star",
-        })
+        manager.update_type(
+            "project",
+            {
+                "description": "Just updated",
+                "icon": "star",
+            },
+        )
 
         config = manager.note_types["project"]
         assert config["description"] == "Just updated"
@@ -755,7 +758,9 @@ class TestMainFunction:
                 main()
 
 
-@pytest.mark.skip(reason="Vault structure operations moved to note_type_wizard.py - tested via CLI tests in TestMainFunction")
+@pytest.mark.skip(
+    reason="Vault structure operations moved to note_type_wizard.py - tested in TestMainFunction"
+)
 class TestVaultStructure:
     """Test vault structure creation"""
 
@@ -1018,7 +1023,9 @@ class TestCorePropertiesIntegration:
         assert "![[all_bases.base#Blog]]" in content  # Embed
 
 
-@pytest.mark.skip(reason="Vault structure operations moved to note_type_wizard.py - tested via CLI tests in TestMainFunction")
+@pytest.mark.skip(
+    reason="Vault structure operations moved to note_type_wizard.py - tested in TestMainFunction"
+)
 class TestCompleteAddRemoveCycle:
     """Test full add/remove cycle verifies all artifacts are created and removed"""
 
@@ -1218,7 +1225,9 @@ class TestEdgeCases:
             assert manager.vault_path == temp_vault
 
 
-@pytest.mark.skip(reason="Folder rename and vault operations moved to note_type_wizard.py - tested via CLI tests in TestMainFunction")
+@pytest.mark.skip(
+    reason="Folder rename and vault operations moved to note_type_wizard.py - tested in CLI tests"
+)
 class TestEditWithFolderRename:
     """Test edit functionality with folder rename and frontmatter updates"""
 

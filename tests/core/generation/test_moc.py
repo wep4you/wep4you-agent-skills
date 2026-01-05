@@ -189,9 +189,7 @@ class TestGenerateMocContent:
 
     def test_display_name_for_nested_folder(self):
         """Test that display name uses last part of path."""
-        content = generate_moc_content(
-            "Atlas/Maps/Topics", created_date=date(2025, 1, 15)
-        )
+        content = generate_moc_content("Atlas/Maps/Topics", created_date=date(2025, 1, 15))
 
         assert "# Topics" in content
         assert "![[all_bases.base#Topics]]" in content
@@ -606,9 +604,7 @@ class TestIntegration:
         """Test complete workflow of generating then updating a MOC."""
         # Generate initial content
         folder = "Projects"
-        content = generate_moc_content(
-            folder, methodology="para", created_date=date(2025, 1, 15)
-        )
+        content = generate_moc_content(folder, methodology="para", created_date=date(2025, 1, 15))
 
         # Write to file
         folder_path = tmp_path / folder

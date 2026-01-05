@@ -90,9 +90,7 @@ def base_validation_rules():
 
 
 @pytest.fixture
-def settings_with_multiple_types(
-    base_validation_rules, minimal_note_type, note_type_no_inherit
-):
+def settings_with_multiple_types(base_validation_rules, minimal_note_type, note_type_no_inherit):
     """Create Settings with multiple note types for path inference testing."""
     map_type = NoteTypeConfig(
         name="Map",
@@ -154,9 +152,7 @@ class TestValidateSettings:
         errors = validate_settings(sample_settings)
         assert errors == []
 
-    def test_missing_version_returns_error(
-        self, base_validation_rules, minimal_note_type
-    ):
+    def test_missing_version_returns_error(self, base_validation_rules, minimal_note_type):
         """Test that missing version produces an error."""
         settings = Settings(
             version="",  # Empty version
@@ -176,9 +172,7 @@ class TestValidateSettings:
         errors = validate_settings(settings)
         assert "Missing 'version' in settings" in errors
 
-    def test_missing_core_properties_returns_error(
-        self, base_validation_rules, minimal_note_type
-    ):
+    def test_missing_core_properties_returns_error(self, base_validation_rules, minimal_note_type):
         """Test that missing core_properties produces an error."""
         settings = Settings(
             version="1.0",
@@ -611,30 +605,22 @@ class TestShouldExclude:
         file_path = Path("Home.md")
         assert should_exclude(settings_with_multiple_types, file_path) is True
 
-    def test_does_not_exclude_readme_in_methodology_folder(
-        self, settings_with_multiple_types
-    ):
+    def test_does_not_exclude_readme_in_methodology_folder(self, settings_with_multiple_types):
         """Test that README.md in methodology folder is NOT excluded."""
         file_path = Path("Atlas/README.md")
         assert should_exclude(settings_with_multiple_types, file_path) is False
 
-    def test_does_not_exclude_readme_in_projects_folder(
-        self, settings_with_multiple_types
-    ):
+    def test_does_not_exclude_readme_in_projects_folder(self, settings_with_multiple_types):
         """Test that README.md in Projects folder is NOT excluded."""
         file_path = Path("Projects/README.md")
         assert should_exclude(settings_with_multiple_types, file_path) is False
 
-    def test_does_not_exclude_agents_md_in_notes_folder(
-        self, settings_with_multiple_types
-    ):
+    def test_does_not_exclude_agents_md_in_notes_folder(self, settings_with_multiple_types):
         """Test that AGENTS.md in Notes folder is NOT excluded."""
         file_path = Path("Notes/AGENTS.md")
         assert should_exclude(settings_with_multiple_types, file_path) is False
 
-    def test_does_not_exclude_system_file_in_calendar_folder(
-        self, settings_with_multiple_types
-    ):
+    def test_does_not_exclude_system_file_in_calendar_folder(self, settings_with_multiple_types):
         """Test that system files in Calendar folder are NOT excluded."""
         file_path = Path("Calendar/Home.md")
         assert should_exclude(settings_with_multiple_types, file_path) is False
@@ -646,9 +632,7 @@ class TestShouldExclude:
         file_path = Path("Atlas/Dots/my-note.md")
         assert should_exclude(settings_with_multiple_types, file_path) is False
 
-    def test_does_not_exclude_regular_note_in_projects(
-        self, settings_with_multiple_types
-    ):
+    def test_does_not_exclude_regular_note_in_projects(self, settings_with_multiple_types):
         """Test that regular note in Projects is NOT excluded."""
         file_path = Path("Efforts/Projects/my-project.md")
         assert should_exclude(settings_with_multiple_types, file_path) is False
@@ -658,9 +642,7 @@ class TestShouldExclude:
         file_path = Path("Atlas/Dots/regular.md")
         assert should_exclude(settings_with_multiple_types, file_path) is False
 
-    def test_does_not_exclude_similar_but_different_file(
-        self, settings_with_multiple_types
-    ):
+    def test_does_not_exclude_similar_but_different_file(self, settings_with_multiple_types):
         """Test that similar filename is NOT excluded."""
         # "DS_Store" without leading dot should not match ".DS_Store"
         file_path = Path("Atlas/DS_Store")
@@ -727,9 +709,7 @@ class TestIsInboxPath:
         # Should NOT match old default path
         assert is_inbox_path(settings, Path("+/new-note.md")) is False
 
-    def test_inbox_path_default_when_not_configured(
-        self, base_validation_rules, minimal_note_type
-    ):
+    def test_inbox_path_default_when_not_configured(self, base_validation_rules, minimal_note_type):
         """Test that default inbox path (+/) is used when not configured."""
         settings = Settings(
             version="1.0",
@@ -780,9 +760,7 @@ class TestIsInboxPath:
 class TestValidationIntegration:
     """Integration tests combining multiple validation functions."""
 
-    def test_excluded_file_not_considered_for_type_inference(
-        self, settings_with_multiple_types
-    ):
+    def test_excluded_file_not_considered_for_type_inference(self, settings_with_multiple_types):
         """Test workflow: check exclusion before type inference."""
         file_path = Path("Atlas/Dots/diagram.excalidraw.md")
 

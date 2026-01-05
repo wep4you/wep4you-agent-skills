@@ -446,7 +446,7 @@ class TestParseFrontmatter:
 
     def test_parse_frontmatter_with_quoted_strings(self):
         """Parse frontmatter with quoted string values."""
-        content = '---\nup: "[[Home]]"\ndaily: \'[[2025-01-15]]\'\n---\n\nBody'
+        content = "---\nup: \"[[Home]]\"\ndaily: '[[2025-01-15]]'\n---\n\nBody"
 
         frontmatter, _ = parse_frontmatter(content)
 
@@ -533,9 +533,7 @@ Paragraph with some content.
         assert "type: Dot" in result
         assert "# Just a heading" in result
 
-    def test_update_with_empty_updates_preserves_frontmatter(
-        self, sample_frontmatter_yaml
-    ):
+    def test_update_with_empty_updates_preserves_frontmatter(self, sample_frontmatter_yaml):
         """Empty updates dict preserves all existing frontmatter."""
         content = sample_frontmatter_yaml + "\n\nBody"
 
@@ -550,9 +548,7 @@ Paragraph with some content.
         """Update with a list value."""
         content = sample_frontmatter_yaml + "\n\nBody"
 
-        result = update_frontmatter(
-            content, {"related": ["[[New Note 1]]", "[[New Note 2]]"]}
-        )
+        result = update_frontmatter(content, {"related": ["[[New Note 1]]", "[[New Note 2]]"]})
 
         assert "[[New Note 1]]" in result
         assert "[[New Note 2]]" in result

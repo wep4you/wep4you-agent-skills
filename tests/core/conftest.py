@@ -4,8 +4,8 @@ Pytest configuration and shared fixtures for core module tests.
 
 import pytest
 
-from skills.core.models.settings import Settings, ValidationRules
 from skills.core.models.note_type import NoteTypeConfig
+from skills.core.models.settings import Settings, ValidationRules
 
 
 @pytest.fixture

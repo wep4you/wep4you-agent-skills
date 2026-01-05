@@ -189,7 +189,14 @@ class TestGetAllProperties:
         all_props = config.get_all_properties()
 
         expected = {
-            "type", "up", "created", "tags", "source", "related", "collection", "custom_field"
+            "type",
+            "up",
+            "created",
+            "tags",
+            "source",
+            "related",
+            "collection",
+            "custom_field",
         }
         assert set(all_props) == expected
 

@@ -17,12 +17,16 @@ _REPO_ROOT = Path(__file__).parent.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-# Import from new modular structure
-from config.methodologies.loader import METHODOLOGIES
-from skills.core.models import NoteTypeConfig, WizardConfig
-from skills.core.utils import apply_ranking_system
-from skills.core.vault import create_folder_structure, create_gitignore, init_git_repo
-from skills.init.scripts.content_generators import (
+# Import from new modular structure (E402 due to sys.path manipulation above)
+from config.methodologies.loader import METHODOLOGIES  # noqa: E402
+from skills.core.models import NoteTypeConfig, WizardConfig  # noqa: E402
+from skills.core.utils import apply_ranking_system  # noqa: E402
+from skills.core.vault import (  # noqa: E402
+    create_folder_structure,
+    create_gitignore,
+    init_git_repo,
+)
+from skills.init.scripts.content_generators import (  # noqa: E402
     build_settings_yaml,
     create_agent_docs,
     create_home_note,
@@ -32,15 +36,15 @@ from skills.init.scripts.content_generators import (
     generate_agents_md,
     generate_sample_note,
 )
-from skills.init.scripts.init_vault import (
+from skills.init.scripts.init_vault import (  # noqa: E402
     choose_methodology_interactive,
     init_vault,
     main,
     print_methodologies,
     show_migration_hint,
 )
-from skills.init.scripts.vault_utils import reset_vault
-from skills.init.scripts.wizard import (
+from skills.init.scripts.vault_utils import reset_vault  # noqa: E402
+from skills.init.scripts.wizard import (  # noqa: E402
     detect_existing_vault,
     wizard_step_confirm,
     wizard_step_custom_note_types,

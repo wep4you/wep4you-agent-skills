@@ -332,7 +332,8 @@ related: []
 
         validator = VaultValidator(str(tmp_path), mode="auto")
         validator.run_validation()
-        fixed = validator.auto_fixer.fix_invalid_created(validator.issues.get("invalid_created", []))
+        issues = validator.issues.get("invalid_created", [])
+        fixed = validator.auto_fixer.fix_invalid_created(issues)
 
         assert fixed == 1
         new_content = test_file.read_text()
@@ -497,7 +498,8 @@ related: []
         # Should have missing type in issues
         assert len(validator.issues["missing_properties"]) > 0
 
-        fixed = validator.auto_fixer.fix_missing_properties(validator.issues.get("missing_properties", []))
+        issues = validator.issues.get("missing_properties", [])
+        fixed = validator.auto_fixer.fix_missing_properties(issues)
         assert fixed == 1
 
         new_content = test_file.read_text()
@@ -526,7 +528,8 @@ created: 2025-01-15
         # Should have missing properties (participants, agenda)
         assert len(validator.issues["missing_properties"]) > 0
 
-        fixed = validator.auto_fixer.fix_missing_properties(validator.issues.get("missing_properties", []))
+        issues = validator.issues.get("missing_properties", [])
+        fixed = validator.auto_fixer.fix_missing_properties(issues)
         assert fixed == 1
 
         new_content = test_file.read_text()
@@ -554,7 +557,8 @@ created: 2025-01-15
         validator.required_properties = ["type", "up", "created"]
         validator.run_validation()
 
-        fixed = validator.auto_fixer.fix_missing_properties(validator.issues.get("missing_properties", []))
+        issues = validator.issues.get("missing_properties", [])
+        fixed = validator.auto_fixer.fix_missing_properties(issues)
         assert fixed == 1
 
         new_content = test_file.read_text()
@@ -667,7 +671,8 @@ daily: "[[Calendar/daily/2025/01/2025-01-15]]"
         validator.auto_fixer.auto_fix_config["daily_links"] = False  # Also update auto_fixer config
         validator.run_validation()
 
-        fixed = validator.auto_fixer.fix_daily_links(validator.issues.get("invalid_daily_links", []))
+        issues = validator.issues.get("invalid_daily_links", [])
+        fixed = validator.auto_fixer.fix_daily_links(issues)
         assert fixed == 0
 
     def test_fix_wikilink_quotes_disabled(self, tmp_path):
@@ -686,7 +691,8 @@ up: [[Parent]]
         validator.auto_fixer.auto_fix_config["wikilink_quotes"] = False
         validator.run_validation()
 
-        fixed = validator.auto_fixer.fix_unquoted_wikilinks(validator.issues.get("unquoted_wikilinks", []))
+        issues = validator.issues.get("unquoted_wikilinks", [])
+        fixed = validator.auto_fixer.fix_unquoted_wikilinks(issues)
         assert fixed == 0
 
     def test_fix_invalid_created_disabled(self, tmp_path):
@@ -705,7 +711,8 @@ created: [[2025-01-15]]
         validator.auto_fixer.auto_fix_config["invalid_created"] = False
         validator.run_validation()
 
-        fixed = validator.auto_fixer.fix_invalid_created(validator.issues.get("invalid_created", []))
+        issues = validator.issues.get("invalid_created", [])
+        fixed = validator.auto_fixer.fix_invalid_created(issues)
         assert fixed == 0
 
     def test_fix_title_properties_disabled(self, tmp_path):
@@ -724,7 +731,8 @@ type: Dot
         validator.auto_fixer.auto_fix_config["title_properties"] = False
         validator.run_validation()
 
-        fixed = validator.auto_fixer.fix_title_properties(validator.issues.get("title_properties", []))
+        issues = validator.issues.get("title_properties", [])
+        fixed = validator.auto_fixer.fix_title_properties(issues)
         assert fixed == 0
 
     def test_fix_date_mismatches_disabled(self, tmp_path):
@@ -744,7 +752,8 @@ daily: "[[2025-01-20]]"
         validator.auto_fixer.auto_fix_config["date_mismatches"] = False
         validator.run_validation()
 
-        fixed = validator.auto_fixer.fix_date_mismatches(validator.issues.get("date_mismatches", []))
+        issues = validator.issues.get("date_mismatches", [])
+        fixed = validator.auto_fixer.fix_date_mismatches(issues)
         assert fixed == 0
 
 

@@ -19,13 +19,13 @@ _REPO_ROOT = Path(__file__).parent.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from config.methodologies.loader import METHODOLOGIES
-from skills.core.settings import load_settings
-from skills.core.utils.paths import get_moc_filename
-from skills.init.scripts.content_generators import generate_template_note
-from skills.init.scripts.init_vault import init_vault
-from skills.init.scripts.vault_utils import get_content_folders
-from skills.validate.scripts.validator import VaultValidator
+from config.methodologies.loader import METHODOLOGIES  # noqa: E402
+from skills.core.settings import load_settings  # noqa: E402
+from skills.core.utils.paths import get_moc_filename  # noqa: E402
+from skills.init.scripts.content_generators import generate_template_note  # noqa: E402
+from skills.init.scripts.init_vault import init_vault  # noqa: E402
+from skills.init.scripts.vault_utils import get_content_folders  # noqa: E402
+from skills.validate.scripts.validator import VaultValidator  # noqa: E402
 
 
 class TestInitGeneratesValidSettings:

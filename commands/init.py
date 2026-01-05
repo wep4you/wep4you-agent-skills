@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -43,12 +44,21 @@ def get_script_path() -> Path:
     return plugin_root / "skills" / "init" / "scripts" / "init_vault.py"
 
 
+def get_uv_path() -> str:
+    """Get the full path to the uv executable."""
+    uv_path = shutil.which("uv")
+    if uv_path is None:
+        # Fallback to just "uv" if not found (will fail with clear error)
+        return "uv"
+    return uv_path
+
+
 def get_note_types_for_methodology(methodology: str) -> dict:
     """Get note types for a methodology by calling init_vault.py."""
     script = get_script_path()
 
     try:
-        cmd = ["uv", "run", str(script), "--list-note-types", methodology]
+        cmd = [get_uv_path(), "run", str(script), "--list-note-types", methodology]
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)  # noqa: S603
 
         if result.returncode == 0:
@@ -64,7 +74,7 @@ def check_vault_status(vault_path: Path) -> dict:
     script = get_script_path()
 
     try:
-        cmd = ["uv", "run", str(script), str(vault_path), "--check"]
+        cmd = [get_uv_path(), "run", str(script), str(vault_path), "--check"]
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)  # noqa: S603
 
         if result.returncode == 0:
@@ -95,7 +105,7 @@ def execute_init(
 
     script = get_script_path()
 
-    cmd = ["uv", "run", str(script), str(vault_path), "-m", methodology, "--defaults"]
+    cmd = [get_uv_path(), "run", str(script), str(vault_path), "-m", methodology, "--defaults"]
     cmd.extend(["--ranking-system", ranking_system])
     if reset:
         cmd.append("--reset")
@@ -129,11 +139,15 @@ def parse_arguments() -> argparse.Namespace:
 
     parser.add_argument("vault_path", nargs="?", default=".", help="Path to vault")
     parser.add_argument("--action", choices=["abort", "continue", "reset", "migrate"])
-    parser.add_argument("-m", "--methodology", choices=["lyt-ace", "para", "zettelkasten", "minimal"])
+    parser.add_argument(
+        "-m", "--methodology", choices=["lyt-ace", "para", "zettelkasten", "minimal"]
+    )
     parser.add_argument("--note-types", help="Comma-separated list of note types")
     parser.add_argument("--core-properties", help="Comma-separated list of core properties")
     parser.add_argument("--custom-properties", help="Comma-separated list of custom properties")
-    parser.add_argument("--per-type-props", help="Per-type properties: type1:prop1,prop2;type2:prop3")
+    parser.add_argument(
+        "--per-type-props", help="Per-type properties: type1:prop1,prop2;type2:prop3"
+    )
     parser.add_argument("--ranking-system", choices=["rank", "priority"])
     parser.add_argument("--git", choices=["yes", "no", "keep"])
     parser.add_argument("--defaults", action="store_true", help="Use all defaults")
@@ -143,7 +157,9 @@ def parse_arguments() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def parse_list_arg(value: str | None, special_values: set[str] | None = None) -> tuple[list[str] | None, bool]:
+def parse_list_arg(
+    value: str | None, special_values: set[str] | None = None
+) -> tuple[list[str] | None, bool]:
     """Parse a comma-separated list argument.
 
     Args:
@@ -231,22 +247,32 @@ def handle_workflow(
     selected_note_types = args.note_types or "all"
     has_project_type = selected_note_types == "all" or "project" in selected_note_types
     if has_project_type and not args.ranking_system:
-        output_ranking_system_prompt(str(vault_path), args.methodology, selected_note_types, args.action)
+        output_ranking_system_prompt(
+            str(vault_path), args.methodology, selected_note_types, args.action
+        )
         return 0
 
     # Core properties prompt
     if not args.defaults and not args.core_properties:
-        output_properties_prompt(str(vault_path), args.methodology, args.note_types or "all", args.action)
+        output_properties_prompt(
+            str(vault_path), args.methodology, args.note_types or "all", args.action
+        )
         return 0
 
     if core_properties_is_custom:
-        output_properties_select_prompt(str(vault_path), args.methodology, args.note_types or "all", args.action)
+        output_properties_select_prompt(
+            str(vault_path), args.methodology, args.note_types or "all", args.action
+        )
         return 0
 
     # Custom properties prompt
     if not args.defaults and args.custom_properties is None:
         output_custom_properties_prompt(
-            str(vault_path), args.methodology, args.note_types or "all", args.core_properties or "all", args.action
+            str(vault_path),
+            args.methodology,
+            args.note_types or "all",
+            args.core_properties or "all",
+            args.action,
         )
         return 0
 
@@ -311,7 +337,7 @@ def main() -> int:
     # Pass-through: --list
     if args.list:
         script = get_script_path()
-        result = subprocess.run(["uv", "run", str(script), "--list"])  # noqa: S603
+        result = subprocess.run([get_uv_path(), "run", str(script), "--list"])  # noqa: S603
         return result.returncode
 
     # Pass-through: --check

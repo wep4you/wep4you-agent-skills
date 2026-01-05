@@ -5,10 +5,7 @@ Tests JSON prompt generation functions for vault initialization workflow.
 """
 
 import json
-from pathlib import Path
 from unittest.mock import patch
-
-import pytest
 
 from skills.core.prompts.init_prompts import (
     build_next_step_command,
@@ -346,9 +343,7 @@ class TestOutputPropertiesPrompt:
     @patch("skills.core.prompts.init_prompts.METHODOLOGIES")
     def test_basic_properties_prompt(self, mock_methodologies, capsys):
         """Test basic properties prompt output."""
-        mock_methodologies.get.return_value = {
-            "core_properties": ["type", "up", "created", "tags"]
-        }
+        mock_methodologies.get.return_value = {"core_properties": ["type", "up", "created", "tags"]}
         output_properties_prompt("/vault", "lyt-ace", "map,dot")
         captured = capsys.readouterr()
         result = json.loads(captured.out)
@@ -389,9 +384,7 @@ class TestOutputPropertiesSelectPrompt:
     @patch("skills.core.prompts.init_prompts.METHODOLOGIES")
     def test_basic_properties_select_prompt(self, mock_methodologies, capsys):
         """Test basic properties select prompt output."""
-        mock_methodologies.get.return_value = {
-            "core_properties": ["type", "up", "created", "tags"]
-        }
+        mock_methodologies.get.return_value = {"core_properties": ["type", "up", "created", "tags"]}
         output_properties_select_prompt("/vault", "lyt-ace", "map,dot")
         captured = capsys.readouterr()
         result = json.loads(captured.out)
@@ -403,9 +396,7 @@ class TestOutputPropertiesSelectPrompt:
     @patch("skills.core.prompts.init_prompts.METHODOLOGIES")
     def test_properties_select_mandatory_disabled(self, mock_methodologies, capsys):
         """Test mandatory properties are disabled."""
-        mock_methodologies.get.return_value = {
-            "core_properties": ["type", "created", "up"]
-        }
+        mock_methodologies.get.return_value = {"core_properties": ["type", "created", "up"]}
         output_properties_select_prompt("/vault", "lyt-ace", "map")
         captured = capsys.readouterr()
         result = json.loads(captured.out)
@@ -681,9 +672,7 @@ class TestPromptIntegration:
     @patch("skills.core.prompts.init_prompts.apply_ranking_system")
     def test_full_workflow_prompts(self, mock_apply_ranking, mock_methodologies, capsys, tmp_path):
         """Test prompts can be generated in sequence without errors."""
-        mock_methodologies.get.return_value = {
-            "core_properties": ["type", "up", "created", "tags"]
-        }
+        mock_methodologies.get.return_value = {"core_properties": ["type", "up", "created", "tags"]}
         mock_apply_ranking.return_value = {
             "map": {"properties": {"additional_required": [], "optional": ["summary"]}}
         }

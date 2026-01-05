@@ -213,9 +213,7 @@ class TestInitGitRepo:
     def test_dry_run_prints_messages(self, tmp_path, capsys):
         """Test that init_git_repo with dry_run=True prints expected messages."""
         with patch("skills.core.vault.git.shutil.which", return_value="/usr/bin/git"):
-            result = init_git_repo(
-                tmp_path, commit_message="Test commit", dry_run=True
-            )
+            result = init_git_repo(tmp_path, commit_message="Test commit", dry_run=True)
 
         assert result is True
         captured = capsys.readouterr()
@@ -302,9 +300,7 @@ class TestInitGitRepo:
         """Test that init_git_repo returns False when subprocess fails."""
         import subprocess
 
-        mock_run = MagicMock(
-            side_effect=subprocess.CalledProcessError(1, "git init")
-        )
+        mock_run = MagicMock(side_effect=subprocess.CalledProcessError(1, "git init"))
 
         with (
             patch("skills.core.vault.git.shutil.which", return_value="/usr/bin/git"),

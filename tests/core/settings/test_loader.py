@@ -42,9 +42,7 @@ class TestLoadSettings:
         with pytest.raises(FileNotFoundError, match="Settings file not found"):
             load_settings(tmp_path)
 
-    def test_load_settings_file_not_found_message_contains_path(
-        self, tmp_path: Path
-    ) -> None:
+    def test_load_settings_file_not_found_message_contains_path(self, tmp_path: Path) -> None:
         """Test that error message contains the expected path."""
         with pytest.raises(FileNotFoundError) as exc_info:
             load_settings(tmp_path)
@@ -601,9 +599,7 @@ class TestGetBackupDir:
 class TestCreateBackup:
     """Tests for create_backup function."""
 
-    def test_create_backup_returns_none_when_no_settings(
-        self, tmp_path: Path
-    ) -> None:
+    def test_create_backup_returns_none_when_no_settings(self, tmp_path: Path) -> None:
         """Test that None is returned when no settings exist."""
         result = create_backup(tmp_path)
 
@@ -683,9 +679,7 @@ class TestSetSetting:
         """Test setting a boolean true value."""
         create_default_settings(tmp_path)
 
-        set_setting(
-            tmp_path, "validation.strict_types", "true", create_backup_file=False
-        )
+        set_setting(tmp_path, "validation.strict_types", "true", create_backup_file=False)
 
         settings = load_settings(tmp_path)
         assert settings.validation.strict_types is True
@@ -694,9 +688,7 @@ class TestSetSetting:
         """Test setting a boolean false value."""
         create_default_settings(tmp_path)
 
-        set_setting(
-            tmp_path, "validation.strict_types", "false", create_backup_file=False
-        )
+        set_setting(tmp_path, "validation.strict_types", "false", create_backup_file=False)
 
         settings = load_settings(tmp_path)
         assert settings.validation.strict_types is False
@@ -705,9 +697,7 @@ class TestSetSetting:
         """Test that boolean parsing is case insensitive."""
         create_default_settings(tmp_path)
 
-        set_setting(
-            tmp_path, "validation.check_templates", "FALSE", create_backup_file=False
-        )
+        set_setting(tmp_path, "validation.check_templates", "FALSE", create_backup_file=False)
 
         settings = load_settings(tmp_path)
         assert settings.validation.check_templates is False
@@ -760,9 +750,7 @@ class TestSetSetting:
         """Test setting a nested key value."""
         create_default_settings(tmp_path)
 
-        set_setting(
-            tmp_path, "validation.check_up_links", "false", create_backup_file=False
-        )
+        set_setting(tmp_path, "validation.check_up_links", "false", create_backup_file=False)
 
         settings = load_settings(tmp_path)
         assert settings.validation.check_up_links is False
@@ -771,9 +759,7 @@ class TestSetSetting:
         """Test that nested dicts are created if they don't exist."""
         create_default_settings(tmp_path)
 
-        set_setting(
-            tmp_path, "custom.nested.deeply.value", "test", create_backup_file=False
-        )
+        set_setting(tmp_path, "custom.nested.deeply.value", "test", create_backup_file=False)
 
         with (tmp_path / ".claude" / "settings.yaml").open() as f:
             config = yaml.safe_load(f)
@@ -816,9 +802,7 @@ class TestSetSetting:
 
         # Try to set a nested key under the string value
         with pytest.raises(ValueError, match="not a dict"):
-            set_setting(
-                tmp_path, "methodology.nested", "value", create_backup_file=False
-            )
+            set_setting(tmp_path, "methodology.nested", "value", create_backup_file=False)
 
 
 # =============================================================================

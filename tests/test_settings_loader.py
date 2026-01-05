@@ -7,6 +7,8 @@ from pathlib import Path
 import pytest
 import yaml
 
+# CLI-specific imports
+from skills.config.scripts.settings_loader import edit_settings, main, print_reset_help
 from skills.core.models import NoteTypeConfig, Settings, ValidationRules
 from skills.core.settings import (
     create_backup,
@@ -26,9 +28,6 @@ from skills.core.settings.validation import (
     is_inbox_path,
     should_exclude,
 )
-
-# CLI-specific imports
-from skills.config.scripts.settings_loader import edit_settings, main, print_reset_help
 
 
 def get_note_type(settings: Settings, type_name: str) -> NoteTypeConfig | None:
@@ -545,7 +544,6 @@ class TestSettingsLoaderCLI:
         """Test --show option."""
         import sys
 
-
         create_default_settings(tmp_path)
         old_argv = sys.argv
         try:
@@ -562,7 +560,6 @@ class TestSettingsLoaderCLI:
         """Test --validate option."""
         import sys
 
-
         create_default_settings(tmp_path)
         old_argv = sys.argv
         try:
@@ -577,7 +574,6 @@ class TestSettingsLoaderCLI:
     def test_main_type(self, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
         """Test --type option."""
         import sys
-
 
         create_default_settings(tmp_path)
         old_argv = sys.argv
@@ -594,7 +590,6 @@ class TestSettingsLoaderCLI:
     def test_main_type_not_found(self, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
         """Test --type option with nonexistent type."""
         import sys
-
 
         create_default_settings(tmp_path)
         old_argv = sys.argv
@@ -617,7 +612,6 @@ class TestSettingsLoaderCLI:
         """Test --create option."""
         import sys
 
-
         old_argv = sys.argv
         try:
             sys.argv = ["settings_loader", "--vault", str(tmp_path), "--create"]
@@ -630,7 +624,6 @@ class TestSettingsLoaderCLI:
     def test_main_missing_settings(self, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
         """Test error when settings don't exist."""
         import sys
-
 
         old_argv = sys.argv
         try:
@@ -645,7 +638,6 @@ class TestSettingsLoaderCLI:
     def test_main_reset_list(self, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
         """Test --reset list option."""
         import sys
-
 
         old_argv = sys.argv
         try:
@@ -664,7 +656,6 @@ class TestSettingsLoaderCLI:
     ) -> None:
         """Test --reset with invalid methodology."""
         import sys
-
 
         old_argv = sys.argv
         try:
@@ -685,7 +676,6 @@ class TestSettingsLoaderCLI:
     def test_main_reset_with_yes(self, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
         """Test --reset with --yes option."""
         import sys
-
 
         # Create initial settings
         create_default_settings(tmp_path)
@@ -717,7 +707,6 @@ class TestSettingsLoaderCLI:
         import sys
         from io import StringIO
 
-
         # Create initial settings
         create_default_settings(tmp_path)
 
@@ -744,7 +733,6 @@ class TestSettingsLoaderCLI:
     def test_main_reset_new_settings(self, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
         """Test --reset creating new settings when none exist."""
         import sys
-
 
         old_argv = sys.argv
         try:
@@ -975,7 +963,6 @@ class TestEditSettings:
         """Test edit_settings creates default settings if missing."""
         import subprocess
 
-
         # Mock subprocess.run to succeed
         monkeypatch.setattr(subprocess, "run", lambda *args, **kwargs: None)
         monkeypatch.setenv("EDITOR", "cat")
@@ -992,7 +979,6 @@ class TestEditSettings:
     ) -> None:
         """Test edit_settings returns False when editor fails."""
         import subprocess
-
 
         create_default_settings(tmp_path)
 
@@ -1011,7 +997,6 @@ class TestEditSettings:
     ) -> None:
         """Test edit_settings detects validation errors."""
         import subprocess
-
 
         create_default_settings(tmp_path)
 
@@ -1033,7 +1018,6 @@ class TestSettingsCLIExtended:
     def test_cli_set(self, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
         """Test --set CLI option."""
         import sys
-
 
         create_default_settings(tmp_path)
 
@@ -1059,7 +1043,6 @@ class TestSettingsCLIExtended:
         """Test --diff CLI option."""
         import sys
 
-
         create_default_settings(tmp_path)
 
         old_argv = sys.argv
@@ -1075,7 +1058,6 @@ class TestSettingsCLIExtended:
     def test_cli_diff_no_settings(self, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
         """Test --diff when no settings exist."""
         import sys
-
 
         old_argv = sys.argv
         try:
@@ -1094,7 +1076,6 @@ class TestSettingsCLIExtended:
         import subprocess
         import sys
 
-
         create_default_settings(tmp_path)
 
         # Mock subprocess.run to succeed
@@ -1112,7 +1093,6 @@ class TestSettingsCLIExtended:
     def test_cli_validate_fails(self, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
         """Test --validate when settings are invalid."""
         import sys
-
 
         # Create invalid settings
         settings_dir = tmp_path / ".claude"
@@ -1136,7 +1116,6 @@ class TestSettingsCLIExtended:
         """Test --reset with interactive cancellation."""
         import sys
         from io import StringIO
-
 
         create_default_settings(tmp_path)
 
@@ -1164,7 +1143,6 @@ class TestSettingsCLIExtended:
         import sys
 
         import yaml
-
 
         # Create settings that match defaults exactly
         settings_dir = tmp_path / ".claude"

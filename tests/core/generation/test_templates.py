@@ -416,9 +416,7 @@ class TestGenerateTemplateNote:
         type_config = {"description": "Test"}
         core_properties = ["type", "created"]
 
-        result = generate_template_note(
-            "knowledge_base", type_config, core_properties
-        )
+        result = generate_template_note("knowledge_base", type_config, core_properties)
 
         assert "Template for **Knowledge Base** notes" in result
 
@@ -576,9 +574,7 @@ class TestCreateTemplateNotes:
         assert "up:" not in content
         assert "tags:" not in content
 
-    def test_create_template_notes_with_custom_properties(
-        self, tmp_path: Path
-    ) -> None:
+    def test_create_template_notes_with_custom_properties(self, tmp_path: Path) -> None:
         """Test creating templates with custom global properties."""
         vault_path = tmp_path / "vault"
         vault_path.mkdir()
@@ -597,9 +593,7 @@ class TestCreateTemplateNotes:
         content = (vault_path / "x/templates/test.md").read_text()
         assert "custom_field: " in content
 
-    def test_create_template_notes_with_per_type_properties(
-        self, tmp_path: Path
-    ) -> None:
+    def test_create_template_notes_with_per_type_properties(self, tmp_path: Path) -> None:
         """Test creating templates with per-type custom properties."""
         vault_path = tmp_path / "vault"
         vault_path.mkdir()
