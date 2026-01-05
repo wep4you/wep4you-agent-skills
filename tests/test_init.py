@@ -1572,8 +1572,27 @@ class TestManualTestingBugfixesIntegration:
 
     def test_init_with_git_creates_repository(self, tmp_path: Path) -> None:
         """Test init_git_repo creates .git directory"""
+        import shutil
+        import subprocess
+
         vault_path = tmp_path / "git-init-test"
         vault_path.mkdir()
+
+        # Skip if git not available
+        if not shutil.which("git"):
+            pytest.skip("Git not available")
+
+        # Configure git identity for CI environments
+        subprocess.run(
+            ["git", "config", "--global", "user.email", "test@example.com"],
+            check=False,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "config", "--global", "user.name", "Test User"],
+            check=False,
+            capture_output=True,
+        )
 
         # First create .gitignore (required before git init)
         create_gitignore(vault_path)
