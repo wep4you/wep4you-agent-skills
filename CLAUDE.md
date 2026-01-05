@@ -23,3 +23,24 @@ bd sync                     # Sync issues
 ```
 
 For full documentation, architecture, and workflows, see [AGENTS.md](AGENTS.md).
+
+## Ralph-Wiggum Usage (WICHTIG)
+
+When using Ralph-Wiggum loops, **both** the `--completion-promise` flag AND the `<promise>` tag in the prompt are required:
+
+```bash
+# CORRECT - Promise flag matches promise tag text
+/ralph-loop "Do task X. When done, output <promise>TASK DONE</promise>" --completion-promise "TASK DONE" --max-iterations 10
+
+# WRONG - Missing --completion-promise flag (runs infinitely!)
+/ralph-loop "Do task X. Output <promise>TASK DONE</promise> when done."
+
+# WRONG - Promise text doesn't match flag
+/ralph-loop "Output <promise>COMPLETE</promise>" --completion-promise "DONE"
+```
+
+**Key rules:**
+1. Always set `--completion-promise "TEXT"` flag
+2. The TEXT must exactly match what's between `<promise>TEXT</promise>` in prompt
+3. Always set `--max-iterations N` as safety fallback
+4. Use short, unique promise texts (e.g., "FIX 1 COMPLETE", "TESTS PASS")
