@@ -321,12 +321,13 @@ class TemplateManager:
             variables = {}
 
         # Auto-set UP variable to folder's MOC if not provided
+        # Note: Template already has up: "[[{{up}}]]" so we provide just the note name
         if "up" not in variables and folder:
             # Extract folder name from path (e.g., "Efforts/Areas/" -> "Areas")
             folder_name = folder.rstrip("/").split("/")[-1]
-            moc_link = f"[[_{folder_name}_MOC]]"
-            variables["up"] = moc_link
-            print(f"🔗 Auto-set UP link: {moc_link}")
+            moc_name = f"_{folder_name}_MOC"
+            variables["up"] = moc_name
+            print(f"🔗 Auto-set UP link: [[{moc_name}]]")
 
         # Add default variables
         defaults = {

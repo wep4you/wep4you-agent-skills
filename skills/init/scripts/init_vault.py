@@ -88,9 +88,9 @@ class WizardConfig:
 # METHODOLOGIES is imported from config.methodologies.loader (see import at top)
 # The definitions are loaded from YAML files in config/methodologies/
 
-# Folders protected during vault reset (never deleted)
-# Note: .git is NOT protected - reset should allow fresh git initialization
-PROTECTED_FOLDERS = frozenset({".obsidian", ".github", ".vscode"})
+# Folders protected during vault reset (never deleted automatically)
+# Note: .git is protected by default - user can choose to reset it separately
+PROTECTED_FOLDERS = frozenset({".obsidian", ".git", ".github", ".vscode"})
 
 # Folders to exclude from backups (large or regenerable)
 BACKUP_EXCLUDE_FOLDERS = frozenset({".obsidian", ".git", ".github", ".vscode"})
@@ -300,9 +300,8 @@ def reset_vault(vault_path: Path) -> None:
     """Reset vault to clean state.
 
     Creates a backup ZIP before deleting any files.
-    Protected folders (.obsidian, .github, .vscode) are preserved.
-    Note: .git is deleted to allow fresh git initialization.
-    Protected files (README.md, AGENTS.md, CLAUDE.md, Home.md, .gitignore)
+    Protected folders (.obsidian, .git, .github, .vscode) are preserved.
+    Protected files (README.md, AGENTS.md, CLAUDE.md, HOME.md, .gitignore)
     are preserved and will be updated during initialization.
 
     Args:
@@ -316,8 +315,7 @@ def reset_vault(vault_path: Path) -> None:
     print("\nResetting vault...")
 
     for item in vault_path.iterdir():
-        # Skip protected system folders (.obsidian, .github, .vscode)
-        # Note: .git is NOT protected - it will be deleted for fresh init
+        # Skip protected system folders (.obsidian, .git, .github, .vscode)
         if item.name in PROTECTED_FOLDERS:
             print(f"  - Keeping: {item.name}/")
             continue
@@ -864,6 +862,103 @@ def init_git_repo(vault_path: Path, methodology: str, dry_run: bool = False) -> 
     except subprocess.CalledProcessError as e:
         print(f"  ⚠ Git initialization failed: {e}")
         return False
+
+
+def git_commit_changes(vault_path: Path, message: str, dry_run: bool = False) -> bool:
+    """Commit all changes to an existing git repository.
+
+    Args:
+        vault_path: Path to the vault root
+        message: Commit message
+        dry_run: If True, only print what would be done
+
+    Returns:
+        True if successful, False otherwise
+    """
+    import shutil
+    import subprocess
+
+    git_path = shutil.which("git")
+    if not git_path:
+        print("  ⚠ Git not found in PATH")
+        return False
+
+    if not (vault_path / ".git").exists():
+        print("  ⚠ Not a git repository")
+        return False
+
+    if dry_run:
+        print(f'[DRY RUN] Would commit: "{message}"')
+        return True
+
+    try:
+        # Stage all changes
+        subprocess.run(  # noqa: S603
+            [git_path, "add", "."],
+            cwd=vault_path,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+        # Check if there are changes to commit
+        result = subprocess.run(  # noqa: S603
+            [git_path, "status", "--porcelain"],
+            cwd=vault_path,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+        if not result.stdout.strip():
+            print("  → No changes to commit")
+            return True
+
+        # Commit
+        subprocess.run(  # noqa: S603
+            [git_path, "commit", "-m", message],
+            cwd=vault_path,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        print(f'✓ Committed changes: "{message}"')
+        return True
+    except subprocess.CalledProcessError as e:
+        print(f"  ⚠ Git commit failed: {e}")
+        return False
+
+
+def wizard_step_git_reset() -> str:  # pragma: no cover
+    """Ask user how to handle git during reset.
+
+    Returns:
+        'keep' to keep .git and commit changes,
+        'reset' to delete .git and create fresh repo,
+        'skip' to not touch git at all
+    """
+    print()
+    print("┌" + "─" * 58 + "┐")
+    print("│" + " Git Repository Detected".ljust(58) + "│")
+    print("├" + "─" * 58 + "┤")
+    print("│".ljust(59) + "│")
+    print("│  How should git be handled?".ljust(59) + "│")
+    print("│".ljust(59) + "│")
+    print("│  [k] Keep history - commit new changes".ljust(59) + "│")
+    print("│  [r] Reset - delete .git and start fresh".ljust(59) + "│")
+    print("│  [s] Skip - don't touch git".ljust(59) + "│")
+    print("│".ljust(59) + "│")
+    print("└" + "─" * 58 + "┘")
+
+    while True:
+        choice = input("\nChoice [k/r/s] (default: k): ").strip().lower()
+        if choice in ("", "k", "keep"):
+            return "keep"
+        elif choice in ("r", "reset"):
+            return "reset"
+        elif choice in ("s", "skip"):
+            return "skip"
+        print("  Please enter 'k', 'r', or 's'.")
 
 
 def wizard_step_confirm(config: WizardConfig) -> bool:  # pragma: no cover
@@ -2940,7 +3035,7 @@ Examples:
     use_wizard = args.wizard or (args.methodology is None and not args.defaults)
 
     # Handle reset flag
-    init_git_after_reset = False
+    git_action_after_reset = None  # 'keep', 'reset', 'skip', or None
     if args.reset:
         if detection["exists"]:
             print(f"\nResetting vault at: {vault_path}")
@@ -2949,17 +3044,23 @@ Examples:
                 if confirm.strip().lower() != "yes":
                     print("Reset cancelled.")
                     return 0
+
+            # Check if .git exists and ask how to handle it
+            git_existed = (vault_path / ".git").exists()
+            if git_existed and not args.git and not use_wizard and is_interactive():
+                git_action_after_reset = wizard_step_git_reset()
+
+                # If user chose to reset git, delete .git folder now
+                if git_action_after_reset == "reset":
+                    shutil.rmtree(vault_path / ".git")
+                    print("  - Removed: .git/")
+
             reset_vault(vault_path)
 
-            # After reset, check if .git is missing and offer to initialize
-            # Only prompt if:
-            # - .git doesn't exist
-            # - --git flag not used (which forces git init)
-            # - Not in wizard mode (wizard prompts for git init itself)
-            # - Interactive mode
-            git_path = vault_path / ".git"
-            if not git_path.exists() and not args.git and not use_wizard and is_interactive():
-                init_git_after_reset = wizard_step_git_init()
+            # If .git didn't exist before, ask if user wants to init it
+            if not git_existed and not args.git and not use_wizard and is_interactive():
+                if wizard_step_git_init():
+                    git_action_after_reset = "init"
 
     # Parse note types filter
     note_types_filter = None
@@ -3001,12 +3102,20 @@ Examples:
             ranking_system=args.ranking_system,
         )
 
-        # Handle git initialization for non-wizard mode
+        # Handle git for non-wizard mode
         # (wizard handles it via config.init_git)
-        should_init_git = args.git or init_git_after_reset
-        if should_init_git and not use_wizard:
-            print("\nInitializing git repository...")
-            init_git_repo(vault_path, args.methodology or "minimal", args.dry_run)
+        if not use_wizard:
+            methodology_name = args.methodology or "minimal"
+            if args.git or git_action_after_reset in ("init", "reset"):
+                # Initialize new git repo
+                print("\nInitializing git repository...")
+                init_git_repo(vault_path, methodology_name, args.dry_run)
+            elif git_action_after_reset == "keep":
+                # Commit changes to existing repo
+                print("\nCommitting changes to existing repository...")
+                git_commit_changes(
+                    vault_path, f"Vault reset with {methodology_name}", args.dry_run
+                )
 
         return 0
     except ValueError as e:
