@@ -15,55 +15,13 @@ the correct Tab-style selection UI.
 from __future__ import annotations
 
 import argparse
-import copy
 import json
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any
 
-
-def apply_ranking_system(
-    note_types: dict[str, dict[str, Any]], ranking_system: str
-) -> dict[str, dict[str, Any]]:
-    """Apply ranking system choice to note types.
-
-    Transforms note types to use either 'rank' (numeric 1-5) or 'priority' (text).
-    Only affects project-like note types that have 'priority' in their properties.
-
-    Args:
-        note_types: Dictionary of note type configurations
-        ranking_system: Either "rank" (1-5 numeric) or "priority" (text)
-
-    Returns:
-        Modified note types with ranking system applied
-    """
-    # Types that support ranking (project-like notes)
-    rankable_types = frozenset({"project", "area"})
-
-    result = copy.deepcopy(note_types)
-    for type_name, type_config in result.items():
-        if type_name not in rankable_types:
-            continue
-
-        props = type_config.get("properties", {})
-        additional_required = props.get("additional_required", [])
-        optional = props.get("optional", [])
-
-        if ranking_system == "rank":
-            # Replace "priority" with "rank" in additional_required
-            if "priority" in additional_required:
-                additional_required = [
-                    "rank" if p == "priority" else p for p in additional_required
-                ]
-                props["additional_required"] = additional_required
-            # Remove "priority" from optional if present
-            if "priority" in optional:
-                optional = [p for p in optional if p != "priority"]
-                props["optional"] = optional
-        # If ranking_system == "priority", keep as-is (priority is the default in YAML)
-
-    return result
+from config.methodologies.loader import METHODOLOGIES
+from skills.core.utils import apply_ranking_system
 
 
 def get_script_path() -> Path:
@@ -377,35 +335,11 @@ def output_note_types_select_prompt(
 
 
 def get_core_properties_for_methodology(methodology: str) -> list[str]:
-    """Get core properties for a methodology by calling init_vault.py."""
-    script = get_script_path()
-
-    try:
-        cmd = ["uv", "run", str(script), "--list-note-types", methodology]
-        result = subprocess.run(  # noqa: S603
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-
-        if result.returncode == 0:
-            # The note types JSON doesn't include core_properties directly
-            # We need to get them from methodology config
-            # For now, call --list and parse or hardcode common ones
-            pass
-    except (subprocess.TimeoutExpired, OSError):
-        pass
-
-    # Fallback: common core properties (will be replaced with actual call)
-    # These are defined in METHODOLOGIES in init_vault.py
-    core_props_by_methodology = {
-        "lyt-ace": ["type", "up", "created", "daily", "tags", "collection", "related"],
-        "para": ["type", "up", "created", "tags"],
-        "zettelkasten": ["type", "up", "created", "tags", "source", "related"],
-        "minimal": ["type", "created", "tags"],
-    }
-    return core_props_by_methodology.get(methodology, ["type", "up", "created", "tags"])
+    """Get core properties for a methodology from METHODOLOGIES config."""
+    method = METHODOLOGIES.get(methodology)
+    if method:
+        return method.get("core_properties", ["type", "up", "created", "tags"])
+    return ["type", "up", "created", "tags"]
 
 
 def output_properties_prompt(

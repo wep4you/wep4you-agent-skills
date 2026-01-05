@@ -14,19 +14,17 @@ from pathlib import Path
 
 import pytest
 
-# Add paths for imports
-sys.path.insert(0, str(Path(__file__).parent.parent / "skills" / "init" / "scripts"))
-sys.path.insert(0, str(Path(__file__).parent.parent / "skills" / "validate" / "scripts"))
-sys.path.insert(0, str(Path(__file__).parent.parent / "skills" / "config" / "scripts"))
+# Add repository root to path
+_REPO_ROOT = Path(__file__).parent.parent
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 
-from init_vault import (
-    METHODOLOGIES,
-    generate_template_note,
-    get_content_folders,
-    init_vault,
-)
-from settings_loader import load_settings
-from validator import VaultValidator
+from config.methodologies.loader import METHODOLOGIES
+from skills.core.settings import load_settings
+from skills.init.scripts.content_generators import generate_template_note
+from skills.init.scripts.init_vault import init_vault
+from skills.init.scripts.vault_utils import get_content_folders
+from skills.validate.scripts.validator import VaultValidator
 
 
 class TestInitGeneratesValidSettings:

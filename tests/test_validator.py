@@ -280,8 +280,9 @@ related: []
         validator = VaultValidator(str(tmp_path), mode="auto")
         # Explicitly set type rules for the test
         validator.type_rules = {"Atlas/Dots/": "dot"}
+        validator.auto_fixer.type_inferrer = validator.infer_type  # Update inferrer with new rules
         validator.run_validation()
-        fixed = validator.fix_empty_types()
+        fixed = validator.auto_fixer.fix_empty_types(validator.issues.get("empty_types", []))
 
         # Verify fix was applied
         assert fixed == 1
@@ -331,7 +332,7 @@ related: []
 
         validator = VaultValidator(str(tmp_path), mode="auto")
         validator.run_validation()
-        fixed = validator.fix_invalid_created()
+        fixed = validator.auto_fixer.fix_invalid_created(validator.issues.get("invalid_created", []))
 
         assert fixed == 1
         new_content = test_file.read_text()
@@ -370,7 +371,7 @@ class TestReportGeneration:
         from validator import VaultValidator
 
         validator = VaultValidator(str(tmp_path))
-        summary = validator.generate_summary()
+        summary = validator.reporter.generate_summary(validator.issues)
 
         assert "total_issues" in summary
         assert "issues_by_type" in summary
@@ -490,12 +491,13 @@ related: []
 
         validator = VaultValidator(str(tmp_path), mode="auto")
         validator.type_rules = {"Atlas/Dots/": "dot"}
+        validator.auto_fixer.type_inferrer = validator.infer_type  # Update inferrer with new rules
         validator.run_validation()
 
         # Should have missing type in issues
         assert len(validator.issues["missing_properties"]) > 0
 
-        fixed = validator.fix_missing_properties()
+        fixed = validator.auto_fixer.fix_missing_properties(validator.issues.get("missing_properties", []))
         assert fixed == 1
 
         new_content = test_file.read_text()
@@ -524,7 +526,7 @@ created: 2025-01-15
         # Should have missing properties (participants, agenda)
         assert len(validator.issues["missing_properties"]) > 0
 
-        fixed = validator.fix_missing_properties()
+        fixed = validator.auto_fixer.fix_missing_properties(validator.issues.get("missing_properties", []))
         assert fixed == 1
 
         new_content = test_file.read_text()
@@ -548,10 +550,11 @@ created: 2025-01-15
 
         validator = VaultValidator(str(tmp_path), mode="auto")
         validator.type_rules = {"Atlas/Dots/": "dot"}
+        validator.auto_fixer.type_inferrer = validator.infer_type  # Update inferrer with new rules
         validator.required_properties = ["type", "up", "created"]
         validator.run_validation()
 
-        fixed = validator.fix_missing_properties()
+        fixed = validator.auto_fixer.fix_missing_properties(validator.issues.get("missing_properties", []))
         assert fixed == 1
 
         new_content = test_file.read_text()
@@ -622,7 +625,7 @@ class TestGenerateSummaryWithIssues:
         validator.issues["empty_types"] = ["file1.md"]
         validator.issues["title_properties"] = ["file2.md", "file3.md"]
 
-        summary = validator.generate_summary()
+        summary = validator.reporter.generate_summary(validator.issues)
 
         assert summary["total_issues"] == 3
         assert "empty_types" in summary["issues_by_type"]
@@ -661,9 +664,10 @@ daily: "[[Calendar/daily/2025/01/2025-01-15]]"
 
         validator = VaultValidator(str(tmp_path), mode="auto")
         validator.auto_fix_config["daily_links"] = False
+        validator.auto_fixer.auto_fix_config["daily_links"] = False  # Also update auto_fixer config
         validator.run_validation()
 
-        fixed = validator.fix_daily_links()
+        fixed = validator.auto_fixer.fix_daily_links(validator.issues.get("invalid_daily_links", []))
         assert fixed == 0
 
     def test_fix_wikilink_quotes_disabled(self, tmp_path):
@@ -679,9 +683,10 @@ up: [[Parent]]
 
         validator = VaultValidator(str(tmp_path), mode="auto")
         validator.auto_fix_config["wikilink_quotes"] = False
+        validator.auto_fixer.auto_fix_config["wikilink_quotes"] = False
         validator.run_validation()
 
-        fixed = validator.fix_unquoted_wikilinks()
+        fixed = validator.auto_fixer.fix_unquoted_wikilinks(validator.issues.get("unquoted_wikilinks", []))
         assert fixed == 0
 
     def test_fix_invalid_created_disabled(self, tmp_path):
@@ -697,9 +702,10 @@ created: [[2025-01-15]]
 
         validator = VaultValidator(str(tmp_path), mode="auto")
         validator.auto_fix_config["invalid_created"] = False
+        validator.auto_fixer.auto_fix_config["invalid_created"] = False
         validator.run_validation()
 
-        fixed = validator.fix_invalid_created()
+        fixed = validator.auto_fixer.fix_invalid_created(validator.issues.get("invalid_created", []))
         assert fixed == 0
 
     def test_fix_title_properties_disabled(self, tmp_path):
@@ -715,9 +721,10 @@ type: Dot
 
         validator = VaultValidator(str(tmp_path), mode="auto")
         validator.auto_fix_config["title_properties"] = False
+        validator.auto_fixer.auto_fix_config["title_properties"] = False
         validator.run_validation()
 
-        fixed = validator.fix_title_properties()
+        fixed = validator.auto_fixer.fix_title_properties(validator.issues.get("title_properties", []))
         assert fixed == 0
 
     def test_fix_date_mismatches_disabled(self, tmp_path):
@@ -734,9 +741,10 @@ daily: "[[2025-01-20]]"
 
         validator = VaultValidator(str(tmp_path), mode="auto")
         validator.auto_fix_config["date_mismatches"] = False
+        validator.auto_fixer.auto_fix_config["date_mismatches"] = False
         validator.run_validation()
 
-        fixed = validator.fix_date_mismatches()
+        fixed = validator.auto_fixer.fix_date_mismatches(validator.issues.get("date_mismatches", []))
         assert fixed == 0
 
 
@@ -945,7 +953,7 @@ type: dot
         from validator import VaultValidator
 
         validator = VaultValidator(str(tmp_path))
-        default_path = validator.get_default_jsonl_path()
+        default_path = validator.reporter.get_default_jsonl_path()
 
         assert default_path == tmp_path / ".claude" / "logs" / "validate.jsonl"
 

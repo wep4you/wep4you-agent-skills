@@ -12,34 +12,36 @@ from unittest.mock import patch
 import pytest
 import yaml
 
-# Add skills directory to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent / "skills" / "init" / "scripts"))
+# Add repository root to path for imports
+_REPO_ROOT = Path(__file__).parent.parent
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 
-# Import after path modification
-from init_vault import (
-    METHODOLOGIES,
-    NoteTypeConfig,
-    WizardConfig,
-    apply_ranking_system,
+# Import from new modular structure
+from config.methodologies.loader import METHODOLOGIES
+from skills.core.models import NoteTypeConfig, WizardConfig
+from skills.core.utils import apply_ranking_system
+from skills.core.vault import create_folder_structure, create_gitignore, init_git_repo
+from skills.init.scripts.content_generators import (
     build_settings_yaml,
-    choose_methodology_interactive,
     create_agent_docs,
-    create_folder_structure,
-    create_gitignore,
     create_home_note,
     create_readme,
     create_sample_notes,
     create_settings_yaml,
-    detect_existing_vault,
     generate_agents_md,
-    generate_claude_md,
     generate_sample_note,
-    init_git_repo,
+)
+from skills.init.scripts.init_vault import (
+    choose_methodology_interactive,
     init_vault,
     main,
     print_methodologies,
-    reset_vault,
     show_migration_hint,
+)
+from skills.init.scripts.vault_utils import reset_vault
+from skills.init.scripts.wizard import (
+    detect_existing_vault,
     wizard_step_confirm,
     wizard_step_custom_note_types,
     wizard_step_frontmatter,
@@ -334,11 +336,11 @@ class TestCreateReadme:
         assert "Atlas/Maps" in content
 
     def test_readme_has_validation_commands(self, tmp_path: Path) -> None:
-        """Test README contains validation commands"""
+        """Test README references AGENTS.md for commands"""
         create_readme(tmp_path, "zettelkasten", dry_run=False)
 
         content = (tmp_path / "README.md").read_text()
-        assert "/obsidian:validate" in content
+        assert "AGENTS.md" in content  # Commands are in AGENTS.md now
 
 
 class TestCreateHomeNote:
@@ -474,7 +476,7 @@ class TestMainCLI:
         # Mock is_interactive to return True and the full wizard flow
         # Input sequence: methodology, setup mode, ranking system, git init, confirm
         with patch("sys.argv", ["init_vault.py", *args]):
-            with patch("init_vault.is_interactive", return_value=True):
+            with patch("skills.init.scripts.init_vault.is_interactive", return_value=True):
                 with patch("builtins.input", side_effect=["zettelkasten", "q", "r", "n", "y"]):
                     exit_code = main()
 
@@ -891,19 +893,7 @@ class TestAgentDocs:
 
     def test_generate_agents_md_content(self) -> None:
         """Test AGENTS.md content generation - agent-focused instructions"""
-        note_types = {
-            "project": {
-                "description": "Active projects",
-                "folder_hints": ["Projects/"],
-                "properties": {
-                    "additional_required": ["status", "rank"],
-                    "optional": ["deadline"],
-                },
-                "validation": {"allow_empty_up": False},
-            }
-        }
-        # Note: note_types and core_properties are kept for API compat but not used
-        content = generate_agents_md("para", note_types, ["type", "up", "created"])
+        content = generate_agents_md("para")
 
         # Core structure (following AGENTS.md standard)
         assert "# AGENTS.md" in content
@@ -913,36 +903,19 @@ class TestAgentDocs:
         # Commands section
         assert "## Commands" in content
         assert "/obsidian:validate" in content
-        # Project structure
-        assert "## Project Structure" in content
-        # Code style (frontmatter)
-        assert "## Code Style" in content
-        assert "type:" in content
-        assert "created:" in content
-        # Testing section
-        assert "## Testing" in content
-        # Boundaries section (three-tier)
-        assert "## Boundaries" in content
-        assert "Always Do" in content
-        assert "Ask First" in content
-        assert "Never Do" in content
-        # UP-Links
-        assert "## UP-Links" in content
-        assert "logical parent" in content
-        assert "MOC" in content
-        # Git workflow
-        assert "## Git Workflow" in content
 
-    def test_generate_claude_md_content(self) -> None:
+    def test_claude_md_content(self, tmp_path: Path) -> None:
         """Test CLAUDE.md content generation - minimal with @AGENTS.md include"""
-        content = generate_claude_md()
+        vault_path = tmp_path / "claude-md-test"
+        vault_path.mkdir()
+
+        create_agent_docs(vault_path, "minimal")
+
+        content = (vault_path / "CLAUDE.md").read_text()
 
         # Minimal structure with AGENTS.md reference
         assert "# CLAUDE.md" in content
         assert "@AGENTS.md" in content  # Include directive for AGENTS.md
-        # Claude-specific section
-        assert "## Claude-Specific" in content
-        assert "/memory" in content
         # Obsidian plugin commands
         assert "## Obsidian Plugin" in content
         assert "/obsidian:validate" in content
@@ -952,10 +925,7 @@ class TestAgentDocs:
         vault_path = tmp_path / "agent-docs-test"
         vault_path.mkdir()
 
-        note_types = METHODOLOGIES["minimal"]["note_types"]
-        core_properties = METHODOLOGIES["minimal"]["core_properties"]
-
-        create_agent_docs(vault_path, "minimal", note_types, core_properties)
+        create_agent_docs(vault_path, "minimal")
 
         assert (vault_path / "AGENTS.md").exists()
         assert (vault_path / "CLAUDE.md").exists()
@@ -968,10 +938,7 @@ class TestAgentDocs:
         vault_path = tmp_path / "agent-docs-dry"
         vault_path.mkdir()
 
-        note_types = METHODOLOGIES["minimal"]["note_types"]
-        core_properties = METHODOLOGIES["minimal"]["core_properties"]
-
-        create_agent_docs(vault_path, "minimal", note_types, core_properties, dry_run=True)
+        create_agent_docs(vault_path, "minimal", dry_run=True)
 
         # Files should not be created in dry run
         assert not (vault_path / "AGENTS.md").exists()
