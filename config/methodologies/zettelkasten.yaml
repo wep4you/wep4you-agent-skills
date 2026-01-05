@@ -96,10 +96,12 @@ folder_structure:
   fleeting: Fleeting/
   references: References/
 
-# Default UP links per folder
+# Default UP links per folder (point to MOC notes in each folder)
 up_links:
-  "Permanent/": "[[Index]]"
-  "Literature/": "[[Literature Index]]"
+  "Permanent/": "[[Permanent/_Permanent_MOC]]"
+  "Literature/": "[[Literature/_Literature_MOC]]"
+  "Fleeting/": "[[Fleeting/_Fleeting_MOC]]"
+  "References/": "[[References/_References_MOC]]"
 
 # =============================================================================
 # EXTENDED DOCUMENTATION (Additional context, not used by init_vault.py)

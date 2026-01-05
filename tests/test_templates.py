@@ -640,3 +640,306 @@ class TestEdgeCases:
         # Check frontmatter is preserved
         assert content.startswith("---")
         assert "type: map" in content
+
+
+class TestTemplateSourceFiltering:
+    """Test --source filtering functionality"""
+
+    def test_list_templates_source_all(self, temp_vault: Path) -> None:
+        """Test listing all templates (default)"""
+        # Create vault template
+        vault_template = temp_vault / ".obsidian" / "templates" / "custom.md"
+        vault_template.write_text("# Custom")
+
+        manager = TemplateManager(str(temp_vault))
+        templates = manager.list_templates(source="all")
+
+        sources = {t["source"] for t in templates}
+        assert "plugin" in sources
+        assert "vault" in sources
+
+    def test_list_templates_source_plugin_only(self, temp_vault: Path) -> None:
+        """Test listing only plugin templates"""
+        # Create vault template
+        vault_template = temp_vault / ".obsidian" / "templates" / "custom.md"
+        vault_template.write_text("# Custom")
+
+        manager = TemplateManager(str(temp_vault))
+        templates = manager.list_templates(source="plugin")
+
+        sources = {t["source"] for t in templates}
+        assert "plugin" in sources
+        assert "vault" not in sources
+
+    def test_list_templates_source_vault_only(self, temp_vault: Path) -> None:
+        """Test listing only vault templates"""
+        # Create vault template
+        vault_template = temp_vault / ".obsidian" / "templates" / "custom.md"
+        vault_template.write_text("# Custom")
+
+        manager = TemplateManager(str(temp_vault))
+        templates = manager.list_templates(source="vault")
+
+        sources = {t["source"] for t in templates}
+        assert "vault" in sources
+        assert "plugin" not in sources
+
+
+class TestXTemplatesDirectory:
+    """Test x/templates/ directory discovery (created by init)"""
+
+    def test_find_x_templates_directory(self, tmp_path: Path) -> None:
+        """Test discovering x/templates/ directory"""
+        vault = tmp_path / "vault"
+        vault.mkdir()
+
+        # Create x/templates structure (as init does)
+        x_templates = vault / "x" / "templates"
+        x_templates.mkdir(parents=True)
+
+        manager = TemplateManager(str(vault))
+        dirs = manager._find_vault_templates_dirs()
+
+        assert any("x/templates" in str(d) or "x\\templates" in str(d) for d in dirs)
+
+    def test_list_templates_from_x_templates(self, tmp_path: Path) -> None:
+        """Test listing templates from x/templates/"""
+        vault = tmp_path / "vault"
+        vault.mkdir()
+
+        # Create x/templates with type subdirectories (as init does)
+        x_templates = vault / "x" / "templates"
+        project_dir = x_templates / "project"
+        project_dir.mkdir(parents=True)
+        (project_dir / "template.md").write_text("# Project Template")
+
+        area_dir = x_templates / "area"
+        area_dir.mkdir(parents=True)
+        (area_dir / "template.md").write_text("# Area Template")
+
+        manager = TemplateManager(str(vault))
+        templates = manager.list_templates(source="vault")
+
+        names = [t["name"] for t in templates]
+        assert "project/template" in names
+        assert "area/template" in names
+
+    def test_resolve_template_from_x_templates(self, tmp_path: Path) -> None:
+        """Test resolving template path from x/templates/"""
+        vault = tmp_path / "vault"
+        vault.mkdir()
+
+        # Create x/templates with type subdirectory
+        x_templates = vault / "x" / "templates"
+        project_dir = x_templates / "project"
+        project_dir.mkdir(parents=True)
+        template_file = project_dir / "template.md"
+        template_file.write_text("# Project")
+
+        manager = TemplateManager(str(vault))
+        path = manager._resolve_template_path("project/template")
+
+        assert path is not None
+        assert path == template_file
+
+    def test_show_template_from_x_templates(self, tmp_path: Path) -> None:
+        """Test showing template content from x/templates/"""
+        vault = tmp_path / "vault"
+        vault.mkdir()
+
+        # Create x/templates template
+        x_templates = vault / "x" / "templates"
+        project_dir = x_templates / "project"
+        project_dir.mkdir(parents=True)
+        (project_dir / "my-template.md").write_text("# My Project Template")
+
+        manager = TemplateManager(str(vault))
+        content = manager.show_template("project/my-template")
+
+        assert content is not None
+        assert "My Project Template" in content
+
+    def test_x_templates_priority_over_other_vault_dirs(self, tmp_path: Path) -> None:
+        """Test x/templates/ is checked first among vault dirs"""
+        vault = tmp_path / "vault"
+        vault.mkdir()
+
+        # Create both x/templates and .obsidian/templates
+        x_templates = vault / "x" / "templates"
+        x_templates.mkdir(parents=True)
+        (x_templates / "shared.md").write_text("# From x/templates")
+
+        obsidian_templates = vault / ".obsidian" / "templates"
+        obsidian_templates.mkdir(parents=True)
+        (obsidian_templates / "shared.md").write_text("# From .obsidian")
+
+        manager = TemplateManager(str(vault))
+        content = manager.show_template("shared")
+
+        # x/templates should take priority
+        assert content is not None
+        assert "From x/templates" in content
+
+
+class TestTemplateApplyIntegration:
+    """Integration tests for template apply functionality.
+
+    These tests verify bugs found during manual testing:
+    - Auto-folder detection from template type
+    - Auto-UP link set to folder MOC
+    - Correct bracket formatting in UP links
+    """
+
+    @pytest.fixture
+    def vault_with_settings(self, tmp_path: Path) -> Path:
+        """Create vault with settings.yaml for folder hints."""
+        vault = tmp_path / "vault"
+        vault.mkdir()
+
+        # Create .claude/settings.yaml with folder hints
+        claude_dir = vault / ".claude"
+        claude_dir.mkdir()
+        (claude_dir / "settings.yaml").write_text(
+            """
+version: "1.0"
+methodology: lyt-ace
+note_types:
+  area:
+    description: Area notes
+    folder_hints:
+      - Efforts/Areas/
+  project:
+    description: Project notes
+    folder_hints:
+      - Efforts/Projects/
+  map:
+    description: Map notes
+    folder_hints:
+      - Atlas/Maps/
+"""
+        )
+
+        # Create folder structure
+        (vault / "Efforts" / "Areas").mkdir(parents=True)
+        (vault / "Efforts" / "Projects").mkdir(parents=True)
+        (vault / "Atlas" / "Maps").mkdir(parents=True)
+
+        # Create vault templates (in x/templates as created by init)
+        x_templates = vault / "x" / "templates"
+        x_templates.mkdir(parents=True)
+
+        # Area template
+        (x_templates / "area.md").write_text(
+            """---
+type: "{{type}}"
+up: "[[{{up}}]]"
+created: {{date}}
+---
+
+# {{title}}
+"""
+        )
+
+        # Project template
+        (x_templates / "project.md").write_text(
+            """---
+type: "{{type}}"
+up: "[[{{up}}]]"
+created: {{date}}
+---
+
+# {{title}}
+"""
+        )
+
+        return vault
+
+    def test_apply_template_auto_folder_detection(self, vault_with_settings: Path) -> None:
+        """Test that template apply auto-detects folder from template type.
+
+        Bug: /obsidian:templates apply area Note.md created file in root
+        Expected: Should create in Efforts/Areas/Note.md
+        """
+        manager = TemplateManager(str(vault_with_settings))
+
+        # Apply template with just filename (no folder)
+        result = manager.apply_template("area", "TestNote.md")
+
+        assert result is True
+        # File should be created in Efforts/Areas/, not root
+        assert (vault_with_settings / "Efforts" / "Areas" / "TestNote.md").exists()
+        assert not (vault_with_settings / "TestNote.md").exists()
+
+    def test_apply_template_auto_up_link_to_moc(self, vault_with_settings: Path) -> None:
+        """Test that template apply auto-sets UP link to folder's MOC.
+
+        Bug: UP link was empty when not provided
+        Expected: Should auto-set to [[_Areas_MOC]] for area template
+        """
+        manager = TemplateManager(str(vault_with_settings))
+
+        # Apply template without providing UP variable
+        result = manager.apply_template("area", "TestNote.md")
+
+        assert result is True
+        content = (vault_with_settings / "Efforts" / "Areas" / "TestNote.md").read_text()
+
+        # UP should be auto-set to folder's MOC
+        assert "[[_Areas_MOC]]" in content
+        # Should NOT have double brackets
+        assert "[[[[" not in content
+        assert "]]]]" not in content
+
+    def test_apply_template_up_link_correct_brackets(self, vault_with_settings: Path) -> None:
+        """Test that UP link has correct bracket formatting.
+
+        Bug: UP link was [[[[_Areas_MOC]]]] instead of [[_Areas_MOC]]
+        Cause: Template has up: "[[{{up}}]]" and code added brackets to variable
+        """
+        manager = TemplateManager(str(vault_with_settings))
+
+        result = manager.apply_template("project", "MyProject.md")
+
+        assert result is True
+        content = (vault_with_settings / "Efforts" / "Projects" / "MyProject.md").read_text()
+
+        # Check for correct format: up: "[[_Projects_MOC]]"
+        assert 'up: "[[_Projects_MOC]]"' in content
+        # Should NOT have double brackets
+        assert "[[[[" not in content
+
+    def test_apply_template_explicit_folder_still_works(self, vault_with_settings: Path) -> None:
+        """Test that explicit folder path still works."""
+        manager = TemplateManager(str(vault_with_settings))
+
+        # Apply with explicit path
+        result = manager.apply_template("area", "Efforts/Areas/ExplicitPath.md")
+
+        assert result is True
+        assert (vault_with_settings / "Efforts" / "Areas" / "ExplicitPath.md").exists()
+
+    def test_apply_template_explicit_up_not_overwritten(self, vault_with_settings: Path) -> None:
+        """Test that explicit UP variable is not overwritten."""
+        manager = TemplateManager(str(vault_with_settings))
+
+        # Apply with explicit UP
+        result = manager.apply_template("area", "TestNote.md", variables={"up": "CustomParent"})
+
+        assert result is True
+        content = (vault_with_settings / "Efforts" / "Areas" / "TestNote.md").read_text()
+
+        # Should use provided UP, not auto-detected
+        assert "[[CustomParent]]" in content
+        assert "_Areas_MOC" not in content
+
+    def test_apply_template_type_variable_set(self, vault_with_settings: Path) -> None:
+        """Test that type variable is auto-set from template name."""
+        manager = TemplateManager(str(vault_with_settings))
+
+        result = manager.apply_template("area", "TestNote.md")
+
+        assert result is True
+        content = (vault_with_settings / "Efforts" / "Areas" / "TestNote.md").read_text()
+
+        # Type should be set from template name
+        assert 'type: "area"' in content

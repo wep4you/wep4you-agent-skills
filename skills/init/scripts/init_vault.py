@@ -81,10 +81,75 @@ class WizardConfig:
     per_type_properties: dict[str, dict[str, list[str]]] = field(default_factory=dict)
     create_samples: bool = True
     reset_vault: bool = False
+    ranking_system: str = "rank"  # "rank" (1-5) or "priority" (text)
+    init_git: bool = False  # Initialize git repository
 
 
 # METHODOLOGIES is imported from config.methodologies.loader (see import at top)
 # The definitions are loaded from YAML files in config/methodologies/
+
+# Folders protected during vault reset (never deleted automatically)
+# Note: .git is protected by default - user can choose to reset it separately
+PROTECTED_FOLDERS = frozenset({".obsidian", ".git", ".github", ".vscode"})
+
+# Folders to exclude from backups (large or regenerable)
+BACKUP_EXCLUDE_FOLDERS = frozenset({".obsidian", ".git", ".github", ".vscode"})
+
+# Files protected during vault reset (kept and updated instead of deleted)
+PROTECTED_FILES = frozenset({"README.md", "AGENTS.md", "CLAUDE.md", "HOME.md", ".gitignore"})
+
+# Note types that support ranking (project-like notes)
+RANKABLE_NOTE_TYPES = frozenset({"project", "area"})
+
+
+def apply_ranking_system(
+    note_types: dict[str, dict[str, Any]], ranking_system: str
+) -> dict[str, dict[str, Any]]:
+    """Apply ranking system choice to note types.
+
+    Adds either 'rank' or 'priority' as a required property for project-like notes.
+
+    Args:
+        note_types: Dictionary of note type configurations
+        ranking_system: Either "rank" (1-5 numeric) or "priority" (text)
+
+    Returns:
+        Modified note_types with ranking property added
+    """
+    import copy
+
+    modified = copy.deepcopy(note_types)
+
+    for type_name, type_config in modified.items():
+        # Only apply to project-like notes
+        if type_name not in RANKABLE_NOTE_TYPES:
+            continue
+
+        props = type_config.get("properties", {})
+        additional_required = list(props.get("additional_required", []))
+        optional = list(props.get("optional", []))
+
+        if ranking_system == "rank":
+            # Add rank as required (if not already there)
+            if "rank" not in additional_required:
+                additional_required.append("rank")
+            # Remove priority from optional if present
+            if "priority" in optional:
+                optional.remove("priority")
+        else:
+            # Move priority from optional to required
+            if "priority" not in additional_required:
+                additional_required.append("priority")
+            if "priority" in optional:
+                optional.remove("priority")
+
+        # Update the config
+        if "properties" not in type_config:
+            type_config["properties"] = {}
+        type_config["properties"]["additional_required"] = additional_required
+        type_config["properties"]["optional"] = optional
+
+    return modified
 
 
 # =============================================================================
@@ -216,8 +281,8 @@ def create_vault_backup(vault_path: Path) -> Path | None:
     try:
         with zipfile.ZipFile(backup_path, "w", zipfile.ZIP_DEFLATED) as zipf:
             for item in vault_path.rglob("*"):
-                # Skip .obsidian folder
-                if ".obsidian" in item.parts:
+                # Skip folders excluded from backup (.obsidian, .git, .github, .vscode)
+                if any(excluded in item.parts for excluded in BACKUP_EXCLUDE_FOLDERS):
                     continue
                 if item.is_file():
                     arcname = item.relative_to(vault_path)
@@ -231,14 +296,16 @@ def create_vault_backup(vault_path: Path) -> Path | None:
         return None
 
 
-def reset_vault(vault_path: Path, keep_obsidian: bool = True) -> None:
+def reset_vault(vault_path: Path) -> None:
     """Reset vault to clean state.
 
     Creates a backup ZIP before deleting any files.
+    Protected folders (.obsidian, .git, .github, .vscode) are preserved.
+    Protected files (README.md, AGENTS.md, CLAUDE.md, HOME.md, .gitignore)
+    are preserved and will be updated during initialization.
 
     Args:
         vault_path: Path to the vault
-        keep_obsidian: If True, keep .obsidian folder (preserves Obsidian settings)
     """
     # Create backup first
     backup_path = create_vault_backup(vault_path)
@@ -248,9 +315,14 @@ def reset_vault(vault_path: Path, keep_obsidian: bool = True) -> None:
     print("\nResetting vault...")
 
     for item in vault_path.iterdir():
-        # Skip .obsidian if keeping it
-        if keep_obsidian and item.name == ".obsidian":
+        # Skip protected system folders (.obsidian, .git, .github, .vscode)
+        if item.name in PROTECTED_FOLDERS:
             print(f"  - Keeping: {item.name}/")
+            continue
+
+        # Skip protected root files (will be updated during init)
+        if item.name in PROTECTED_FILES:
+            print(f"  - Keeping: {item.name} (will be updated)")
             continue
 
         if item.is_dir():
@@ -624,6 +696,271 @@ def wizard_step_custom_note_types(  # pragma: no cover
     return custom_types
 
 
+def wizard_step_ranking_system() -> str:  # pragma: no cover
+    """Ask user to choose ranking system for projects.
+
+    Returns:
+        "rank" for numeric 1-5 scale, "priority" for text-based
+    """
+    print()
+    print("┌" + "─" * 58 + "┐")
+    print("│" + " Project Ranking System".ljust(58) + "│")
+    print("╞" + "═" * 58 + "╡")
+    print("│  How should projects be prioritized?".ljust(59) + "│")
+    print("│".ljust(59) + "│")
+    print("│  [r] Rank (1-5 numeric scale, 5=highest) - Recommended".ljust(59) + "│")
+    print("│  [p] Priority (text: low/medium/high/critical)".ljust(59) + "│")
+    print("└" + "─" * 58 + "┘")
+
+    while True:
+        choice = input("\n  Choose ranking system [r]: ").strip().lower()
+        if choice == "" or choice == "r":
+            print("  → Using rank (1-5 numeric scale)")
+            return "rank"
+        if choice == "p":
+            print("  → Using priority (text-based)")
+            return "priority"
+        print("  Please enter 'r' or 'p'.")
+
+
+def wizard_step_git_init() -> bool:  # pragma: no cover
+    """Ask user if they want to initialize a git repository.
+
+    Returns:
+        True to initialize git, False to skip
+    """
+    print()
+    print("┌" + "─" * 58 + "┐")
+    print("│" + " Git Repository".ljust(58) + "│")
+    print("╞" + "═" * 58 + "╡")
+    print("│  Initialize a git repository for version control?".ljust(59) + "│")
+    print("│".ljust(59) + "│")
+    print("│  [y] Yes - Create git repo with initial commit".ljust(59) + "│")
+    print("│  [n] No  - Skip git initialization (default)".ljust(59) + "│")
+    print("└" + "─" * 58 + "┘")
+
+    while True:
+        choice = input("\n  Initialize git repository? [n]: ").strip().lower()
+        if choice == "" or choice == "n":
+            print("  → Skipping git initialization")
+            return False
+        if choice == "y":
+            print("  → Will initialize git repository")
+            return True
+        print("  Please enter 'y' or 'n'.")
+
+
+def create_gitignore(vault_path: Path, dry_run: bool = False) -> None:
+    """Create .gitignore file for the vault if it doesn't exist.
+
+    Args:
+        vault_path: Path to the vault root
+        dry_run: If True, only print what would be done
+    """
+    gitignore_path = vault_path / ".gitignore"
+
+    # Skip if already exists
+    if gitignore_path.exists():
+        return
+
+    gitignore_content = """# Obsidian
+.obsidian/workspace.json
+.obsidian/workspace-mobile.json
+.obsidian/cache
+.obsidian/plugins/*/data.json
+
+# System
+.DS_Store
+.Trash/
+Thumbs.db
+
+# Claude Code
+.claude/logs/
+.claude/backups/
+
+# Editor
+*.swp
+*.swo
+*~
+"""
+    if dry_run:
+        print("[DRY RUN] Would create .gitignore")
+        return
+
+    gitignore_path.write_text(gitignore_content)
+    print("✓ Created: .gitignore")
+
+
+def init_git_repo(vault_path: Path, methodology: str, dry_run: bool = False) -> bool:
+    """Initialize a git repository in the vault.
+
+    Initializes git and makes initial commit. Assumes .gitignore already exists.
+
+    Args:
+        vault_path: Path to the vault root
+        methodology: Methodology name for commit message
+        dry_run: If True, only print what would be done
+
+    Returns:
+        True if successful, False if git not available or failed
+    """
+    import shutil
+    import subprocess
+
+    # Check if git is available and get full path
+    git_path = shutil.which("git")
+    if not git_path:
+        print("  ⚠ Git not found in PATH, skipping git initialization")
+        return False
+
+    # Check if already a git repo
+    if (vault_path / ".git").exists():
+        print("  → Git repository already exists, skipping")
+        return True
+
+    method_config = METHODOLOGIES[methodology]
+    method_name = method_config["name"]
+
+    if dry_run:
+        print("[DRY RUN] Would initialize git repository")
+        print(f'[DRY RUN] Would commit: "Initial vault setup with {method_name}"')
+        return True
+
+    try:
+        # Initialize git repo
+        # Security: git_path is from shutil.which(), args are hardcoded
+        subprocess.run(  # noqa: S603
+            [git_path, "init"],
+            cwd=vault_path,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        print("✓ Initialized git repository")
+
+        # Stage all files
+        subprocess.run(  # noqa: S603
+            [git_path, "add", "."],
+            cwd=vault_path,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+        # Create initial commit
+        commit_message = f"Initial vault setup with {method_name}"
+        subprocess.run(  # noqa: S603
+            [git_path, "commit", "-m", commit_message],
+            cwd=vault_path,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        print(f'✓ Created initial commit: "{commit_message}"')
+
+        return True
+    except subprocess.CalledProcessError as e:
+        print(f"  ⚠ Git initialization failed: {e}")
+        return False
+
+
+def git_commit_changes(vault_path: Path, message: str, dry_run: bool = False) -> bool:
+    """Commit all changes to an existing git repository.
+
+    Args:
+        vault_path: Path to the vault root
+        message: Commit message
+        dry_run: If True, only print what would be done
+
+    Returns:
+        True if successful, False otherwise
+    """
+    import shutil
+    import subprocess
+
+    git_path = shutil.which("git")
+    if not git_path:
+        print("  ⚠ Git not found in PATH")
+        return False
+
+    if not (vault_path / ".git").exists():
+        print("  ⚠ Not a git repository")
+        return False
+
+    if dry_run:
+        print(f'[DRY RUN] Would commit: "{message}"')
+        return True
+
+    try:
+        # Stage all changes
+        subprocess.run(  # noqa: S603
+            [git_path, "add", "."],
+            cwd=vault_path,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+        # Check if there are changes to commit
+        result = subprocess.run(  # noqa: S603
+            [git_path, "status", "--porcelain"],
+            cwd=vault_path,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+        if not result.stdout.strip():
+            print("  → No changes to commit")
+            return True
+
+        # Commit
+        subprocess.run(  # noqa: S603
+            [git_path, "commit", "-m", message],
+            cwd=vault_path,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        print(f'✓ Committed changes: "{message}"')
+        return True
+    except subprocess.CalledProcessError as e:
+        print(f"  ⚠ Git commit failed: {e}")
+        return False
+
+
+def wizard_step_git_reset() -> str:  # pragma: no cover
+    """Ask user how to handle git during reset.
+
+    Returns:
+        'keep' to keep .git and commit changes,
+        'reset' to delete .git and create fresh repo,
+        'skip' to not touch git at all
+    """
+    print()
+    print("┌" + "─" * 58 + "┐")
+    print("│" + " Git Repository Detected".ljust(58) + "│")
+    print("├" + "─" * 58 + "┤")
+    print("│".ljust(59) + "│")
+    print("│  How should git be handled?".ljust(59) + "│")
+    print("│".ljust(59) + "│")
+    print("│  [k] Keep history - commit new changes".ljust(59) + "│")
+    print("│  [r] Reset - delete .git and start fresh".ljust(59) + "│")
+    print("│  [s] Skip - don't touch git".ljust(59) + "│")
+    print("│".ljust(59) + "│")
+    print("└" + "─" * 58 + "┘")
+
+    while True:
+        choice = input("\nChoice [k/r/s] (default: k): ").strip().lower()
+        if choice in ("", "k", "keep"):
+            return "keep"
+        elif choice in ("r", "reset"):
+            return "reset"
+        elif choice in ("s", "skip"):
+            return "skip"
+        print("  Please enter 'k', 'r', or 's'.")
+
+
 def wizard_step_confirm(config: WizardConfig) -> bool:  # pragma: no cover
     """Show summary and ask for confirmation.
 
@@ -683,6 +1020,9 @@ def wizard_step_confirm(config: WizardConfig) -> bool:  # pragma: no cover
     line = f"│   Sample Notes: {'Yes' if config.create_samples else 'No'}"
     print(line.ljust(59) + "│")
 
+    line = f"│   Git Init:     {'Yes' if config.init_git else 'No'}"
+    print(line.ljust(59) + "│")
+
     print("├" + "─" * 58 + "┤")
     print("│" + " [y] Proceed (default)   [n] Start over".ljust(58) + "│")
     print("└" + "─" * 58 + "┘")
@@ -722,7 +1062,7 @@ def wizard_full_flow(vault_path: Path) -> WizardConfig | None:  # pragma: no cov
             print("  Initialization cancelled.")
             return None
         if action == "reset":
-            reset_vault(vault_path, keep_obsidian=True)
+            reset_vault(vault_path)
 
     # STEP 1: Choose methodology
     methodology = wizard_step_methodology()
@@ -731,11 +1071,19 @@ def wizard_full_flow(vault_path: Path) -> WizardConfig | None:  # pragma: no cov
     # STEP 2: Quick or custom setup
     use_defaults = wizard_step_quick_or_custom()
 
+    # STEP 3 (for both paths): Choose ranking system
+    ranking_system = wizard_step_ranking_system()
+
+    # STEP 4 (for both paths): Ask about git initialization
+    init_git = wizard_step_git_init()
+
     if use_defaults:
         # Quick setup - use all defaults
+        # Apply ranking system to note types for correct property display
+        quick_note_types = apply_ranking_system(dict(method_config["note_types"]), ranking_system)
         config = WizardConfig(
             methodology=methodology,
-            note_types=dict(method_config["note_types"]),
+            note_types=quick_note_types,
             core_properties=list(method_config["core_properties"]),
             mandatory_properties=list(method_config["core_properties"]),
             optional_properties=[],
@@ -743,19 +1091,25 @@ def wizard_full_flow(vault_path: Path) -> WizardConfig | None:  # pragma: no cov
             custom_note_types={},
             per_type_properties={},
             create_samples=True,
+            ranking_system=ranking_system,
+            init_git=init_git,
         )
     else:
         # Custom setup
-        # STEP 3: Configure note types
+        # STEP 5: Configure note types
         note_types = wizard_step_note_types(methodology)
 
-        # STEP 4: Configure frontmatter (core properties)
+        # Apply ranking system choice to note types BEFORE showing per-type properties
+        # This ensures options show "rank" or "priority" based on user's choice
+        note_types = apply_ranking_system(note_types, ranking_system)
+
+        # STEP 6: Configure frontmatter (core properties)
         mandatory, optional, custom = wizard_step_frontmatter(method_config["core_properties"])
 
-        # STEP 5: Configure per-type properties
+        # STEP 7: Configure per-type properties
         per_type_props = wizard_step_per_type_properties(note_types)
 
-        # STEP 6: Add custom note types
+        # STEP 8: Add custom note types
         custom_types = wizard_step_custom_note_types(methodology, note_types)
 
         config = WizardConfig(
@@ -768,9 +1122,11 @@ def wizard_full_flow(vault_path: Path) -> WizardConfig | None:  # pragma: no cov
             custom_note_types=custom_types,
             per_type_properties=per_type_props,
             create_samples=True,
+            ranking_system=ranking_system,
+            init_git=init_git,
         )
 
-    # STEP 7: Confirmation
+    # STEP 9: Confirmation
     if not wizard_step_confirm(config):
         print("\n  Restarting wizard...\n")
         return wizard_full_flow(vault_path)
@@ -908,6 +1264,10 @@ def generate_sample_note(
     for prop in additional_required:
         if prop == "status":
             frontmatter_lines.append('status: "active"')
+        elif prop == "rank":
+            frontmatter_lines.append("rank: 3")  # Default middle rank (1-5, 5=highest)
+        elif prop == "priority":
+            frontmatter_lines.append('priority: "medium"')
         elif prop == "author":
             frontmatter_lines.append('author: "Unknown"')
         elif prop == "url":
@@ -1123,7 +1483,7 @@ def generate_template_note(
         if prop == "type":
             continue
         elif prop == "up":
-            lines.append('up: "[[]]"')
+            lines.append('up: "[[{{up}}]]"')
         elif prop == "created":
             lines.append("created: {{date}}")
         elif prop == "tags":
@@ -1280,7 +1640,7 @@ def get_content_folders(methodology: str) -> list[str]:
 def get_all_content_folders(methodology: str) -> list[str]:
     """Get all content folders including subfolders (excluding + and x).
 
-    Used for _Readme.md generation - returns all folders.
+    Used for MOC file generation - returns all folders.
 
     Args:
         methodology: Methodology key
@@ -1327,7 +1687,7 @@ def generate_all_bases_content(methodology: str) -> str:
         "    - '!file.inFolder(\"+\")'",
         "    - '!file.inFolder(\"x\")'",
         '    - file.folder != "/"',
-        '    - file.name != "_Readme"',
+        '    - \'!file.name.startsWith("_") || !file.name.endsWith("_MOC")\'',
         "views:",
         "  - type: table",
         "    name: All",
@@ -1430,18 +1790,46 @@ FOLDER_DESCRIPTIONS: dict[str, dict[str, str]] = {
 }
 
 
-def generate_folder_readme_content(
+def get_moc_filename(folder_path: str) -> str:
+    """Get the MOC filename for a folder.
+
+    Args:
+        folder_path: Path of the folder (e.g., "Projects", "Atlas/Dots")
+
+    Returns:
+        MOC filename (e.g., "_Projects_MOC.md", "_Dots_MOC.md")
+    """
+    # Get display name (last part of path)
+    display_name = folder_path.rstrip("/").split("/")[-1]
+    return f"_{display_name}_MOC.md"
+
+
+def get_moc_link(folder_path: str) -> str:
+    """Get the wikilink to a folder's MOC file.
+
+    Args:
+        folder_path: Path of the folder (e.g., "Projects/", "Atlas/Dots/")
+
+    Returns:
+        Wikilink to MOC (e.g., "[[Projects/_Projects_MOC]]")
+    """
+    folder = folder_path.rstrip("/")
+    display_name = folder.split("/")[-1]
+    return f"[[{folder}/_{display_name}_MOC]]"
+
+
+def generate_folder_moc_content(
     folder_path: str,
     methodology: str,
 ) -> str:
-    """Generate _Readme.md content for a folder.
+    """Generate MOC (Map of Content) file content for a folder.
 
     Args:
         folder_path: Path of the folder (e.g., "Projects", "Atlas/Dots")
         methodology: Methodology key
 
     Returns:
-        Markdown content for the _Readme.md
+        Markdown content for the MOC file
     """
     descriptions = FOLDER_DESCRIPTIONS.get(methodology, {})
     description = descriptions.get(folder_path, f"Notes and content for {folder_path}.")
@@ -1449,9 +1837,12 @@ def generate_folder_readme_content(
     # Get display name (last part of path) - also used as base view name
     display_name = folder_path.split("/")[-1] if "/" in folder_path else folder_path
 
+    # Use actual date, not placeholder
+    today = date.today().isoformat()
+
     content = f"""---
 type: map
-created: "{{{{date}}}}"
+created: "{today}"
 ---
 
 # {display_name}
@@ -1465,13 +1856,15 @@ created: "{{{{date}}}}"
     return content
 
 
-def create_folder_readmes(
+def create_folder_mocs(
     vault_path: Path,
     methodology: str,
     dry_run: bool = False,
     note_types_filter: list[str] | None = None,
 ) -> list[Path]:
-    """Create _Readme.md files in each content folder.
+    """Create MOC (Map of Content) files in each content folder.
+
+    MOC files are named _<FolderName>_MOC.md (e.g., _Projects_MOC.md).
 
     Args:
         vault_path: Path to the vault root
@@ -1487,7 +1880,7 @@ def create_folder_readmes(
     content_folders = get_all_content_folders(methodology)
     created_files: list[Path] = []
 
-    print("\nCreating folder _Readme.md files (MAPs)...")
+    print("\nCreating folder MOC files...")
 
     for folder in content_folders:
         # Skip folders that weren't created due to filtering
@@ -1508,18 +1901,23 @@ def create_folder_readmes(
         if not dry_run and not folder_path.exists():
             continue
 
-        readme_path = folder_path / "_Readme.md"
-        content = generate_folder_readme_content(folder, methodology)
+        moc_filename = get_moc_filename(folder)
+        moc_path = folder_path / moc_filename
+        content = generate_folder_moc_content(folder, methodology)
 
         if dry_run:
-            print(f"  [DRY RUN] Would create: {readme_path}")
+            print(f"  [DRY RUN] Would create: {moc_path}")
         else:
-            readme_path.parent.mkdir(parents=True, exist_ok=True)
-            readme_path.write_text(content)
-            print(f"  ✓ Created: {readme_path}")
-            created_files.append(readme_path)
+            moc_path.parent.mkdir(parents=True, exist_ok=True)
+            moc_path.write_text(content)
+            print(f"  ✓ Created: {moc_path}")
+            created_files.append(moc_path)
 
     return created_files
+
+
+# Backward compatibility alias
+create_folder_readmes = create_folder_mocs
 
 
 def show_migration_hint(has_existing_content: bool) -> None:
@@ -1791,7 +2189,8 @@ def build_settings_yaml(
         "up_links": method_config.get("up_links", {}),
         "exclude": {
             "paths": ["+/", "x/", ".obsidian/", ".claude/", ".git/"],
-            "files": ["Home.md", "README.md", "_Readme.md"],
+            "files": ["HOME.md", "README.md"],
+            "patterns": ["_*_MOC.md"],  # MOC files in each folder
         },
         "formats": {
             "date": "YYYY-MM-DD",
@@ -1910,31 +2309,87 @@ This is the **primary source of truth** for:
 - Validation rules
 - Folder structure
 
-## Validation
+---
 
-To validate this vault, run:
+## Slash Command Reference
 
-```bash
-/obsidian:validate
-```
+### Validation (`/obsidian:validate`)
 
-Or via CLI:
+| Command | Description |
+|---------|-------------|
+| `/obsidian:validate` | Validate all notes |
+| `/obsidian:validate --fix` | Auto-fix issues |
+| `/obsidian:validate --type project` | Validate specific type |
+| `/obsidian:validate --path Atlas/` | Validate specific path |
+| `/obsidian:validate --report report.md` | Save report to file |
 
-```bash
-uv run skills/validate/scripts/validator.py --vault . --mode report
-```
+### Configuration (`/obsidian:config`)
 
-## Managing Settings
+| Command | Description |
+|---------|-------------|
+| `/obsidian:config` | Show current configuration |
+| `/obsidian:config show --verbose` | Show detailed config |
+| `/obsidian:config show --format json` | JSON output |
+| `/obsidian:config validate` | Validate settings.yaml |
+| `/obsidian:config edit` | Open in editor |
+| `/obsidian:config diff` | Compare with defaults |
+| `/obsidian:config methodologies` | List methodologies |
 
-View current settings:
-```bash
-/obsidian:config-show
-```
+### Note Types (`/obsidian:types`)
 
-Validate settings:
-```bash
-/obsidian:config-validate
-```
+| Command | Description |
+|---------|-------------|
+| `/obsidian:types` | List all note types |
+| `/obsidian:types show project` | Show type details |
+| `/obsidian:types add meeting` | Add new type |
+| `/obsidian:types edit project` | Edit type |
+| `/obsidian:types remove meeting` | Remove type |
+| `/obsidian:types wizard` | Interactive wizard |
+
+### Properties (`/obsidian:props`)
+
+| Command | Description |
+|---------|-------------|
+| `/obsidian:props` | List core properties |
+| `/obsidian:props core add rank` | Add core property |
+| `/obsidian:props core remove rank` | Remove core property |
+| `/obsidian:props type project` | Show type properties |
+| `/obsidian:props required --type project` | Required properties |
+
+### Templates (`/obsidian:templates`)
+
+| Command | Description |
+|---------|-------------|
+| `/obsidian:templates` | List vault templates |
+| `/obsidian:templates --source plugin` | List plugin templates |
+| `/obsidian:templates --source all` | List all templates |
+| `/obsidian:templates show area` | Show template content |
+| `/obsidian:templates create meeting` | Create new template |
+| `/obsidian:templates edit area` | Edit template |
+| `/obsidian:templates delete meeting` | Delete template |
+| `/obsidian:templates apply area Note.md --var up=Home` | Apply template |
+
+### Re-Initialize (`/obsidian:init`)
+
+| Command | Description |
+|---------|-------------|
+| `/obsidian:init --action reset` | Reset vault |
+| `/obsidian:init --action continue` | Update existing |
+| `/obsidian:init --check` | Check vault status |
+
+---
+
+## Templates
+
+Templates are stored in `x/templates/` as `{type}.md` files.
+
+Use `{{variable}}` syntax for placeholders:
+- `{{title}}` - Note title
+- `{{date}}` - Current date (YYYY-MM-DD)
+- `{{up}}` - Parent link
+- `{{time}}` - Current time
+
+Example: `/obsidian:templates apply area Areas/NewArea.md --var up="Home"`
 """
 
     if dry_run:
@@ -1945,7 +2400,7 @@ Validate settings:
 
 
 def create_home_note(vault_path: Path, methodology: str, dry_run: bool = False) -> None:
-    """Create a Home.md file in the vault root.
+    """Create a HOME.md file in the vault root.
 
     Args:
         vault_path: Path to the vault root
@@ -1953,11 +2408,12 @@ def create_home_note(vault_path: Path, methodology: str, dry_run: bool = False) 
         dry_run: If True, only print what would be created
     """
     method_config = METHODOLOGIES[methodology]
-    home_path = vault_path / "Home.md"
+    home_path = vault_path / "HOME.md"
+    today = date.today().isoformat()
 
     content = f"""---
-type: home
-created: "{{{{date}}}}"
+type: map
+created: "{today}"
 ---
 
 # Home
@@ -1986,6 +2442,215 @@ Your vault settings are in `.claude/settings.yaml`.
         print(f"✓ Created: {home_path}")
 
 
+def generate_agents_md(
+    methodology: str,
+    note_types: dict[str, dict[str, Any]],
+    core_properties: list[str],
+) -> str:
+    """Generate AGENTS.md content for the vault.
+
+    Creates agent-focused instructions following the AGENTS.md standard.
+    See https://agents.md/ for the specification.
+
+    Args:
+        methodology: Selected methodology name
+        note_types: Dictionary of note type configurations (unused, kept for API compat)
+        core_properties: List of core frontmatter properties (unused, kept for API compat)
+
+    Returns:
+        Complete markdown content for AGENTS.md
+    """
+    # Note: note_types and core_properties kept for backward compatibility
+    # but we now reference settings.yaml instead of hardcoding
+    _ = note_types, core_properties  # Explicitly mark as intentionally unused
+
+    method_config = METHODOLOGIES[methodology]
+    method_name = method_config["name"]
+    folders = method_config.get("folders", [])
+
+    # Build folder list for structure section
+    folder_list = "\n".join(f"- `{f}/`" for f in folders[:6])  # Top 6 folders
+
+    today = date.today().isoformat()
+    content = f"""---
+type: "system"
+created: "{today}"
+tags: [system, agents]
+---
+
+# AGENTS.md
+
+Instructions for AI coding agents working with this Obsidian vault.
+
+## Project Overview
+
+This is an Obsidian vault using the **{method_name}** methodology.
+
+- **Config**: `.claude/settings.yaml` (single source of truth)
+- **Templates**: `x/templates/`
+- **Validation**: Run after any note changes
+
+## Commands
+
+```bash
+# Validate all notes
+/obsidian:validate
+
+# Auto-fix frontmatter issues
+/obsidian:validate --fix
+
+# Show current configuration
+/obsidian:config show
+
+# List note types with requirements
+/obsidian:types
+```
+
+## Project Structure
+
+{folder_list}
+- `x/templates/` - Note templates
+- `.claude/` - Configuration
+
+Each note type has a designated folder. Check `settings.yaml` for mappings.
+
+## Code Style (Frontmatter)
+
+**Required properties (ALL notes):**
+```yaml
+---
+type: "project"      # Note type (project, area, resource, etc.)
+created: "{today}"   # ISO date
+up: "[[Parent Note]]" # Link to logical parent or MOC
+---
+```
+
+**Type-specific properties:** Check `settings.yaml` → `note_types` → `<type>`
+
+## Testing
+
+After creating or modifying notes:
+```bash
+/obsidian:validate --fix
+```
+
+The validator checks:
+- Required frontmatter exists
+- Note is in correct folder
+- UP-links are valid wikilinks
+
+## Boundaries
+
+### ✅ Always Do
+- Read `settings.yaml` before creating notes
+- Use templates from `x/templates/`
+- Set `type`, `created`, and `up` properties
+- Validate after changes
+
+### ⚠️ Ask First
+- Creating new note types
+- Modifying `settings.yaml`
+- Moving notes between folders
+
+### 🚫 Never Do
+- Create notes without frontmatter
+- Place notes outside designated folders
+- Delete `Home.md` or system files
+- Modify `.obsidian/` folder
+
+## UP-Links
+
+The `up` property creates a navigation hierarchy:
+- Links to the **logical parent** note or a **MOC (Map of Content)**
+- MOCs link upward to `[[Home]]`
+- Every note should be reachable from Home via UP-links
+
+## Git Workflow
+
+If git is initialized:
+- Commit after significant changes
+- Use descriptive commit messages
+- Don't commit `.obsidian/workspace.json`
+"""
+    return content
+
+
+def generate_claude_md() -> str:
+    """Generate CLAUDE.md content for the vault.
+
+    Creates a minimal file that includes AGENTS.md via @ reference.
+    Claude Code will automatically load AGENTS.md content.
+
+    Returns:
+        Complete markdown content for CLAUDE.md
+    """
+    today = date.today().isoformat()
+    content = f"""---
+type: "system"
+created: "{today}"
+tags: [system]
+---
+
+# CLAUDE.md
+
+See @AGENTS.md for complete agent instructions.
+
+## Claude-Specific
+
+- Use `/memory` to edit this file
+- Use `/init` to re-initialize vault configuration
+- Modular rules can be added in `.claude/rules/*.md`
+
+## Obsidian Plugin
+
+This vault uses the Obsidian plugin. Key commands:
+
+```bash
+/obsidian:validate --fix  # Validate and fix notes
+/obsidian:config show     # Show current settings
+/obsidian:types           # List note types
+```
+"""
+    return content
+
+
+def create_agent_docs(
+    vault_path: Path,
+    methodology: str,
+    note_types: dict[str, dict[str, Any]],
+    core_properties: list[str],
+    dry_run: bool = False,
+) -> None:
+    """Create AGENTS.md and CLAUDE.md in the vault root.
+
+    Args:
+        vault_path: Path to the vault root
+        methodology: Selected methodology name
+        note_types: Dictionary of note type configurations
+        core_properties: List of core frontmatter properties
+        dry_run: If True, only print what would be created
+    """
+    # Generate AGENTS.md
+    agents_content = generate_agents_md(methodology, note_types, core_properties)
+    agents_path = vault_path / "AGENTS.md"
+
+    if dry_run:
+        print(f"[DRY RUN] Would create: {agents_path}")
+    else:
+        agents_path.write_text(agents_content)
+        print(f"✓ Created: {agents_path}")
+
+    # Generate CLAUDE.md
+    claude_content = generate_claude_md()
+    claude_path = vault_path / "CLAUDE.md"
+
+    if dry_run:
+        print(f"[DRY RUN] Would create: {claude_path}")
+    else:
+        claude_path.write_text(claude_content)
+        print(f"✓ Created: {claude_path}")
+
+
 def init_vault(
     vault_path: Path,
     methodology: str | None = None,
@@ -1996,6 +2661,7 @@ def init_vault(
     core_properties_filter: list[str] | None = None,
     custom_properties: list[str] | None = None,
     per_type_properties: dict[str, list[str]] | None = None,
+    ranking_system: str = "rank",
 ) -> None:
     """Initialize an Obsidian vault with chosen methodology.
 
@@ -2009,6 +2675,7 @@ def init_vault(
         core_properties_filter: List of core properties to include (None = all)
         custom_properties: List of custom global properties to add
         per_type_properties: Dict of type -> list of additional properties
+        ranking_system: Ranking system for projects ('rank' or 'priority')
     """
     # Check for existing vault first
     detection = detect_existing_vault(vault_path)
@@ -2031,6 +2698,8 @@ def init_vault(
         note_types = dict(config.note_types)
         for type_name, type_config in config.custom_note_types.items():
             note_types[type_name] = type_config.to_dict()
+        # Apply ranking system (rank or priority) to project-like notes
+        note_types = apply_ranking_system(note_types, config.ranking_system)
         core_properties = config.core_properties
         create_samples = config.create_samples
     else:
@@ -2045,7 +2714,7 @@ def init_vault(
                 print("\n  Initialization cancelled.")
                 return
             if action == "reset":
-                reset_vault(vault_path, keep_obsidian=True)
+                reset_vault(vault_path)
             # "continue" - do nothing, keep existing content
 
         # Now select methodology if not provided
@@ -2054,6 +2723,8 @@ def init_vault(
 
         method_config = METHODOLOGIES[methodology]
         note_types = method_config["note_types"]
+        # Apply ranking system (rank or priority) to project-like notes
+        note_types = apply_ranking_system(note_types, ranking_system)
         core_properties = method_config["core_properties"]
         create_samples = True
         # NOTE: No auto-reset! Files are NEVER deleted except via explicit reset
@@ -2091,6 +2762,9 @@ def init_vault(
     # Create Home note
     create_home_note(vault_path, methodology, dry_run)
 
+    # Create agent documentation (AGENTS.md and CLAUDE.md)
+    create_agent_docs(vault_path, methodology, note_types, core_properties, dry_run)
+
     # Create sample notes
     if create_samples:
         create_sample_notes(
@@ -2119,8 +2793,16 @@ def init_vault(
     # Create all_bases.base for Obsidian Bases plugin
     create_all_bases_file(vault_path, methodology, dry_run)
 
-    # Create _Readme.md (MOC) in each content folder
-    create_folder_readmes(vault_path, methodology, dry_run, note_types_filter)
+    # Create MOC file (_<FolderName>_MOC.md) in each content folder
+    create_folder_mocs(vault_path, methodology, dry_run, note_types_filter)
+
+    # Create .gitignore (always, regardless of git init choice)
+    create_gitignore(vault_path, dry_run)
+
+    # Initialize git repository if requested
+    if config is not None and config.init_git:
+        print("\nInitializing git repository...")
+        init_git_repo(vault_path, methodology, dry_run)
 
     # Show migration hint if there was existing content
     if has_existing:
@@ -2136,7 +2818,7 @@ def init_vault(
         print("  1. Open the vault in Obsidian")
         print("  2. Explore the sample notes in each folder")
         print("  3. Run validation: /obsidian:validate")
-        print("  4. View settings: /obsidian:config-show")
+        print("  4. View settings: /obsidian:config show")
 
 
 def is_interactive() -> bool:
@@ -2236,6 +2918,16 @@ Examples:
         help="Reset existing vault before initializing",
     )
     parser.add_argument(
+        "--git",
+        action="store_true",
+        help="Initialize git repository with initial commit",
+    )
+    parser.add_argument(
+        "--git-keep",
+        action="store_true",
+        help="Keep existing git repository and commit changes",
+    )
+    parser.add_argument(
         "--check",
         action="store_true",
         help="Check if vault exists and show status (no changes made)",
@@ -2260,6 +2952,12 @@ Examples:
     parser.add_argument(
         "--per-type-props",
         help="Per-type properties in format: type1:prop1,prop2;type2:prop3,prop4",
+    )
+    parser.add_argument(
+        "--ranking-system",
+        choices=["rank", "priority"],
+        default="rank",
+        help="Ranking system for projects: 'rank' (1-5 numeric) or 'priority' (text)",
     )
 
     args = parser.parse_args()
@@ -2341,7 +3039,11 @@ Examples:
         print(json.dumps(result, indent=2))
         return 0  # Not an error, just info
 
+    # Determine if wizard mode (needed early for git init decision)
+    use_wizard = args.wizard or (args.methodology is None and not args.defaults)
+
     # Handle reset flag
+    git_action_after_reset = None  # 'keep', 'reset', 'skip', or None
     if args.reset:
         if detection["exists"]:
             print(f"\nResetting vault at: {vault_path}")
@@ -2350,10 +3052,23 @@ Examples:
                 if confirm.strip().lower() != "yes":
                     print("Reset cancelled.")
                     return 0
-            reset_vault(vault_path, keep_obsidian=True)
 
-    # Determine if wizard mode
-    use_wizard = args.wizard or (args.methodology is None and not args.defaults)
+            # Check if .git exists and ask how to handle it
+            git_existed = (vault_path / ".git").exists()
+            if git_existed and not args.git and not use_wizard and is_interactive():
+                git_action_after_reset = wizard_step_git_reset()
+
+                # If user chose to reset git, delete .git folder now
+                if git_action_after_reset == "reset":
+                    shutil.rmtree(vault_path / ".git")
+                    print("  - Removed: .git/")
+
+            reset_vault(vault_path)
+
+            # If .git didn't exist before, ask if user wants to init it
+            if not git_existed and not args.git and not use_wizard and is_interactive():
+                if wizard_step_git_init():
+                    git_action_after_reset = "init"
 
     # Parse note types filter
     note_types_filter = None
@@ -2392,7 +3107,24 @@ Examples:
             core_properties_filter=core_properties_filter,
             custom_properties=custom_properties_list,
             per_type_properties=per_type_properties if per_type_properties else None,
+            ranking_system=args.ranking_system,
         )
+
+        # Handle git for non-wizard mode
+        # (wizard handles it via config.init_git)
+        if not use_wizard:
+            methodology_name = args.methodology or "minimal"
+            if args.git or git_action_after_reset in ("init", "reset"):
+                # Initialize new git repo
+                print("\nInitializing git repository...")
+                init_git_repo(vault_path, methodology_name, args.dry_run)
+            elif args.git_keep or git_action_after_reset == "keep":
+                # Commit changes to existing repo
+                print("\nCommitting changes to existing repository...")
+                git_commit_changes(
+                    vault_path, f"Vault updated with {methodology_name}", args.dry_run
+                )
+
         return 0
     except ValueError as e:
         print(f"Error: {e}", file=sys.stderr)

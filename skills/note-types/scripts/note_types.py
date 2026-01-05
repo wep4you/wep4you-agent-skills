@@ -59,6 +59,30 @@ class NoteTypesManager:
         self.bases_folder = self.vault_path / bases_path
         self.all_bases_file = self.bases_folder / "all_bases.base"
 
+    @staticmethod
+    def get_moc_filename(folder_name: str) -> str:
+        """Get the MOC filename for a folder.
+
+        Args:
+            folder_name: The folder name (last component of path)
+
+        Returns:
+            MOC filename like '_Projects_MOC.md'
+        """
+        return f"_{folder_name}_MOC.md"
+
+    @staticmethod
+    def get_moc_link(folder_name: str) -> str:
+        """Get the wikilink to a folder's MOC file (without path).
+
+        Args:
+            folder_name: The folder name (last component of path)
+
+        Returns:
+            Wikilink like '[[_Projects_MOC]]'
+        """
+        return f"[[_{folder_name}_MOC]]"
+
     def _load_settings(self) -> None:
         """Load settings from .claude/settings.yaml"""
         if not self.settings_path.exists():
@@ -158,7 +182,7 @@ class NoteTypesManager:
             elif prop == "created":
                 lines.append(f"created: {'{{date}}' if use_placeholders else today}")
             elif prop == "up":
-                lines.append('up: "[[_Readme]]"' if not use_placeholders else 'up: ""')
+                lines.append('up: "[[{{up}}]]"' if not use_placeholders else 'up: ""')
             elif prop == "daily":
                 lines.append(f"daily: {'{{date}}' if use_placeholders else today}")
             elif prop == "tags":
@@ -201,8 +225,8 @@ class NoteTypesManager:
         folder_path.mkdir(parents=True, exist_ok=True)
         print(f"📁 Created folder: {folder}/")
 
-        # Create _Readme.md
-        self._create_readme(name, config, folder_path)
+        # Create MOC file
+        self._create_moc(name, config, folder_path)
 
         # Update all_bases.base with new view
         self._update_bases_file(name, folder)
@@ -213,24 +237,27 @@ class NoteTypesManager:
         # Create sample note
         self._create_sample_note(name, config, folder_path)
 
-    def _create_readme(self, name: str, config: dict[str, Any], folder_path: Path) -> None:
-        """Create _Readme.md in the folder (matches init skill format)
+    def _create_moc(self, name: str, config: dict[str, Any], folder_path: Path) -> None:
+        """Create MOC (Map of Content) file in the folder (matches init skill format)
+
+        MOC files are named _<FolderName>_MOC.md
 
         Args:
             name: Note type name
             config: Note type configuration
             folder_path: Path to the folder
         """
-        readme_path = folder_path / "_Readme.md"
-        if readme_path.exists():
-            print(f"ℹ️  _Readme.md already exists in {folder_path.name}/")
+        display_name = folder_path.name
+        moc_filename = self.get_moc_filename(display_name)
+        moc_path = folder_path / moc_filename
+        if moc_path.exists():
+            print(f"ℹ️  {moc_filename} already exists in {display_name}/")
             return
 
         description = config.get("description", f"Notes and content for {name.capitalize()}.")
-        display_name = folder_path.name
 
-        # Match init skill's simple _Readme format
-        readme_content = f"""---
+        # Match init skill's MOC format
+        moc_content = f"""---
 type: map
 created: "{{{{date}}}}"
 ---
@@ -243,8 +270,8 @@ created: "{{{{date}}}}"
 
 ![[all_bases.base#{display_name}]]
 """
-        readme_path.write_text(readme_content, encoding="utf-8")
-        print(f"📄 Created _Readme.md in {folder_path.name}/")
+        moc_path.write_text(moc_content, encoding="utf-8")
+        print(f"📄 Created {moc_filename} in {display_name}/")
 
     def _update_bases_file(self, name: str, folder: str) -> None:
         """Add a new YAML view to all_bases.base (matches init skill format)
@@ -311,7 +338,7 @@ created: "{{{{date}}}}"
             if prop == "type":
                 continue  # Already added above
             elif prop == "up":
-                lines.append('up: "[[]]"')
+                lines.append('up: "[[{{up}}]]"')
             elif prop == "created":
                 lines.append("created: {{date}}")
             elif prop == "tags":
@@ -377,6 +404,8 @@ created: "{{{{date}}}}"
         core_props = self._get_core_properties()
         required, optional = self._get_additional_properties(config)
         today = datetime.now().strftime("%Y-%m-%d")
+        folder_name = folder_path.name
+        moc_link = self.get_moc_link(folder_name)
 
         # Build frontmatter matching template format but with values filled in
         lines = ["---"]
@@ -386,7 +415,7 @@ created: "{{{{date}}}}"
             if prop == "type":
                 continue  # Already added above
             elif prop == "up":
-                lines.append('up: "[[_Readme]]"')
+                lines.append(f'up: "{moc_link}"')
             elif prop == "created":
                 lines.append(f"created: {today}")
             elif prop == "tags":
@@ -424,7 +453,7 @@ created: "{{{{date}}}}"
         lines.append("")
         lines.append("## Related")
         lines.append("")
-        lines.append("- [[_Readme]]")
+        lines.append(f"- {moc_link}")
         lines.append("")
 
         sample_path.write_text("\n".join(lines), encoding="utf-8")
@@ -459,11 +488,13 @@ created: "{{{{date}}}}"
             sample_path.unlink()
             print(f"🗑️  Removed sample note: Sample {name.capitalize()}.md")
 
-        # Remove _Readme.md
-        readme_path = folder_path / "_Readme.md"
-        if readme_path.exists():
-            readme_path.unlink()
-            print(f"🗑️  Removed _Readme.md from {folder}/")
+        # Remove MOC file
+        folder_name = folder_path.name
+        moc_filename = self.get_moc_filename(folder_name)
+        moc_path = folder_path / moc_filename
+        if moc_path.exists():
+            moc_path.unlink()
+            print(f"🗑️  Removed {moc_filename} from {folder}/")
 
         # Remove folder if empty and requested
         if remove_folder and folder_path.exists():
@@ -889,34 +920,43 @@ created: "{{{{date}}}}"
             self._remove_from_bases_file(name, old_folder)
             self._update_bases_file(name, new_folder)
 
-            # Update _Readme.md if it exists
-            readme_path = new_path / "_Readme.md"
-            if readme_path.exists():
-                self._update_readme_folder(readme_path, old_folder, new_folder)
+            # Update MOC file if it exists (rename and update content)
+            old_folder_name = old_folder.split("/")[-1] if "/" in old_folder else old_folder
+            new_folder_name = new_folder.split("/")[-1] if "/" in new_folder else new_folder
+            old_moc_filename = self.get_moc_filename(old_folder_name)
+            new_moc_filename = self.get_moc_filename(new_folder_name)
+            old_moc_path = new_path / old_moc_filename
+            new_moc_path = new_path / new_moc_filename
+
+            if old_moc_path.exists():
+                # Rename MOC file
+                old_moc_path.rename(new_moc_path)
+                # Update content references
+                self._update_moc_folder(new_moc_path, old_folder_name, new_folder_name)
 
         except OSError as e:
             print(f"❌ Failed to rename folder: {e}")
 
-    def _update_readme_folder(self, readme_path: Path, old_folder: str, new_folder: str) -> None:
-        """Update folder references in _Readme.md
+    def _update_moc_folder(self, moc_path: Path, old_folder: str, new_folder: str) -> None:
+        """Update folder references in MOC file
 
         Args:
-            readme_path: Path to _Readme.md
+            moc_path: Path to MOC file
             old_folder: Old folder name
             new_folder: New folder name
         """
         try:
-            content = readme_path.read_text(encoding="utf-8")
+            content = moc_path.read_text(encoding="utf-8")
             # Update the embed reference
-            old_view_name = old_folder.split("/")[-1] if "/" in old_folder else old_folder
-            new_view_name = new_folder.split("/")[-1] if "/" in new_folder else new_folder
-            updated = content.replace(f"##{old_view_name}]]", f"##{new_view_name}]]")
-            updated = updated.replace(f"#{old_view_name}]]", f"#{new_view_name}]]")
+            updated = content.replace(f"##{old_folder}]]", f"##{new_folder}]]")
+            updated = updated.replace(f"#{old_folder}]]", f"#{new_folder}]]")
+            # Update the title
+            updated = updated.replace(f"# {old_folder}", f"# {new_folder}")
             if updated != content:
-                readme_path.write_text(updated, encoding="utf-8")
-                print("📝 Updated _Readme.md references")
+                moc_path.write_text(updated, encoding="utf-8")
+                print(f"📝 Updated {moc_path.name} references")
         except OSError:
-            pass  # Ignore errors updating readme
+            pass  # Ignore errors updating MOC
 
     def _update_template_properties(self, name: str, config: dict[str, Any]) -> None:
         """Update template file with new properties
@@ -1015,7 +1055,8 @@ created: "{{{{date}}}}"
 
         updated_count = 0
         for note_path in folder_path.glob("*.md"):
-            if note_path.name == "_Readme.md":
+            # Skip MOC files (pattern: _<FolderName>_MOC.md)
+            if note_path.name.startswith("_") and note_path.name.endswith("_MOC.md"):
                 continue
 
             try:

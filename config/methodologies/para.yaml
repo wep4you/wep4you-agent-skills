@@ -96,12 +96,12 @@ folder_structure:
   resources: Resources/
   archives: Archives/
 
-# Default UP links per folder
+# Default UP links per folder (point to MOC notes in each folder)
 up_links:
-  "Projects/": "[[Projects]]"
-  "Areas/": "[[Areas]]"
-  "Resources/": "[[Resources]]"
-  "Archives/": "[[Archives]]"
+  "Projects/": "[[Projects/_Projects_MOC]]"
+  "Areas/": "[[Areas/_Areas_MOC]]"
+  "Resources/": "[[Resources/_Resources_MOC]]"
+  "Archives/": "[[Archives/_Archives_MOC]]"
 
 # =============================================================================
 # EXTENDED DOCUMENTATION (Additional context, not used by init_vault.py)

@@ -141,6 +141,65 @@ GitHub Actions runs these jobs:
 - `typecheck` - mypy strict
 - `validate-skills` - SKILL.md + config validation
 
+### Running CI Locally
+
+Before pushing code, run all CI checks locally to catch issues early:
+
+```bash
+# 1. Linting (required)
+uv run ruff check .           # Must pass with no errors
+uv run ruff format --check .  # Must show "X files already formatted"
+
+# 2. Type checking (required)
+uv run mypy skills/ scripts/ --ignore-missing-imports
+
+# 3. Security scanning (required)
+uv run bandit -r skills/ -ll --skip B101  # Skip assert warnings
+uv run pip-audit                          # Check for CVEs
+
+# 4. Tests (required)
+uv run pytest                 # All tests must pass
+
+# 5. Skill validation (required)
+uv run python scripts/validate_skills.py --verbose  # Warnings OK, errors fail
+```
+
+### Quick CI Check (All-in-One)
+
+```bash
+# Run all checks in sequence (stops on first failure)
+uv run ruff check . && \
+uv run ruff format --check . && \
+uv run mypy skills/ scripts/ --ignore-missing-imports && \
+uv run bandit -r skills/ -ll --skip B101 && \
+uv run pip-audit && \
+uv run pytest && \
+uv run python scripts/validate_skills.py --verbose
+
+# Success output: "All 7 SKILL.md file(s) validated successfully"
+```
+
+### Common CI Fixes
+
+**Ruff errors (E501, F401, etc.)**
+```bash
+uv run ruff check . --fix    # Auto-fix where possible
+uv run ruff format .         # Format all files
+```
+
+**Mypy type errors**
+- Add type hints to function parameters and return values
+- Use `TextIO | None` instead of `Any` for file-like objects
+- Import types from `typing` module
+
+**Bandit security warnings (S603, S607)**
+- Use absolute paths for subprocess calls: `/usr/bin/env`
+- Add `# noqa: S603` only for trusted internal paths
+
+**Skill validation errors**
+- Ensure SKILL.md `name` field uses kebab-case (e.g., `obsidian-commands`)
+- Include required frontmatter: name, description, version, license
+
 ---
 
 ## UV Best Practices

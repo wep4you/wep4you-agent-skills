@@ -72,6 +72,7 @@ class Settings:
     up_links: dict[str, str]
     exclude_paths: list[str]
     exclude_files: list[str]
+    exclude_patterns: list[str]
     formats: dict[str, Any]
     logging: dict[str, Any]
     raw: dict[str, Any]  # Original YAML dict for access to any custom fields
@@ -195,6 +196,7 @@ def _parse_settings(raw: dict[str, Any]) -> Settings:
         up_links=raw.get("up_links", {}),
         exclude_paths=exclude.get("paths", []),
         exclude_files=exclude.get("files", []),
+        exclude_patterns=exclude.get("patterns", []),
         formats=raw.get("formats", {}),
         logging=raw.get("logging", {}),
         raw=raw,
@@ -293,6 +295,8 @@ def get_up_link_for_path(settings: Settings, file_path: Path) -> str | None:
 
 def should_exclude(settings: Settings, file_path: Path) -> bool:
     """Check if a file should be excluded from validation."""
+    import fnmatch
+
     file_path_str = str(file_path)
 
     # Check excluded paths
@@ -303,6 +307,34 @@ def should_exclude(settings: Settings, file_path: Path) -> bool:
     # Check excluded files
     if file_path.name in settings.exclude_files:
         return True
+
+    # Check excluded patterns (glob-style matching)
+    for pattern in settings.exclude_patterns:
+        if fnmatch.fnmatch(file_path.name, pattern):
+            return True
+
+    # Always exclude system documentation files in vault root
+    # These files use type: "system" and don't follow note type validation rules
+    system_files = {"AGENTS.md", "CLAUDE.md", "README.md", "Home.md"}
+    if file_path.name in system_files:
+        # Only exclude if in vault root (check no subfolder in path)
+        # If none of these methodology folders appear in path, file is in vault root
+        methodology_folders = [
+            "Atlas/",
+            "Calendar/",
+            "Efforts/",
+            "Projects/",
+            "Areas/",
+            "Resources/",
+            "Archives/",
+            "Notes/",
+            "Daily/",
+            "Zettel/",
+            "References/",
+            "Literature/",
+        ]
+        if not any(folder in file_path_str for folder in methodology_folders):
+            return True
 
     return False
 
@@ -463,7 +495,8 @@ def get_default_settings_dict() -> dict:
         },
         "exclude": {
             "paths": ["+/", "x/", ".obsidian/", ".claude/", ".git/"],
-            "files": ["Home.md", "README.md", "_Readme.md"],
+            "files": ["Home.md", "README.md"],
+            "patterns": ["_*_MOC.md"],  # MOC files in each folder
         },
     }
 

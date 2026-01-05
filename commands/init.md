@@ -1,7 +1,7 @@
 ---
 description: Initialize a new Obsidian vault with a PKM methodology
 argument-hint: [vault_path]
-allowed-tools: Bash(uv run:*), Bash(python3:*)
+allowed-tools: Bash(uv run:*)
 ---
 
 # Initialize Obsidian Vault
@@ -19,7 +19,7 @@ The wrapper outputs JSON prompts that you MUST parse and use to ask the user que
 ### Step 1: Run the Wrapper
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/commands/init.py" <vault_path>
+uv run "${CLAUDE_PLUGIN_ROOT}/commands/init.py" <vault_path>
 ```
 
 The wrapper will output JSON with `prompt_type` field.
@@ -45,7 +45,7 @@ The vault already has content. You MUST ask the user using AskUserQuestion:
 
 Then call wrapper again with action:
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/commands/init.py" <vault_path> --action=<chosen>
+uv run "${CLAUDE_PLUGIN_ROOT}/commands/init.py" <vault_path> --action=<chosen>
 ```
 
 **If `prompt_type` = `"methodology_required"`:**
@@ -77,7 +77,7 @@ After successful initialization:
 2. Suggest next steps:
    - Open vault in Obsidian
    - Run `/obsidian:validate` to check frontmatter
-   - Run `/obsidian:config-show` to view settings
+   - Run `/obsidian:config show` to view settings
 
 ## Complete Example Flow
 
@@ -85,7 +85,7 @@ After successful initialization:
 User: /obsidian:init
 
 You: Run wrapper
-→ python3 "${CLAUDE_PLUGIN_ROOT}/commands/init.py" /path/to/vault
+→ uv run "${CLAUDE_PLUGIN_ROOT}/commands/init.py" /path/to/vault
 
 Wrapper outputs:
 {
@@ -98,7 +98,7 @@ You: Use AskUserQuestion with the options from JSON
 → User selects "Continue"
 
 You: Run wrapper with action
-→ python3 "${CLAUDE_PLUGIN_ROOT}/commands/init.py" /path/to/vault --action=continue
+→ uv run "${CLAUDE_PLUGIN_ROOT}/commands/init.py" /path/to/vault --action=continue
 
 Wrapper outputs:
 {
@@ -143,4 +143,4 @@ Done!
 
 - **Skill documentation**: `skills/init/SKILL.md`
 - **Validate skill**: `/obsidian:validate`
-- **Config skill**: `/obsidian:config-show`
+- **Config skill**: `/obsidian:config show`

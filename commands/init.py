@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
 """
 Vault Initialization Wrapper for Claude Code.
 
@@ -15,10 +15,55 @@ the correct Tab-style selection UI.
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any
+
+
+def apply_ranking_system(
+    note_types: dict[str, dict[str, Any]], ranking_system: str
+) -> dict[str, dict[str, Any]]:
+    """Apply ranking system choice to note types.
+
+    Transforms note types to use either 'rank' (numeric 1-5) or 'priority' (text).
+    Only affects project-like note types that have 'priority' in their properties.
+
+    Args:
+        note_types: Dictionary of note type configurations
+        ranking_system: Either "rank" (1-5 numeric) or "priority" (text)
+
+    Returns:
+        Modified note types with ranking system applied
+    """
+    # Types that support ranking (project-like notes)
+    rankable_types = frozenset({"project", "area"})
+
+    result = copy.deepcopy(note_types)
+    for type_name, type_config in result.items():
+        if type_name not in rankable_types:
+            continue
+
+        props = type_config.get("properties", {})
+        additional_required = props.get("additional_required", [])
+        optional = props.get("optional", [])
+
+        if ranking_system == "rank":
+            # Replace "priority" with "rank" in additional_required
+            if "priority" in additional_required:
+                additional_required = [
+                    "rank" if p == "priority" else p for p in additional_required
+                ]
+                props["additional_required"] = additional_required
+            # Remove "priority" from optional if present
+            if "priority" in optional:
+                optional = [p for p in optional if p != "priority"]
+                props["optional"] = optional
+        # If ranking_system == "priority", keep as-is (priority is the default in YAML)
+
+    return result
 
 
 def get_script_path() -> Path:
@@ -127,7 +172,7 @@ def output_methodology_prompt(vault_path: str, action: str | None = None) -> Non
         action: Previous action (continue/reset) to preserve in next command
     """
     # Build the next_step command - use wrapper to preserve action
-    base_cmd = f"python3 ${{CLAUDE_PLUGIN_ROOT}}/commands/init.py {vault_path}"
+    base_cmd = f"uv run ${{CLAUDE_PLUGIN_ROOT}}/commands/init.py {vault_path}"
     if action:
         next_cmd = f"{base_cmd} --action={action} -m <methodology>"
     else:
@@ -170,6 +215,58 @@ def output_methodology_prompt(vault_path: str, action: str | None = None) -> Non
     print(json.dumps(prompt, indent=2))
 
 
+def output_ranking_system_prompt(
+    vault_path: str,
+    methodology: str,
+    note_types: str,
+    action: str | None = None,
+) -> None:
+    """Output prompt for ranking system selection (Rank vs Priority).
+
+    Only called when 'project' note type is selected.
+
+    Args:
+        vault_path: Path to the vault
+        methodology: Selected methodology
+        note_types: Comma-separated list of selected note types
+        action: Previous action (continue/reset) to preserve in next command
+    """
+    # Build the next_step command
+    cmd_parts = [f"uv run ${{CLAUDE_PLUGIN_ROOT}}/commands/init.py {vault_path}"]
+    if action:
+        cmd_parts.append(f"--action={action}")
+    cmd_parts.append(f"-m {methodology}")
+    cmd_parts.append(f"--note-types={note_types}")
+    cmd_parts.append("--ranking-system=<selected>")
+    next_cmd = " ".join(cmd_parts)
+
+    prompt = {
+        "prompt_type": "ranking_system_required",
+        "message": "Choose how to rank projects",
+        "vault_path": vault_path,
+        "methodology": methodology,
+        "note_types": note_types,
+        "previous_action": action,
+        "question": "How would you like to prioritize projects?",
+        "options": [
+            {
+                "id": "rank",
+                "label": "Rank (Recommended)",
+                "description": "Numeric 1-5 (5=highest priority, 1=lowest)",
+                "is_default": True,
+            },
+            {
+                "id": "priority",
+                "label": "Priority",
+                "description": "Text-based (high, medium, low)",
+                "is_default": False,
+            },
+        ],
+        "next_step": next_cmd,
+    }
+    print(json.dumps(prompt, indent=2))
+
+
 def output_note_types_prompt(
     vault_path: str,
     methodology: str,
@@ -187,7 +284,7 @@ def output_note_types_prompt(
     type_list = ", ".join(type_names) if type_names else "all types"
 
     # Build the next_step command
-    cmd_parts = [f"python3 ${{CLAUDE_PLUGIN_ROOT}}/commands/init.py {vault_path}"]
+    cmd_parts = [f"uv run ${{CLAUDE_PLUGIN_ROOT}}/commands/init.py {vault_path}"]
     if action:
         cmd_parts.append(f"--action={action}")
     cmd_parts.append(f"-m {methodology}")
@@ -258,7 +355,7 @@ def output_note_types_select_prompt(
         )
 
     # Build the next_step command
-    cmd_parts = [f"python3 ${{CLAUDE_PLUGIN_ROOT}}/commands/init.py {vault_path}"]
+    cmd_parts = [f"uv run ${{CLAUDE_PLUGIN_ROOT}}/commands/init.py {vault_path}"]
     if action:
         cmd_parts.append(f"--action={action}")
     cmd_parts.append(f"-m {methodology}")
@@ -329,7 +426,7 @@ def output_properties_prompt(
     props_list = ", ".join(core_properties)
 
     # Build the next_step command
-    cmd_parts = [f"python3 ${{CLAUDE_PLUGIN_ROOT}}/commands/init.py {vault_path}"]
+    cmd_parts = [f"uv run ${{CLAUDE_PLUGIN_ROOT}}/commands/init.py {vault_path}"]
     if action:
         cmd_parts.append(f"--action={action}")
     cmd_parts.append(f"-m {methodology}")
@@ -396,7 +493,7 @@ def output_properties_select_prompt(
         )
 
     # Build the next_step command
-    cmd_parts = [f"python3 ${{CLAUDE_PLUGIN_ROOT}}/commands/init.py {vault_path}"]
+    cmd_parts = [f"uv run ${{CLAUDE_PLUGIN_ROOT}}/commands/init.py {vault_path}"]
     if action:
         cmd_parts.append(f"--action={action}")
     cmd_parts.append(f"-m {methodology}")
@@ -437,7 +534,7 @@ def output_custom_properties_prompt(
         action: Previous action (continue/reset)
     """
     # Build the next_step command
-    cmd_parts = [f"python3 ${{CLAUDE_PLUGIN_ROOT}}/commands/init.py {vault_path}"]
+    cmd_parts = [f"uv run ${{CLAUDE_PLUGIN_ROOT}}/commands/init.py {vault_path}"]
     if action:
         cmd_parts.append(f"--action={action}")
     cmd_parts.append(f"-m {methodology}")
@@ -473,12 +570,11 @@ def output_per_type_properties_prompt(
     note_types: str,
     core_properties: str,
     custom_properties: str,
-    current_type: str,
-    remaining_types: list[str],
+    types_to_configure: list[str],
     action: str | None = None,
-    per_type_properties: dict[str, str] | None = None,
+    ranking_system: str = "rank",
 ) -> None:
-    """Output prompt for per-note-type additional properties.
+    """Output combined prompt for ALL note type properties at once.
 
     Args:
         vault_path: Path to the vault
@@ -486,96 +582,179 @@ def output_per_type_properties_prompt(
         note_types: Comma-separated list of selected note types
         core_properties: Comma-separated list of core properties
         custom_properties: Comma-separated list of custom properties
-        current_type: The note type to configure
-        remaining_types: List of remaining types to configure
+        types_to_configure: List of all types that need configuration
         action: Previous action
-        per_type_properties: Already configured per-type properties
+        ranking_system: Selected ranking system (rank or priority)
     """
-    # Get the type's predefined additional_required properties
+    # Get all type data and apply ranking system
     type_data = get_note_types_for_methodology(methodology)
-    type_config = type_data.get(current_type, {})
-    props = type_config.get("properties", {})
-    additional_required = props.get("additional_required", [])
-    optional = props.get("optional", [])
+    type_data = apply_ranking_system(type_data, ranking_system)
 
-    # Build options
-    options = []
-    for prop in additional_required:
-        options.append(
+    # Build sections for each type
+    type_sections = []
+    for type_name in types_to_configure:
+        type_config = type_data.get(type_name, {})
+        props = type_config.get("properties", {})
+        additional_required = props.get("additional_required", [])
+        optional = props.get("optional", [])
+
+        # Build options for this type
+        options = []
+        for prop in additional_required:
+            options.append(
+                {
+                    "id": prop,
+                    "label": prop.capitalize(),
+                    "description": "Required",
+                    "selected": True,
+                    "disabled": True,
+                }
+            )
+        for prop in optional:
+            options.append(
+                {
+                    "id": prop,
+                    "label": prop.capitalize(),
+                    "description": "Optional",
+                    "selected": False,
+                }
+            )
+
+        type_sections.append(
             {
-                "id": prop,
-                "label": prop.capitalize(),
-                "description": "Required for this type",
-                "selected": True,
-                "disabled": True,  # Required can't be deselected
+                "type_name": type_name,
+                "label": type_name.capitalize(),
+                "required": additional_required,
+                "optional": optional,
+                "options": options,
+                "default": "none",  # Default to no optional properties
             }
         )
-    for prop in optional:
-        options.append(
-            {
-                "id": prop,
-                "label": prop.capitalize(),
-                "description": "Optional",
-                "selected": False,
-            }
-        )
 
-    # Build per_type_props string for next command
-    per_type_str = ""
-    if per_type_properties:
-        per_type_str = ";".join(f"{k}:{v}" for k, v in per_type_properties.items())
-
-    # Build the next_step command
-    cmd_parts = [f"python3 ${{CLAUDE_PLUGIN_ROOT}}/commands/init.py {vault_path}"]
+    # Build the next_step command template
+    cmd_parts = [f"uv run ${{CLAUDE_PLUGIN_ROOT}}/commands/init.py {vault_path}"]
     if action:
         cmd_parts.append(f"--action={action}")
     cmd_parts.append(f"-m {methodology}")
+    cmd_parts.append(f"--ranking-system={ranking_system}")
     cmd_parts.append(f"--note-types={note_types}")
     cmd_parts.append(f"--core-properties={core_properties}")
-    if custom_properties and custom_properties.lower() != "none":
-        cmd_parts.append(f"--custom-properties={custom_properties}")
-    cmd_parts.append(f"--per-type-props={current_type}:<selected>")
-    if per_type_str:
-        cmd_parts[-1] = f"--per-type-props={per_type_str};{current_type}:<selected>"
+    cmd_parts.append(f"--custom-properties={custom_properties or 'none'}")
+    # Placeholder for all types: project:<sel>;area:<sel>;resource:<sel>;archive:<sel>
+    per_type_placeholder = ";".join(f"{t}:<{t}_selected>" for t in types_to_configure)
+    cmd_parts.append(f"--per-type-props={per_type_placeholder}")
     next_cmd = " ".join(cmd_parts)
 
-    # Count remaining types
-    types_remaining = len(remaining_types)
-    progress_msg = (
-        f"Type {len(note_types.split(',')) - types_remaining} of {len(note_types.split(','))}"
-        if note_types != "all"
-        else ""
-    )
-
     prompt = {
-        "prompt_type": "per_type_properties",
-        "message": f"Configure properties for '{current_type}' notes",
+        "prompt_type": "per_type_properties_combined",
+        "message": f"Configure properties for {len(types_to_configure)} note types",
         "vault_path": vault_path,
         "methodology": methodology,
         "note_types": note_types,
         "core_properties": core_properties,
         "custom_properties": custom_properties,
-        "current_type": current_type,
-        "remaining_types": remaining_types,
-        "types_remaining_count": types_remaining,
-        "progress": progress_msg,
         "previous_action": action,
-        "question": f"Configure additional properties for '{current_type}' notes:",
-        "multi_select": True,
-        "options": options,
-        "allow_custom_input": True,
-        "custom_input_hint": "Add custom properties (comma-separated, e.g., deadline, priority):",
+        "question": "Configure additional properties for each note type:",
+        "type_sections": type_sections,
         "next_step": next_cmd,
         "hint": (
-            f"Select predefined properties or add custom ones for '{current_type}' notes. "
-            "Enter 'none' to skip. "
-            f"({types_remaining} more note type(s) to configure after this.)"
-            if types_remaining > 0
-            else f"Select predefined properties or add custom ones for '{current_type}' notes. "
-            "Enter 'none' to skip. This is the last note type to configure."
+            "For each note type, select optional properties to include. "
+            "Required properties are pre-selected and cannot be changed. "
+            "Leave optional properties unselected to use only required ones."
         ),
-        "format_hint": "Comma-separated property names (e.g., deadline, budget, priority)",
+        "format_hint": "Format: type1:prop1,prop2;type2:none (use 'none' for no optional)",
     }
+    print(json.dumps(prompt, indent=2))
+
+
+def output_git_init_prompt(
+    vault_path: str,
+    methodology: str,
+    note_types: str,
+    core_properties: str,
+    custom_properties: str,
+    per_type_properties: dict[str, str],
+    action: str | None = None,
+    ranking_system: str = "rank",
+) -> None:
+    """Output prompt for git initialization.
+
+    Args:
+        vault_path: Path to the vault
+        methodology: Selected methodology
+        note_types: Comma-separated list of note types
+        core_properties: Comma-separated list of core properties
+        custom_properties: Comma-separated list of custom properties
+        per_type_properties: Dict of type -> comma-separated properties
+        action: Previous action (continue/reset)
+        ranking_system: Ranking system for projects
+    """
+    # Check if .git already exists
+    git_exists = Path(vault_path).joinpath(".git").exists()
+
+    # Build the next_step command
+    cmd_parts = [f"uv run ${{CLAUDE_PLUGIN_ROOT}}/commands/init.py {vault_path}"]
+    if action:
+        cmd_parts.append(f"--action={action}")
+    cmd_parts.append(f"-m {methodology}")
+    cmd_parts.append(f"--note-types={note_types}")
+    cmd_parts.append(f"--ranking-system={ranking_system}")
+    cmd_parts.append(f"--core-properties={core_properties}")
+    cmd_parts.append(f"--custom-properties={custom_properties}")
+    if per_type_properties:
+        per_type_str = ";".join(f"{k}:{v}" for k, v in per_type_properties.items())
+        cmd_parts.append(f"--per-type-props={per_type_str}")
+    cmd_parts.append("--git=<choice>")
+    next_cmd = " ".join(cmd_parts)
+
+    if git_exists:
+        # Git already exists - ask to keep or reset
+        prompt = {
+            "prompt_type": "git_existing",
+            "message": "Git repository already exists",
+            "vault_path": vault_path,
+            "methodology": methodology,
+            "question": "A git repository already exists. What would you like to do?",
+            "options": [
+                {
+                    "id": "keep",
+                    "label": "Keep (Recommended)",
+                    "description": "Keep existing .git folder and history",
+                    "is_default": True,
+                },
+                {
+                    "id": "yes",
+                    "label": "Reset",
+                    "description": "Delete .git and create fresh repository",
+                    "is_default": False,
+                },
+            ],
+            "next_step": next_cmd,
+        }
+    else:
+        # No git - ask to initialize
+        prompt = {
+            "prompt_type": "git_init_required",
+            "message": "Initialize git repository?",
+            "vault_path": vault_path,
+            "methodology": methodology,
+            "question": "Would you like to initialize a git repository?",
+            "options": [
+                {
+                    "id": "yes",
+                    "label": "Yes (Recommended)",
+                    "description": "Create .git folder and .gitignore with initial commit",
+                    "is_default": True,
+                },
+                {
+                    "id": "no",
+                    "label": "No",
+                    "description": "Skip git initialization",
+                    "is_default": False,
+                },
+            ],
+            "next_step": next_cmd,
+        }
     print(json.dumps(prompt, indent=2))
 
 
@@ -606,6 +785,8 @@ def execute_init(
     core_properties: list[str] | None = None,
     custom_properties: list[str] | None = None,
     per_type_properties: dict[str, list[str]] | None = None,
+    ranking_system: str = "rank",
+    git_action: str = "no",
 ) -> int:
     """Execute the actual vault initialization.
 
@@ -617,12 +798,19 @@ def execute_init(
         core_properties: List of core properties to include (None = all)
         custom_properties: List of custom properties to add globally
         per_type_properties: Dict of type -> list of additional properties
+        ranking_system: Ranking system for projects (rank or priority)
+        git_action: Git handling: 'yes' (init), 'no' (skip), 'keep' (commit to existing)
     """
     script = get_script_path()
 
     cmd = ["uv", "run", str(script), str(vault_path), "-m", methodology, "--defaults"]
+    cmd.extend(["--ranking-system", ranking_system])
     if reset:
         cmd.append("--reset")
+    if git_action == "yes":
+        cmd.append("--git")
+    elif git_action == "keep":
+        cmd.append("--git-keep")
     if note_types:
         cmd.extend(["--note-types", ",".join(note_types)])
     if core_properties:
@@ -690,6 +878,18 @@ def main() -> int:
     parser.add_argument(
         "--per-type-props",
         help="Per-type properties in format: type1:prop1,prop2;type2:prop3,prop4",
+    )
+
+    parser.add_argument(
+        "--ranking-system",
+        choices=["rank", "priority"],
+        help="Ranking system for projects: 'rank' (1-5 numeric) or 'priority' (text)",
+    )
+
+    parser.add_argument(
+        "--git",
+        choices=["yes", "no", "keep"],
+        help="Git repository: 'yes' (init), 'no' (skip), 'keep' (preserve existing)",
     )
 
     parser.add_argument(
@@ -800,7 +1000,7 @@ def main() -> int:
                 output_methodology_prompt(str(vault_path), action=args.action)
                 return 0
 
-            # Methodology specified - check for note types
+            # Methodology specified - check for note types FIRST
             if not args.defaults:
                 # Need note types selection
                 if not args.note_types:
@@ -811,9 +1011,18 @@ def main() -> int:
                     # User chose "custom" - show multi-select
                     output_note_types_select_prompt(str(vault_path), args.methodology, args.action)
                     return 0
-                # note_types_is_all or explicit list - continue to properties
+                # note_types_is_all or explicit list - continue
 
-            # Note types specified - check for core properties
+            # Note types specified - check for ranking system (only if project type selected)
+            selected_note_types = args.note_types or "all"
+            has_project_type = selected_note_types == "all" or "project" in selected_note_types
+            if has_project_type and not args.ranking_system:
+                output_ranking_system_prompt(
+                    str(vault_path), args.methodology, selected_note_types, args.action
+                )
+                return 0
+
+            # Note types (and ranking if needed) specified - check for core properties
             if not args.defaults:
                 if not args.core_properties:
                     # No core properties argument at all - show All/Custom choice
@@ -853,28 +1062,39 @@ def main() -> int:
             )
             types_needing_config = []
             for type_name in selected_types:
-                if type_name not in per_type_properties:
-                    type_data = get_note_types_for_methodology(args.methodology)
-                    type_config = type_data.get(type_name, {})
-                    props = type_config.get("properties", {})
-                    # Check if type has additional_required or optional properties
-                    if props.get("additional_required") or props.get("optional"):
-                        types_needing_config.append(type_name)
+                type_data = get_note_types_for_methodology(args.methodology)
+                type_config = type_data.get(type_name, {})
+                props = type_config.get("properties", {})
+                # Check if type has additional_required or optional properties
+                if props.get("additional_required") or props.get("optional"):
+                    types_needing_config.append(type_name)
 
-            # If there are types that need per-type configuration
-            if not args.defaults and types_needing_config:
-                current_type = types_needing_config[0]
-                remaining = types_needing_config[1:]
+            # If there are types that need per-type configuration and none configured yet
+            # Show ONE combined prompt for ALL types at once
+            if not args.defaults and types_needing_config and not per_type_properties:
                 output_per_type_properties_prompt(
                     str(vault_path),
                     args.methodology,
                     args.note_types or "all",
                     args.core_properties or "all",
                     args.custom_properties or "none",
-                    current_type,
-                    remaining,
+                    types_needing_config,  # All types at once
                     args.action,
+                    args.ranking_system or "rank",
+                )
+                return 0
+
+            # Check for git init (for existing vault with action)
+            if not args.defaults and args.git is None:
+                output_git_init_prompt(
+                    str(vault_path),
+                    args.methodology,
+                    args.note_types or "all",
+                    args.core_properties or "all",
+                    args.custom_properties or "none",
                     {k: ",".join(v) for k, v in per_type_properties.items()},
+                    args.action,
+                    args.ranking_system or "rank",
                 )
                 return 0
 
@@ -887,6 +1107,8 @@ def main() -> int:
                 core_properties=core_properties,
                 custom_properties=custom_properties,
                 per_type_properties=per_type_properties,
+                ranking_system=args.ranking_system or "rank",
+                git_action=args.git or "no",
             )
 
     # STEP 3: New/empty vault - prompt for methodology
@@ -904,7 +1126,14 @@ def main() -> int:
             # User chose "custom" - show multi-select
             output_note_types_select_prompt(str(vault_path), args.methodology)
             return 0
-        # note_types_is_all or explicit list - continue to properties
+        # note_types_is_all or explicit list - continue to ranking system check
+
+    # STEP 4b: Note types specified - check for ranking system (only if project type selected)
+    selected_note_types = args.note_types or "all"
+    has_project_type = selected_note_types == "all" or "project" in selected_note_types
+    if has_project_type and not args.ranking_system:
+        output_ranking_system_prompt(str(vault_path), args.methodology, selected_note_types)
+        return 0
 
     # STEP 5: Note types specified - check for core properties
     if not args.defaults:
@@ -940,25 +1169,35 @@ def main() -> int:
     selected_types = note_types or list(get_note_types_for_methodology(args.methodology).keys())
     types_needing_config = []
     for type_name in selected_types:
-        if type_name not in per_type_properties:
-            type_data = get_note_types_for_methodology(args.methodology)
-            type_config = type_data.get(type_name, {})
-            props = type_config.get("properties", {})
-            if props.get("additional_required") or props.get("optional"):
-                types_needing_config.append(type_name)
+        type_data = get_note_types_for_methodology(args.methodology)
+        type_config = type_data.get(type_name, {})
+        props = type_config.get("properties", {})
+        if props.get("additional_required") or props.get("optional"):
+            types_needing_config.append(type_name)
 
-    if not args.defaults and types_needing_config:
-        current_type = types_needing_config[0]
-        remaining = types_needing_config[1:]
+    # Show ONE combined prompt for ALL types at once (if not already configured)
+    if not args.defaults and types_needing_config and not per_type_properties:
         output_per_type_properties_prompt(
             str(vault_path),
             args.methodology,
             args.note_types or "all",
             args.core_properties or "all",
             args.custom_properties or "none",
-            current_type,
-            remaining,
-            per_type_properties={k: ",".join(v) for k, v in per_type_properties.items()},
+            types_needing_config,  # All types at once
+            ranking_system=args.ranking_system or "rank",
+        )
+        return 0
+
+    # STEP 7b: Per-type properties done - check for git init
+    if not args.defaults and args.git is None:
+        output_git_init_prompt(
+            str(vault_path),
+            args.methodology,
+            args.note_types or "all",
+            args.core_properties or "all",
+            args.custom_properties or "none",
+            {k: ",".join(v) for k, v in per_type_properties.items()},
+            ranking_system=args.ranking_system or "rank",
         )
         return 0
 
@@ -970,6 +1209,8 @@ def main() -> int:
         core_properties=core_properties,
         custom_properties=custom_properties,
         per_type_properties=per_type_properties,
+        ranking_system=args.ranking_system or "rank",
+        git_action=args.git or "no",
     )
 
 
