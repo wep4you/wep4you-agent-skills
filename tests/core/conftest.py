@@ -26,10 +26,11 @@ def sample_note_type_config():
     """Create a sample NoteTypeConfig for testing."""
     return NoteTypeConfig(
         name="Dot",
-        folder="Atlas/Dots",
+        description="Atomic notes",
+        folder_hints=["Atlas/Dots"],
         required_properties=["type", "up", "created"],
         optional_properties=["related", "collection"],
-        template="dot-template",
+        inherit_core=True,
     )
 
 
