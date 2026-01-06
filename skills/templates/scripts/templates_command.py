@@ -314,7 +314,8 @@ Examples:
     delete_parser = subparsers.add_parser("delete", help="Delete template")
     delete_parser.add_argument("name", help="Template name")
     delete_parser.add_argument(
-        "--yes", "-y",
+        "--yes",
+        "-y",
         action="store_true",
         help="Skip confirmation prompt (required for non-interactive)",
     )

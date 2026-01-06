@@ -357,6 +357,7 @@ class TestHelpCommandIntegration:
     def test_help_command_registered_in_router(self) -> None:
         """Test help command is registered in the router."""
         import sys
+
         sys.path.insert(0, str(PROJECT_ROOT))
         from skills.obsidian_commands.router import get_router
 
@@ -369,6 +370,7 @@ class TestHelpCommandIntegration:
     def test_help_handler_exists_in_router(self) -> None:
         """Test help handler can be retrieved from router."""
         import sys
+
         sys.path.insert(0, str(PROJECT_ROOT))
         from skills.obsidian_commands.router import get_router
 

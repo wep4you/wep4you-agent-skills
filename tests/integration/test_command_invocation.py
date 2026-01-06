@@ -269,9 +269,7 @@ class TestValidateCommandInvocation:
             check=False,
         )
         # Should not fail with ModuleNotFoundError
-        assert "ModuleNotFoundError" not in result.stderr, (
-            f"Import failed: {result.stderr}"
-        )
+        assert "ModuleNotFoundError" not in result.stderr, f"Import failed: {result.stderr}"
         assert result.returncode == 0, f"Failed with stderr: {result.stderr}"
 
 
@@ -316,8 +314,11 @@ class TestNoteTypesCommandInvocation:
         # Test by running Python with an import statement
         result = subprocess.run(
             [
-                "uv", "run", "python", "-c",
-                "from skills.note_types.scripts import note_types; print('OK')"
+                "uv",
+                "run",
+                "python",
+                "-c",
+                "from skills.note_types.scripts import note_types; print('OK')",
             ],
             cwd=PROJECT_ROOT,
             capture_output=True,
@@ -336,9 +337,7 @@ class TestNoteTypesCommandInvocation:
             timeout=30,
             check=False,
         )
-        assert "ModuleNotFoundError" not in result.stderr, (
-            f"Import failed: {result.stderr}"
-        )
+        assert "ModuleNotFoundError" not in result.stderr, f"Import failed: {result.stderr}"
 
     def test_types_list_on_initialized_vault(self, tmp_path: Path) -> None:
         """Test types list subcommand on an initialized vault.
@@ -437,14 +436,10 @@ note_types:
 
         # Should succeed without AttributeError
         assert result.returncode == 0, f"Failed with stderr: {result.stderr}"
-        assert "AttributeError" not in result.stderr, (
-            f"Method show_type missing: {result.stderr}"
-        )
+        assert "AttributeError" not in result.stderr, f"Method show_type missing: {result.stderr}"
         # Should show project details
         assert "project" in result.stdout.lower(), f"Missing type in output: {result.stdout}"
-        assert "active projects" in result.stdout.lower(), (
-            f"Missing description: {result.stdout}"
-        )
+        assert "active projects" in result.stdout.lower(), f"Missing description: {result.stdout}"
 
     def test_types_show_nonexistent_type(self, tmp_path: Path) -> None:
         """Test types show with nonexistent type returns proper error."""
@@ -511,10 +506,15 @@ note_types:
         config_json = '{"description": "Meeting notes", "folder": "Meetings"}'
         result = subprocess.run(
             [
-                "uv", "run", str(script),
-                "--vault", str(vault),
-                "add", "meeting",
-                "--config", config_json,
+                "uv",
+                "run",
+                str(script),
+                "--vault",
+                str(vault),
+                "add",
+                "meeting",
+                "--config",
+                config_json,
             ],
             cwd=PROJECT_ROOT,
             capture_output=True,
@@ -550,10 +550,15 @@ note_types:
         script = PROJECT_ROOT / "skills" / "note-types" / "scripts" / "types_command.py"
         result = subprocess.run(
             [
-                "uv", "run", str(script),
-                "--vault", str(vault),
-                "add", "note",  # Already exists
-                "--config", '{"description": "Duplicate"}',
+                "uv",
+                "run",
+                str(script),
+                "--vault",
+                str(vault),
+                "add",
+                "note",  # Already exists
+                "--config",
+                '{"description": "Duplicate"}',
             ],
             cwd=PROJECT_ROOT,
             capture_output=True,
@@ -595,10 +600,15 @@ note_types:
         config_json = '{"description": "Updated notes"}'
         result = subprocess.run(
             [
-                "uv", "run", str(script),
-                "--vault", str(vault),
-                "edit", "note",
-                "--config", config_json,
+                "uv",
+                "run",
+                str(script),
+                "--vault",
+                str(vault),
+                "edit",
+                "note",
+                "--config",
+                config_json,
             ],
             cwd=PROJECT_ROOT,
             capture_output=True,
@@ -634,10 +644,15 @@ note_types:
         script = PROJECT_ROOT / "skills" / "note-types" / "scripts" / "types_command.py"
         result = subprocess.run(
             [
-                "uv", "run", str(script),
-                "--vault", str(vault),
-                "edit", "nonexistent",
-                "--config", '{"description": "Updated"}',
+                "uv",
+                "run",
+                str(script),
+                "--vault",
+                str(vault),
+                "edit",
+                "nonexistent",
+                "--config",
+                '{"description": "Updated"}',
             ],
             cwd=PROJECT_ROOT,
             capture_output=True,
@@ -682,9 +697,13 @@ note_types:
         script = PROJECT_ROOT / "skills" / "note-types" / "scripts" / "types_command.py"
         result = subprocess.run(
             [
-                "uv", "run", str(script),
-                "--vault", str(vault),
-                "remove", "custom",
+                "uv",
+                "run",
+                str(script),
+                "--vault",
+                str(vault),
+                "remove",
+                "custom",
                 "--yes",
             ],
             cwd=PROJECT_ROOT,
@@ -722,9 +741,13 @@ note_types:
         script = PROJECT_ROOT / "skills" / "note-types" / "scripts" / "types_command.py"
         result = subprocess.run(
             [
-                "uv", "run", str(script),
-                "--vault", str(vault),
-                "remove", "nonexistent",
+                "uv",
+                "run",
+                str(script),
+                "--vault",
+                str(vault),
+                "remove",
+                "nonexistent",
                 "--yes",
             ],
             cwd=PROJECT_ROOT,
@@ -764,8 +787,11 @@ note_types:
         script = PROJECT_ROOT / "skills" / "note-types" / "scripts" / "types_command.py"
         result = subprocess.run(
             [
-                "uv", "run", str(script),
-                "--vault", str(vault),
+                "uv",
+                "run",
+                str(script),
+                "--vault",
+                str(vault),
                 "wizard",
             ],
             cwd=PROJECT_ROOT,
@@ -831,9 +857,7 @@ class TestConfigCommandInvocation:
             timeout=30,
             check=False,
         )
-        assert "ModuleNotFoundError" not in result.stderr, (
-            f"Import failed: {result.stderr}"
-        )
+        assert "ModuleNotFoundError" not in result.stderr, f"Import failed: {result.stderr}"
         assert result.returncode == 0, f"Failed with stderr: {result.stderr}"
 
 

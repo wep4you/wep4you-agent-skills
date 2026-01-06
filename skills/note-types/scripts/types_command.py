@@ -409,7 +409,8 @@ Examples:
     remove_parser = subparsers.add_parser("remove", help="Remove note type")
     remove_parser.add_argument("name", help="Note type name")
     remove_parser.add_argument(
-        "--yes", "-y",
+        "--yes",
+        "-y",
         action="store_true",
         help="Skip confirmation prompt (required for non-interactive)",
     )

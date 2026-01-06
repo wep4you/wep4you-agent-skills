@@ -468,7 +468,8 @@ Examples:
     add_parser.add_argument("name", help="Property name")
     add_parser.add_argument("--type", default="string", help="Property type")
     add_parser.add_argument(
-        "--yes", "-y",
+        "--yes",
+        "-y",
         action="store_true",
         help="Skip confirmation prompt (required for non-interactive)",
     )
@@ -476,7 +477,8 @@ Examples:
     remove_parser = core_sub.add_parser("remove", help="Remove core property")
     remove_parser.add_argument("name", help="Property name")
     remove_parser.add_argument(
-        "--yes", "-y",
+        "--yes",
+        "-y",
         action="store_true",
         help="Skip confirmation prompt (required for non-interactive)",
     )
