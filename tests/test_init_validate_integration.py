@@ -1595,7 +1595,8 @@ class TestPerTypeCustomProperties:
             "lyt-ace",
             dry_run=False,
             use_defaults=True,
-            per_type_properties={"project": ["deadline", "budget"]},  # deadline from method, budget custom
+            # deadline from method, budget custom
+            per_type_properties={"project": ["deadline", "budget"]},
         )
         settings = load_settings(tmp_path)
         project_type = settings.note_types.get("project")

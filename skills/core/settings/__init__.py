@@ -17,14 +17,17 @@ from skills.core.settings.loader import (
     settings_exist,
 )
 from skills.core.settings.validation import (
+    MIN_PROPERTY_NAME_LENGTH,
     get_up_link_for_path,
     infer_note_type_from_path,
     is_inbox_path,
     should_exclude,
+    validate_property_name,
     validate_settings,
 )
 
 __all__ = [
+    "MIN_PROPERTY_NAME_LENGTH",
     "SETTINGS_FILE",
     "create_backup",
     "create_default_settings",
@@ -39,5 +42,6 @@ __all__ = [
     "set_setting",
     "settings_exist",
     "should_exclude",
+    "validate_property_name",
     "validate_settings",
 ]

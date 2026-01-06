@@ -211,18 +211,16 @@ def parse_per_type_properties(value: str | None) -> dict[str, list[str]]:
 
 
 def get_types_needing_config(methodology: str, selected_types: list[str] | None) -> list[str]:
-    """Get list of note types that have configurable properties."""
+    """Get list of note types that can be configured.
+
+    Returns ALL selected types since users can add custom properties to any type,
+    not just those with predefined optional/required properties.
+    """
     type_data = get_note_types_for_methodology(methodology)
     all_types = selected_types or list(type_data.keys())
 
-    types_needing_config = []
-    for type_name in all_types:
-        type_config = type_data.get(type_name, {})
-        props = type_config.get("properties", {})
-        if props.get("additional_required") or props.get("optional"):
-            types_needing_config.append(type_name)
-
-    return types_needing_config
+    # Return all types that exist in the methodology (users can add custom props to any)
+    return [t for t in all_types if t in type_data]
 
 
 def handle_workflow(

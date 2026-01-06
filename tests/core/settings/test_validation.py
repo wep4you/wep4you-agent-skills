@@ -12,10 +12,12 @@ import pytest
 from skills.core.models.note_type import NoteTypeConfig
 from skills.core.models.settings import Settings, ValidationRules
 from skills.core.settings.validation import (
+    MIN_PROPERTY_NAME_LENGTH,
     get_up_link_for_path,
     infer_note_type_from_path,
     is_inbox_path,
     should_exclude,
+    validate_property_name,
     validate_settings,
 )
 
@@ -137,6 +139,98 @@ def settings_with_multiple_types(base_validation_rules, minimal_note_type, note_
         logging={"level": "INFO"},
         raw={},
     )
+
+
+# ============================================================================
+# Tests for validate_property_name
+# ============================================================================
+
+
+class TestValidatePropertyName:
+    """Tests for validate_property_name function."""
+
+    def test_valid_simple_name(self):
+        """Test that simple valid names pass."""
+        is_valid, error = validate_property_name("type")
+        assert is_valid is True
+        assert error is None
+
+    def test_valid_camelCase_name(self):
+        """Test that camelCase names pass."""
+        is_valid, error = validate_property_name("myOwnProp")
+        assert is_valid is True
+        assert error is None
+
+    def test_valid_snake_case_name(self):
+        """Test that snake_case names pass."""
+        is_valid, error = validate_property_name("my_property")
+        assert is_valid is True
+        assert error is None
+
+    def test_valid_with_hyphen(self):
+        """Test that hyphenated names pass."""
+        is_valid, error = validate_property_name("my-property")
+        assert is_valid is True
+        assert error is None
+
+    def test_valid_with_numbers(self):
+        """Test that names with numbers pass."""
+        is_valid, error = validate_property_name("property1")
+        assert is_valid is True
+        assert error is None
+
+    def test_empty_name_fails(self):
+        """Test that empty name fails."""
+        is_valid, error = validate_property_name("")
+        assert is_valid is False
+        assert "empty" in error.lower()
+
+    def test_too_short_name_fails(self):
+        """Test that single character name fails."""
+        is_valid, error = validate_property_name("a")
+        assert is_valid is False
+        assert "too short" in error.lower()
+        assert str(MIN_PROPERTY_NAME_LENGTH) in error
+
+    def test_starts_with_number_fails(self):
+        """Test that name starting with number fails."""
+        is_valid, error = validate_property_name("1property")
+        assert is_valid is False
+        assert "invalid characters" in error.lower()
+
+    def test_starts_with_underscore_fails(self):
+        """Test that name starting with underscore fails."""
+        is_valid, error = validate_property_name("_hidden")
+        assert is_valid is False
+        assert "invalid characters" in error.lower()
+
+    def test_contains_spaces_fails(self):
+        """Test that name with spaces fails."""
+        is_valid, error = validate_property_name("my property")
+        assert is_valid is False
+        assert "invalid characters" in error.lower()
+
+    def test_contains_special_chars_fails(self):
+        """Test that name with special characters fails."""
+        is_valid, error = validate_property_name("my@property!")
+        assert is_valid is False
+        assert "invalid characters" in error.lower()
+
+    def test_minimum_length_exact(self):
+        """Test that name with exactly MIN_PROPERTY_NAME_LENGTH chars passes."""
+        name = "a" * MIN_PROPERTY_NAME_LENGTH
+        # Ensure it starts with a letter
+        name = "ab" if MIN_PROPERTY_NAME_LENGTH == 2 else name
+        is_valid, error = validate_property_name(name)
+        assert is_valid is True
+
+    def test_truncated_property_name_warning(self):
+        """Test that property name that looks truncated is caught."""
+        # If someone enters 'myOwnPro' instead of 'myOwnProp', it still passes
+        # but we can't detect truncation at this level
+        # This test documents the limitation
+        is_valid, error = validate_property_name("myOwnPro")
+        assert is_valid is True  # We can't detect intended name
 
 
 # ============================================================================

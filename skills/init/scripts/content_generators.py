@@ -26,6 +26,7 @@ if str(_REPO_ROOT) not in sys.path:
 
 from config.methodologies.loader import METHODOLOGIES  # noqa: E402
 from skills.core.models import WizardConfig  # noqa: E402
+from skills.core.settings.validation import validate_property_name  # noqa: E402
 from skills.core.utils.paths import get_moc_filename  # noqa: E402
 from skills.init.scripts.vault_utils import get_all_content_folders  # noqa: E402
 
@@ -547,6 +548,15 @@ def build_settings_yaml(
     if per_type_properties:
         for type_name, props_list in per_type_properties.items():
             if type_name in note_types:
+                # Validate each property name
+                valid_props = []
+                for prop in props_list:
+                    is_valid, error = validate_property_name(prop)
+                    if not is_valid:
+                        print(f"  ⚠️  Warning ({type_name}): {error}")
+                    else:
+                        valid_props.append(prop)
+
                 note_types[type_name] = dict(note_types[type_name])
                 existing_props = note_types[type_name].get("properties", {})
                 existing_required = existing_props.get("additional_required", [])
@@ -554,7 +564,7 @@ def build_settings_yaml(
                 # User's selections become the new optional list
                 note_types[type_name]["properties"] = {
                     "additional_required": existing_required,  # Unchanged from methodology
-                    "optional": props_list,  # User's selection replaces methodology defaults
+                    "optional": valid_props,  # User's selection replaces methodology defaults
                 }
 
     if config and config.per_type_properties:
@@ -602,11 +612,20 @@ def build_settings_yaml(
         methodology_properties.update(props.get("optional", []))
 
     if custom_properties:
-        # Filter out properties that already exist in methodology
-        truly_custom = [p for p in custom_properties if p not in methodology_properties]
-        if truly_custom:
-            core_properties_config["custom"] = truly_custom
-            all_core_properties = list(all_core_properties) + truly_custom
+        # Validate and filter custom properties
+        valid_custom = []
+        for prop in custom_properties:
+            if prop in methodology_properties:
+                continue  # Skip properties that already exist in methodology
+            is_valid, error = validate_property_name(prop)
+            if not is_valid:
+                print(f"  ⚠️  Warning: {error}")
+            else:
+                valid_custom.append(prop)
+
+        if valid_custom:
+            core_properties_config["custom"] = valid_custom
+            all_core_properties = list(all_core_properties) + valid_custom
             core_properties_config["all"] = all_core_properties
 
     if config:

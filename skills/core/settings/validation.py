@@ -15,6 +15,36 @@ if TYPE_CHECKING:
     from skills.core.models.settings import Settings
 
 
+MIN_PROPERTY_NAME_LENGTH = 2
+
+
+def validate_property_name(name: str) -> tuple[bool, str | None]:
+    """Validate a property name.
+
+    Args:
+        name: Property name to validate
+
+    Returns:
+        Tuple of (is_valid, error_message or None)
+    """
+    if not name:
+        return False, "Property name cannot be empty"
+
+    if len(name) < MIN_PROPERTY_NAME_LENGTH:
+        return False, f"Property name '{name}' is too short (min {MIN_PROPERTY_NAME_LENGTH} chars)"
+
+    # Check for valid characters (alphanumeric, underscore, hyphen)
+    import re
+
+    if not re.match(r"^[a-zA-Z][a-zA-Z0-9_-]*$", name):
+        return False, (
+            f"Property name '{name}' contains invalid characters. "
+            "Must start with a letter and contain only letters, numbers, underscores, or hyphens."
+        )
+
+    return True, None
+
+
 def validate_settings(settings: Settings) -> list[str]:
     """Validate settings structure.
 
