@@ -87,8 +87,10 @@ def get_command_registry() -> list[CommandInfo]:
                 ),
                 SubcommandInfo(
                     name="edit",
-                    description="Edit settings in system editor",
-                    examples=["obsidian:config edit"],
+                    description="Edit settings (guided wizard in terminal)",
+                    examples=[
+                        "obsidian:config edit",  # Interactive guided editing
+                    ],
                 ),
                 SubcommandInfo(
                     name="validate",
@@ -108,7 +110,7 @@ def get_command_registry() -> list[CommandInfo]:
                 ),
                 SubcommandInfo(
                     name="create",
-                    description="Create default settings",
+                    description="Create default settings file",
                     examples=[
                         "obsidian:config create --methodology para",
                         "obsidian:config create --force",
@@ -137,15 +139,15 @@ def get_command_registry() -> list[CommandInfo]:
                     description="Show details for a note type",
                     examples=[
                         "obsidian:types show project",
-                        "obsidian:types show map --format json",
+                        "obsidian:types show <name> --format json",
                     ],
                 ),
                 SubcommandInfo(
                     name="add",
                     description="Add a new note type",
                     examples=[
-                        "obsidian:types add meeting --config '{\"folder\": \"Meetings/\", \"description\": \"Meeting notes\"}'",
-                        "obsidian:types add",  # Interactive
+                        "obsidian:types add",  # Interactive wizard
+                        "obsidian:types add meeting --config '{...}'",
                     ],
                 ),
                 SubcommandInfo(
@@ -195,13 +197,19 @@ def get_command_registry() -> list[CommandInfo]:
                 ),
                 SubcommandInfo(
                     name="add",
-                    description="Add a property",
-                    examples=["obsidian:props add status --to project"],
+                    description="Add a core property (interactive wizard if no arguments)",
+                    examples=[
+                        "obsidian:props core add",  # Interactive wizard
+                        "obsidian:props core add status --yes",
+                    ],
                 ),
                 SubcommandInfo(
                     name="remove",
-                    description="Remove a property",
-                    examples=["obsidian:props remove status --from project"],
+                    description="Remove a core property (interactive wizard if no arguments)",
+                    examples=[
+                        "obsidian:props core remove",  # Interactive wizard
+                        "obsidian:props core remove daily --yes",
+                    ],
                 ),
             ],
             examples=["obsidian:props", "obsidian:props core"],
@@ -222,23 +230,34 @@ def get_command_registry() -> list[CommandInfo]:
                 ),
                 SubcommandInfo(
                     name="create",
-                    description="Create a new template",
-                    examples=["obsidian:templates create meeting"],
+                    description="Create a new template (interactive wizard if no --content)",
+                    examples=[
+                        "obsidian:templates create meeting",  # Interactive wizard
+                        "obsidian:templates create meeting --content '---\\ntype: meeting\\n---'",
+                    ],
                 ),
                 SubcommandInfo(
                     name="edit",
-                    description="Edit an existing template",
-                    examples=["obsidian:templates edit project"],
+                    description="Edit a template in system editor",
+                    examples=[
+                        "obsidian:templates edit project",
+                    ],
                 ),
                 SubcommandInfo(
                     name="delete",
-                    description="Delete a template",
-                    examples=["obsidian:templates delete custom --yes"],
+                    description="Delete a template (interactive wizard if no name)",
+                    examples=[
+                        "obsidian:templates delete",  # Interactive wizard
+                        "obsidian:templates delete custom --yes",
+                    ],
                 ),
                 SubcommandInfo(
                     name="apply",
-                    description="Apply a template to create a note",
-                    examples=["obsidian:templates apply meeting --name 'Weekly Sync'"],
+                    description="Apply template to create a note (interactive wizard)",
+                    examples=[
+                        "obsidian:templates apply",  # Interactive wizard
+                        "obsidian:templates apply meeting --name 'Weekly Sync'",
+                    ],
                 ),
             ],
             examples=["obsidian:templates", "obsidian:templates list"],
