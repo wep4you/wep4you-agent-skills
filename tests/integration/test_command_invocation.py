@@ -340,6 +340,146 @@ class TestNoteTypesCommandInvocation:
             f"Import failed: {result.stderr}"
         )
 
+    def test_types_list_on_initialized_vault(self, tmp_path: Path) -> None:
+        """Test types list subcommand on an initialized vault.
+
+        Regression test: types_command.py called manager.list_types() which
+        returned a dict but didn't print anything. Should use display_type_list().
+        """
+        # Create a minimal vault with settings.yaml
+        vault = tmp_path / "test-vault"
+        vault.mkdir()
+        claude_dir = vault / ".claude"
+        claude_dir.mkdir()
+
+        settings_content = """
+version: '1.0'
+methodology: minimal
+core_properties:
+  all:
+    - type
+    - created
+note_types:
+  note:
+    description: General notes
+    folder_hints:
+      - Notes/
+    properties:
+      additional_required: []
+      optional: []
+    validation:
+      allow_empty_up: true
+    icon: file
+"""
+        (claude_dir / "settings.yaml").write_text(settings_content)
+
+        script = PROJECT_ROOT / "skills" / "note-types" / "scripts" / "types_command.py"
+        result = subprocess.run(
+            ["uv", "run", str(script), "--vault", str(vault)],
+            cwd=PROJECT_ROOT,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+
+        # Should succeed and output note type info
+        assert result.returncode == 0, f"Failed with stderr: {result.stderr}"
+        assert "AttributeError" not in result.stderr, f"Method missing: {result.stderr}"
+        # Should show the note type name in output
+        assert "note" in result.stdout.lower(), f"Missing type in output: {result.stdout}"
+
+    def test_types_show_on_initialized_vault(self, tmp_path: Path) -> None:
+        """Test types show subcommand on an initialized vault.
+
+        Regression test: types_command.py called manager.show_type(name) which
+        didn't exist! Should use display_type_details().
+        """
+        # Create a minimal vault with settings.yaml
+        vault = tmp_path / "test-vault"
+        vault.mkdir()
+        claude_dir = vault / ".claude"
+        claude_dir.mkdir()
+
+        settings_content = """
+version: '1.0'
+methodology: para
+core_properties:
+  all:
+    - type
+    - up
+    - created
+note_types:
+  project:
+    description: Active projects
+    folder_hints:
+      - Projects/
+    properties:
+      additional_required:
+        - status
+      optional:
+        - deadline
+    validation:
+      allow_empty_up: false
+    icon: target
+"""
+        (claude_dir / "settings.yaml").write_text(settings_content)
+
+        script = PROJECT_ROOT / "skills" / "note-types" / "scripts" / "types_command.py"
+        result = subprocess.run(
+            ["uv", "run", str(script), "--vault", str(vault), "show", "project"],
+            cwd=PROJECT_ROOT,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+
+        # Should succeed without AttributeError
+        assert result.returncode == 0, f"Failed with stderr: {result.stderr}"
+        assert "AttributeError" not in result.stderr, (
+            f"Method show_type missing: {result.stderr}"
+        )
+        # Should show project details
+        assert "project" in result.stdout.lower(), f"Missing type in output: {result.stdout}"
+        assert "active projects" in result.stdout.lower(), (
+            f"Missing description: {result.stdout}"
+        )
+
+    def test_types_show_nonexistent_type(self, tmp_path: Path) -> None:
+        """Test types show with nonexistent type returns proper error."""
+        vault = tmp_path / "test-vault"
+        vault.mkdir()
+        claude_dir = vault / ".claude"
+        claude_dir.mkdir()
+
+        settings_content = """
+version: '1.0'
+methodology: minimal
+core_properties:
+  all: [type, created]
+note_types:
+  note:
+    description: Notes
+    folder_hints: [Notes/]
+"""
+        (claude_dir / "settings.yaml").write_text(settings_content)
+
+        script = PROJECT_ROOT / "skills" / "note-types" / "scripts" / "types_command.py"
+        result = subprocess.run(
+            ["uv", "run", str(script), "--vault", str(vault), "show", "nonexistent"],
+            cwd=PROJECT_ROOT,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+
+        # Should fail with exit code 1, not crash with AttributeError
+        assert result.returncode == 1, "Should return error code for missing type"
+        assert "AttributeError" not in result.stderr, f"Crashed: {result.stderr}"
+        assert "not found" in result.stdout.lower(), f"Missing error msg: {result.stdout}"
+
 
 class TestConfigCommandInvocation:
     """Test config command can be invoked via subprocess."""
