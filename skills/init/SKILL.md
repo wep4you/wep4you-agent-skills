@@ -1,6 +1,6 @@
 ---
 name: init
-version: "0.36.0"
+version: "0.37.0"
 license: MIT
 description: "Initialize a new Obsidian vault with a chosen PKM methodology (LYT-ACE, PARA, Zettelkasten, or Minimal). Creates folder structure, configuration files, and frontmatter standards. Use when the user wants to (1) create a new Obsidian vault, (2) set up a vault with a specific methodology, (3) initialize vault configuration, or (4) scaffold a new PKM system. Triggers on keywords like init vault, create vault, new obsidian vault, setup vault, scaffold vault."
 ---
@@ -48,6 +48,8 @@ If you call the internal scripts directly, you will get an error:
 
 The wrapper outputs JSON with `prompt_type`. Handle each type sequentially:
 
+**⚠️ IMPORTANT: For ALL prompts with `multi_select: true` or `options` array, you MUST use the AskUserQuestion tool - NEVER ask as free text!**
+
 #### Step 1: Start
 ```bash
 uv run "${CLAUDE_PLUGIN_ROOT}/commands/init.py" <vault_path>
@@ -76,10 +78,28 @@ uv run "${CLAUDE_PLUGIN_ROOT}/commands/init.py" <vault_path> --action=continue -
 ```
 
 #### Step 4b: `prompt_type: "note_types_select"` (only if custom)
-→ Use AskUserQuestion with multi-select (all types selected by default)
-→ Join selected IDs with comma
+→ **MUST use AskUserQuestion tool** with multi-select from `options` array
+→ Each option has `id`, `label`, `description` - use these for the question
+→ Set `multiSelect: true` in AskUserQuestion
+→ Join selected IDs with comma in `--note-types`
 ```bash
 uv run "${CLAUDE_PLUGIN_ROOT}/commands/init.py" <vault_path> --action=continue -m para --note-types=project,area
+```
+
+**Example AskUserQuestion for note_types_select:**
+```json
+{
+  "questions": [{
+    "question": "Which note types do you want to include?",
+    "header": "Note Types",
+    "multiSelect": true,
+    "options": [
+      {"label": "Map", "description": "Map of Content - Overview and navigation notes"},
+      {"label": "Dot", "description": "Atomic concepts and ideas"},
+      ...
+    ]
+  }]
+}
 ```
 
 #### Step 5: `prompt_type: "properties_required"`
@@ -91,26 +111,65 @@ uv run "${CLAUDE_PLUGIN_ROOT}/commands/init.py" <vault_path> --action=continue -
 ```
 
 #### Step 5b: `prompt_type: "properties_select"` (only if custom)
-→ Use AskUserQuestion with multi-select (type/created are mandatory and disabled)
-→ Join selected IDs with comma
+→ **MUST use AskUserQuestion tool** with multi-select from `options` array
+→ Options with `disabled: true` (type, created) are mandatory - pre-select them
+→ Set `multiSelect: true` in AskUserQuestion
+→ Join selected IDs with comma in `--core-properties`
 ```bash
 uv run "${CLAUDE_PLUGIN_ROOT}/commands/init.py" <vault_path> --action=continue -m para --note-types=all --core-properties=type,created,up,tags
 ```
 
 #### Step 6: `prompt_type: "custom_properties_input"`
-→ Allow user to enter custom global properties (free text)
-→ These properties apply to ALL note types
-→ If user provides input, join with comma in `--custom-properties`
+
+**⚠️ CRITICAL: This is a FREE TEXT input - do NOT add options like "None", "Custom", etc!**
+
+→ Simply ask the user to type property names (comma-separated)
+→ If user types property names: use them in `--custom-properties=<names>`
+→ If user says "none", "skip", or similar: use `--custom-properties=none`
+
+**Correct approach:**
+```
+Claude: "Enter custom property names for ALL note types (comma-separated), or 'none' to skip:"
+User types: "myProp1, myProp2"
+```
+
+**WRONG approach (do NOT do this):**
+```
+Claude shows options: [None] [Custom] [Type something]  ← NEVER DO THIS
+```
+
 ```bash
 uv run "${CLAUDE_PLUGIN_ROOT}/commands/init.py" <vault_path> --action=continue -m para --note-types=all --core-properties=all --custom-properties=myProp1,myProp2
 ```
 
-#### Step 7: `prompt_type: "per_type_properties"` (for each note type)
-→ For each note type, prompt for additional properties specific to that type
-→ Shows available optional properties from methodology definition
-→ Format: `--per-type-props=type1:prop1,prop2;type2:prop3`
+#### Step 7: `prompt_type: "per_type_properties_combined"`
+
+**⚠️ CRITICAL: Pass user input EXACTLY as typed - do NOT map to existing properties!**
+
+For each note type in `type_sections`:
+1. Show checkboxes for existing `optional` properties (from methodology)
+2. Allow free text input for custom properties specific to this type
+3. Combine both into the result
+
+**Format:** `--per-type-props=type1:selected1,selected2,custom1;type2:none;type3:customOnly`
+
+**Example flow:**
+```
+Daily notes - optional properties available: [mood] [weather]
+User selects: (none)
+User types custom: "motto"
+Result for daily: "motto" (NOT "mood"!)
+
+Project notes - optional properties available: [deadline] [priority]
+User selects: [deadline] ✓
+User types custom: (empty)
+Result for project: "deadline"
+```
+
+**CRITICAL:** If user types "motto", pass "motto" - do NOT change it to "mood" because it looks similar!
+
 ```bash
-uv run "${CLAUDE_PLUGIN_ROOT}/commands/init.py" <vault_path> --action=continue -m para --note-types=all --core-properties=all --custom-properties=priority --per-type-props=project:deadline,budget;area:importance
+uv run "${CLAUDE_PLUGIN_ROOT}/commands/init.py" <vault_path> --action=continue -m para --note-types=all --core-properties=all --custom-properties=priority --per-type-props=project:deadline,budget;daily:motto;area:none
 ```
 
 #### Step 8: Execution

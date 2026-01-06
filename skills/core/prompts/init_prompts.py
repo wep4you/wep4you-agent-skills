@@ -472,6 +472,11 @@ def output_per_type_properties_prompt(
                 "optional": optional,
                 "options": options,
                 "default": "none",
+                "custom_input": {
+                    "enabled": True,
+                    "placeholder": "motto, source_url",
+                    "description": f"Add custom properties for {type_name} notes only",
+                },
             }
         )
 
@@ -500,11 +505,15 @@ def output_per_type_properties_prompt(
         "type_sections": type_sections,
         "next_step": next_cmd,
         "hint": (
-            "For each note type, select optional properties to include. "
+            "For each note type: (1) Select optional properties to include, "
+            "(2) Add custom properties specific to this type. "
             "Required properties are pre-selected and cannot be changed. "
-            "Leave optional properties unselected to use only required ones."
+            "Leave optional unselected and custom empty to use only required."
         ),
-        "format_hint": "Format: type1:prop1,prop2;type2:none (use 'none' for no optional)",
+        "format_hint": (
+            "Format: type1:prop1,prop2,custom1;type2:none;type3:mood,motto "
+            "(include selected optional AND custom properties together)"
+        ),
     }
     print(json.dumps(prompt, indent=2))
 

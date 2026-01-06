@@ -529,25 +529,32 @@ def build_settings_yaml(
     core_properties_filter: list[str] | None = None,
     custom_properties: list[str] | None = None,
     per_type_properties: dict[str, list[str]] | None = None,
+    ranking_system: str = "rank",
 ) -> dict[str, Any]:
     """Build settings.yaml content for a methodology."""
+    from skills.core.utils import apply_ranking_system
+
     method_config = METHODOLOGIES[methodology]
     note_types = dict(method_config["note_types"])
 
+    # Apply ranking system to project-like note types
+    note_types = apply_ranking_system(note_types, ranking_system)
+
     # Apply per-type property customizations
+    # When user selects properties, they choose which optionals to include
+    # Required properties from methodology stay required
+    # User selections become the new optional list (replaces methodology defaults)
     if per_type_properties:
         for type_name, props_list in per_type_properties.items():
             if type_name in note_types:
                 note_types[type_name] = dict(note_types[type_name])
                 existing_props = note_types[type_name].get("properties", {})
                 existing_required = existing_props.get("additional_required", [])
-                existing_optional = existing_props.get("optional", [])
-                new_required = list(set(existing_required + props_list))
-                # Remove from optional if now required (no duplicates!)
-                new_optional = [p for p in existing_optional if p not in new_required]
+                # Keep methodology's required properties unchanged
+                # User's selections become the new optional list
                 note_types[type_name]["properties"] = {
-                    "additional_required": new_required,
-                    "optional": new_optional,
+                    "additional_required": existing_required,  # Unchanged from methodology
+                    "optional": props_list,  # User's selection replaces methodology defaults
                 }
 
     if config and config.per_type_properties:
@@ -587,10 +594,20 @@ def build_settings_yaml(
 
     core_properties_config: dict[str, Any] = {"all": all_core_properties}
 
+    # Collect all methodology-defined properties (core + note type specific)
+    methodology_properties = set(method_config["core_properties"])
+    for type_config in note_types.values():
+        props = type_config.get("properties", {})
+        methodology_properties.update(props.get("additional_required", []))
+        methodology_properties.update(props.get("optional", []))
+
     if custom_properties:
-        core_properties_config["custom"] = custom_properties
-        all_core_properties = list(all_core_properties) + custom_properties
-        core_properties_config["all"] = all_core_properties
+        # Filter out properties that already exist in methodology
+        truly_custom = [p for p in custom_properties if p not in methodology_properties]
+        if truly_custom:
+            core_properties_config["custom"] = truly_custom
+            all_core_properties = list(all_core_properties) + truly_custom
+            core_properties_config["all"] = all_core_properties
 
     if config:
         if config.mandatory_properties:
@@ -609,6 +626,12 @@ def build_settings_yaml(
                 ]
             core_properties_config["all"] = base_props + all_custom
 
+    # Build allow_empty_properties based on what's actually used
+    # Only include properties that are in core_properties AND can be empty
+    allow_empty_candidates = {"tags", "collection", "related"}
+    final_all_props = set(core_properties_config.get("all", []))
+    allow_empty = [p for p in allow_empty_candidates if p in final_all_props]
+
     return {
         "version": "1.0",
         "methodology": methodology,
@@ -616,7 +639,7 @@ def build_settings_yaml(
         "note_types": note_types,
         "validation": {
             "require_core_properties": True,
-            "allow_empty_properties": ["tags", "collection", "related"],
+            "allow_empty_properties": allow_empty,
             "strict_types": True,
             "check_templates": True,
             "check_up_links": True,
@@ -652,6 +675,7 @@ def create_settings_yaml(
     core_properties_filter: list[str] | None = None,
     custom_properties: list[str] | None = None,
     per_type_properties: dict[str, list[str]] | None = None,
+    ranking_system: str = "rank",
 ) -> None:
     """Create settings.yaml for the vault."""
     settings = build_settings_yaml(
@@ -661,6 +685,7 @@ def create_settings_yaml(
         core_properties_filter,
         custom_properties,
         per_type_properties,
+        ranking_system,
     )
     settings_path = vault_path / ".claude" / "settings.yaml"
 

@@ -209,6 +209,8 @@ def init_vault(
 
     # Create vault structure and content
     create_folder_structure(vault_path, methodology, dry_run, note_types_filter)
+    # Get effective ranking_system (from wizard config or parameter)
+    effective_ranking = config.ranking_system if config else ranking_system
     create_settings_yaml(
         vault_path,
         methodology,
@@ -218,6 +220,7 @@ def init_vault(
         core_properties_filter,
         custom_properties,
         per_type_properties,
+        effective_ranking,
     )
     create_readme(vault_path, methodology, dry_run)
     create_home_note(vault_path, methodology, dry_run)

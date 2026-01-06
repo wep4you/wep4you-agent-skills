@@ -1245,13 +1245,14 @@ class TestPerTypeProperties:
 
         settings = load_settings(tmp_path)
 
-        # Per-type properties should be in the note type's required_properties
+        # Per-type properties should be in the note type's optional_properties
+        # (user's selection replaces methodology defaults)
         project_type = settings.note_types.get("project")
         assert project_type is not None
 
-        # NoteTypeConfig has required_properties which includes additional_required
-        assert "deadline" in project_type.required_properties
-        assert "priority" in project_type.required_properties
+        # User-selected properties should be in optional_properties
+        assert "deadline" in project_type.optional_properties
+        assert "priority" in project_type.optional_properties
 
     def test_per_type_properties_in_sample_notes(self, tmp_path: Path) -> None:
         """Test per-type properties appear in the corresponding sample notes."""
@@ -1328,7 +1329,7 @@ class TestPerTypeProperties:
         assert "source_url:" in resource_note.read_text()
 
     def test_per_type_merges_with_existing_required(self, tmp_path: Path) -> None:
-        """Test per-type properties merge with existing additional_required."""
+        """Test per-type properties don't override existing additional_required."""
         # Project type already has 'status' as additional_required
         init_vault(
             tmp_path,
@@ -1342,9 +1343,10 @@ class TestPerTypeProperties:
         project_type = settings.note_types.get("project")
         assert project_type is not None
 
-        # Both original and new should be present in required_properties
+        # Original additional_required stays in required_properties
         assert "status" in project_type.required_properties
-        assert "priority" in project_type.required_properties
+        # User-selected properties go to optional_properties
+        assert "priority" in project_type.optional_properties
 
 
 class TestCombinedCustomAndPerType:
@@ -1427,4 +1429,176 @@ class TestCombinedCustomAndPerType:
         # Check per-type properties
         project_type = settings.note_types.get("project")
         assert project_type is not None
-        assert "projectProp" in project_type.required_properties
+        # User-selected per-type properties go to optional_properties
+        assert "projectProp" in project_type.optional_properties
+
+
+class TestRankingSystemSettings:
+    """Test ranking system is correctly applied to settings.yaml."""
+
+    def test_rank_system_adds_rank_to_project(self, tmp_path: Path) -> None:
+        """Test that rank system adds 'rank' to project's additional_required."""
+        init_vault(
+            tmp_path,
+            "lyt-ace",
+            dry_run=False,
+            use_defaults=True,
+            ranking_system="rank",
+        )
+        settings = load_settings(tmp_path)
+        project_type = settings.note_types.get("project")
+        assert project_type is not None
+        assert "rank" in project_type.required_properties
+
+    def test_priority_system_adds_priority_to_project(self, tmp_path: Path) -> None:
+        """Test that priority system adds 'priority' to project's additional_required."""
+        init_vault(
+            tmp_path,
+            "lyt-ace",
+            dry_run=False,
+            use_defaults=True,
+            ranking_system="priority",
+        )
+        settings = load_settings(tmp_path)
+        project_type = settings.note_types.get("project")
+        assert project_type is not None
+        assert "priority" in project_type.required_properties
+
+    def test_ranking_also_applies_to_area(self, tmp_path: Path) -> None:
+        """Test that ranking system also applies to area note type."""
+        init_vault(
+            tmp_path,
+            "lyt-ace",
+            dry_run=False,
+            use_defaults=True,
+            ranking_system="rank",
+        )
+        settings = load_settings(tmp_path)
+        area_type = settings.note_types.get("area")
+        assert area_type is not None
+        assert "rank" in area_type.required_properties
+
+
+class TestAllowEmptyPropertiesSettings:
+    """Test allow_empty_properties only contains used properties."""
+
+    def test_allow_empty_only_has_selected_properties(self, tmp_path: Path) -> None:
+        """Test allow_empty_properties only contains properties that are in core_properties."""
+        # Filter core properties to only include type, created, up, tags
+        # This excludes collection and related
+        init_vault(
+            tmp_path,
+            "lyt-ace",
+            dry_run=False,
+            use_defaults=True,
+            core_properties_filter=["type", "created", "up", "tags"],
+        )
+        settings = load_settings(tmp_path)
+
+        # allow_empty should only have 'tags' (not collection, related)
+        allow_empty = settings.raw.get("validation", {}).get("allow_empty_properties", [])
+        assert "tags" in allow_empty
+        assert "collection" not in allow_empty
+        assert "related" not in allow_empty
+
+    def test_allow_empty_with_all_properties(self, tmp_path: Path) -> None:
+        """Test allow_empty_properties contains all nullable props when all selected."""
+        init_vault(
+            tmp_path,
+            "lyt-ace",
+            dry_run=False,
+            use_defaults=True,
+        )
+        settings = load_settings(tmp_path)
+
+        # With all defaults, should have tags, collection, related
+        allow_empty = settings.raw.get("validation", {}).get("allow_empty_properties", [])
+        assert "tags" in allow_empty
+        assert "collection" in allow_empty
+        assert "related" in allow_empty
+
+
+class TestCustomPropertiesNotDuplicated:
+    """Test that methodology properties are not in custom list."""
+
+    def test_methodology_props_not_in_custom_list(self, tmp_path: Path) -> None:
+        """Test that properties from methodology are filtered from custom list."""
+        # Try to add 'status' as custom, but it's already in methodology
+        init_vault(
+            tmp_path,
+            "para",
+            dry_run=False,
+            use_defaults=True,
+            custom_properties=["status", "myTrulyCustomProp"],
+        )
+        settings = load_settings(tmp_path)
+
+        # status is in para's project type, so should not be in custom
+        custom = settings.raw.get("core_properties", {}).get("custom", [])
+        assert "status" not in custom
+        assert "myTrulyCustomProp" in custom
+
+    def test_truly_custom_props_appear_once(self, tmp_path: Path) -> None:
+        """Test that truly custom properties appear exactly once in 'all'."""
+        init_vault(
+            tmp_path,
+            "lyt-ace",
+            dry_run=False,
+            use_defaults=True,
+            custom_properties=["myCustomProp"],
+        )
+        settings = load_settings(tmp_path)
+
+        all_props = settings.core_properties
+        # Should appear exactly once
+        assert all_props.count("myCustomProp") == 1
+
+
+class TestPerTypeCustomProperties:
+    """Test per-type properties with custom inputs."""
+
+    def test_custom_per_type_property_added(self, tmp_path: Path) -> None:
+        """Test that custom properties can be added per type."""
+        init_vault(
+            tmp_path,
+            "lyt-ace",
+            dry_run=False,
+            use_defaults=True,
+            per_type_properties={"daily": ["motto", "energy_level"]},
+        )
+        settings = load_settings(tmp_path)
+        daily_type = settings.note_types.get("daily")
+        assert daily_type is not None
+        # Custom per-type properties should be in optional
+        assert "motto" in daily_type.optional_properties
+        assert "energy_level" in daily_type.optional_properties
+
+    def test_per_type_none_clears_optional(self, tmp_path: Path) -> None:
+        """Test that passing empty list clears optional properties."""
+        init_vault(
+            tmp_path,
+            "lyt-ace",
+            dry_run=False,
+            use_defaults=True,
+            per_type_properties={"daily": []},  # Explicitly no optional
+        )
+        settings = load_settings(tmp_path)
+        daily_type = settings.note_types.get("daily")
+        assert daily_type is not None
+        # Should have no optional properties
+        assert daily_type.optional_properties == []
+
+    def test_mixed_methodology_and_custom_per_type(self, tmp_path: Path) -> None:
+        """Test mixing methodology optional and custom properties per type."""
+        init_vault(
+            tmp_path,
+            "lyt-ace",
+            dry_run=False,
+            use_defaults=True,
+            per_type_properties={"project": ["deadline", "budget"]},  # deadline from method, budget custom
+        )
+        settings = load_settings(tmp_path)
+        project_type = settings.note_types.get("project")
+        assert project_type is not None
+        assert "deadline" in project_type.optional_properties
+        assert "budget" in project_type.optional_properties
