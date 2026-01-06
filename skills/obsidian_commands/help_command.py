@@ -87,9 +87,9 @@ def get_command_registry() -> list[CommandInfo]:
                 ),
                 SubcommandInfo(
                     name="edit",
-                    description="Edit settings (guided wizard in terminal)",
+                    description="Edit settings in system editor",
                     examples=[
-                        "obsidian:config edit",  # Interactive guided editing
+                        "obsidian:config edit",
                     ],
                 ),
                 SubcommandInfo(
@@ -197,18 +197,18 @@ def get_command_registry() -> list[CommandInfo]:
                 ),
                 SubcommandInfo(
                     name="add",
-                    description="Add a core property (interactive wizard if no arguments)",
+                    description="Add a core property (use --yes for non-interactive)",
                     examples=[
-                        "obsidian:props core add",  # Interactive wizard
                         "obsidian:props core add status --yes",
+                        "obsidian:props core add priority",
                     ],
                 ),
                 SubcommandInfo(
                     name="remove",
-                    description="Remove a core property (interactive wizard if no arguments)",
+                    description="Remove a core property (use --yes for non-interactive)",
                     examples=[
-                        "obsidian:props core remove",  # Interactive wizard
                         "obsidian:props core remove daily --yes",
+                        "obsidian:props core remove status",
                     ],
                 ),
             ],
@@ -230,10 +230,10 @@ def get_command_registry() -> list[CommandInfo]:
                 ),
                 SubcommandInfo(
                     name="create",
-                    description="Create a new template (interactive wizard if no --content)",
+                    description="Create a new template (use --content for non-interactive)",
                     examples=[
-                        "obsidian:templates create meeting",  # Interactive wizard
                         "obsidian:templates create meeting --content '---\\ntype: meeting\\n---'",
+                        "obsidian:templates create project",
                     ],
                 ),
                 SubcommandInfo(
@@ -245,10 +245,10 @@ def get_command_registry() -> list[CommandInfo]:
                 ),
                 SubcommandInfo(
                     name="delete",
-                    description="Delete a template (interactive wizard if no name)",
+                    description="Delete a template (use --yes for non-interactive)",
                     examples=[
-                        "obsidian:templates delete",  # Interactive wizard
                         "obsidian:templates delete custom --yes",
+                        "obsidian:templates delete meeting",
                     ],
                 ),
                 SubcommandInfo(
