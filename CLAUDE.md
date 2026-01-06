@@ -30,13 +30,13 @@ When using Ralph-Wiggum loops, **both** the `--completion-promise` flag AND the 
 
 ```bash
 # CORRECT - Promise flag matches promise tag text
-/ralph-loop "Do task X. When done, output <promise>TASK DONE</promise>" --completion-promise "TASK DONE" --max-iterations 10
+/ralph-wiggum:ralph-loop "Do task X. When done, output <promise>TASK DONE</promise>" --completion-promise "TASK DONE" --max-iterations 10
 
 # WRONG - Missing --completion-promise flag (runs infinitely!)
-/ralph-loop "Do task X. Output <promise>TASK DONE</promise> when done."
+/ralph-wiggum:ralph-loop "Do task X. Output <promise>TASK DONE</promise> when done."
 
 # WRONG - Promise text doesn't match flag
-/ralph-loop "Output <promise>COMPLETE</promise>" --completion-promise "DONE"
+/ralph-wiggum:ralph-loop "Output <promise>COMPLETE</promise>" --completion-promise "DONE"
 ```
 
 **Key rules:**
