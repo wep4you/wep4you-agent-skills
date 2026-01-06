@@ -480,6 +480,265 @@ note_types:
         assert "AttributeError" not in result.stderr, f"Crashed: {result.stderr}"
         assert "not found" in result.stdout.lower(), f"Missing error msg: {result.stdout}"
 
+    def test_types_add_noninteractive_with_config(self, tmp_path: Path) -> None:
+        """Test types add --config works without interactive prompts.
+
+        Regression test: cmd_add called manager.add_type with wrong signature
+        (manager.add_type(name, interactive=..., config=...) but actual signature
+        is add_type(name, config)).
+        """
+        vault = tmp_path / "test-vault"
+        vault.mkdir()
+        claude_dir = vault / ".claude"
+        claude_dir.mkdir()
+
+        settings_content = """
+version: '1.0'
+methodology: minimal
+core_properties:
+  all: [type, created]
+note_types:
+  note:
+    description: Notes
+    folder_hints: [Notes/]
+"""
+        (claude_dir / "settings.yaml").write_text(settings_content)
+
+        # Create Notes folder for vault structure
+        (vault / "Notes").mkdir()
+
+        script = PROJECT_ROOT / "skills" / "note-types" / "scripts" / "types_command.py"
+        config_json = '{"description": "Meeting notes", "folder": "Meetings"}'
+        result = subprocess.run(
+            [
+                "uv", "run", str(script),
+                "--vault", str(vault),
+                "add", "meeting",
+                "--config", config_json,
+                "--non-interactive",
+            ],
+            cwd=PROJECT_ROOT,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+
+        # Should not crash with TypeError about unexpected keyword argument
+        assert "TypeError" not in result.stderr, f"Signature mismatch: {result.stderr}"
+        assert result.returncode == 0, f"Failed: {result.stderr}\nStdout: {result.stdout}"
+        assert "meeting" in result.stdout.lower(), f"Missing confirmation: {result.stdout}"
+
+    def test_types_add_duplicate_returns_error(self, tmp_path: Path) -> None:
+        """Test adding duplicate type returns proper error."""
+        vault = tmp_path / "test-vault"
+        vault.mkdir()
+        claude_dir = vault / ".claude"
+        claude_dir.mkdir()
+
+        settings_content = """
+version: '1.0'
+methodology: minimal
+core_properties:
+  all: [type, created]
+note_types:
+  note:
+    description: Notes
+    folder_hints: [Notes/]
+"""
+        (claude_dir / "settings.yaml").write_text(settings_content)
+
+        script = PROJECT_ROOT / "skills" / "note-types" / "scripts" / "types_command.py"
+        result = subprocess.run(
+            [
+                "uv", "run", str(script),
+                "--vault", str(vault),
+                "add", "note",  # Already exists
+                "--config", '{"description": "Duplicate"}',
+            ],
+            cwd=PROJECT_ROOT,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+
+        assert result.returncode == 1, "Should fail for duplicate type"
+        assert "already exists" in result.stdout.lower(), f"Wrong error: {result.stdout}"
+
+    def test_types_edit_noninteractive_with_config(self, tmp_path: Path) -> None:
+        """Test types edit --config works without interactive prompts.
+
+        Regression test: cmd_edit called manager.edit_type which doesn't exist
+        (should be update_type).
+        """
+        vault = tmp_path / "test-vault"
+        vault.mkdir()
+        claude_dir = vault / ".claude"
+        claude_dir.mkdir()
+
+        settings_content = """
+version: '1.0'
+methodology: minimal
+core_properties:
+  all: [type, created]
+note_types:
+  note:
+    description: General notes
+    folder_hints: [Notes/]
+"""
+        (claude_dir / "settings.yaml").write_text(settings_content)
+
+        # Create Notes folder for vault structure
+        (vault / "Notes").mkdir()
+
+        script = PROJECT_ROOT / "skills" / "note-types" / "scripts" / "types_command.py"
+        config_json = '{"description": "Updated notes"}'
+        result = subprocess.run(
+            [
+                "uv", "run", str(script),
+                "--vault", str(vault),
+                "edit", "note",
+                "--config", config_json,
+                "--non-interactive",
+            ],
+            cwd=PROJECT_ROOT,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+
+        # Should not crash with TypeError or AttributeError
+        assert "TypeError" not in result.stderr, f"Signature mismatch: {result.stderr}"
+        assert "AttributeError" not in result.stderr, f"Method missing: {result.stderr}"
+        assert result.returncode == 0, f"Failed: {result.stderr}\nStdout: {result.stdout}"
+
+    def test_types_edit_nonexistent_returns_error(self, tmp_path: Path) -> None:
+        """Test editing nonexistent type returns proper error."""
+        vault = tmp_path / "test-vault"
+        vault.mkdir()
+        claude_dir = vault / ".claude"
+        claude_dir.mkdir()
+
+        settings_content = """
+version: '1.0'
+methodology: minimal
+core_properties:
+  all: [type, created]
+note_types:
+  note:
+    description: Notes
+    folder_hints: [Notes/]
+"""
+        (claude_dir / "settings.yaml").write_text(settings_content)
+
+        script = PROJECT_ROOT / "skills" / "note-types" / "scripts" / "types_command.py"
+        result = subprocess.run(
+            [
+                "uv", "run", str(script),
+                "--vault", str(vault),
+                "edit", "nonexistent",
+                "--config", '{"description": "Updated"}',
+            ],
+            cwd=PROJECT_ROOT,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+
+        assert result.returncode == 1, "Should fail for nonexistent type"
+        assert "not found" in result.stdout.lower(), f"Wrong error: {result.stdout}"
+
+    def test_types_remove_with_yes_flag(self, tmp_path: Path) -> None:
+        """Test types remove --yes works without confirmation prompt.
+
+        Regression test: cmd_remove called manager.remove_type which doesn't exist
+        (should use handle_remove which calls delete_type).
+        """
+        vault = tmp_path / "test-vault"
+        vault.mkdir()
+        claude_dir = vault / ".claude"
+        claude_dir.mkdir()
+
+        settings_content = """
+version: '1.0'
+methodology: minimal
+core_properties:
+  all: [type, created]
+note_types:
+  note:
+    description: Notes
+    folder_hints: [Notes/]
+  custom:
+    description: Custom type to remove
+    folder_hints: [Custom/]
+"""
+        (claude_dir / "settings.yaml").write_text(settings_content)
+
+        # Create folders for vault structure
+        (vault / "Notes").mkdir()
+        (vault / "Custom").mkdir()
+
+        script = PROJECT_ROOT / "skills" / "note-types" / "scripts" / "types_command.py"
+        result = subprocess.run(
+            [
+                "uv", "run", str(script),
+                "--vault", str(vault),
+                "remove", "custom",
+                "--yes",
+            ],
+            cwd=PROJECT_ROOT,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+
+        # Should not crash with TypeError or AttributeError
+        assert "TypeError" not in result.stderr, f"Signature mismatch: {result.stderr}"
+        assert "AttributeError" not in result.stderr, f"Method missing: {result.stderr}"
+        assert result.returncode == 0, f"Failed: {result.stderr}\nStdout: {result.stdout}"
+        assert "removed" in result.stdout.lower(), f"Missing confirmation: {result.stdout}"
+
+    def test_types_remove_nonexistent_returns_error(self, tmp_path: Path) -> None:
+        """Test removing nonexistent type returns proper error."""
+        vault = tmp_path / "test-vault"
+        vault.mkdir()
+        claude_dir = vault / ".claude"
+        claude_dir.mkdir()
+
+        settings_content = """
+version: '1.0'
+methodology: minimal
+core_properties:
+  all: [type, created]
+note_types:
+  note:
+    description: Notes
+    folder_hints: [Notes/]
+"""
+        (claude_dir / "settings.yaml").write_text(settings_content)
+
+        script = PROJECT_ROOT / "skills" / "note-types" / "scripts" / "types_command.py"
+        result = subprocess.run(
+            [
+                "uv", "run", str(script),
+                "--vault", str(vault),
+                "remove", "nonexistent",
+                "--yes",
+            ],
+            cwd=PROJECT_ROOT,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+
+        assert result.returncode == 1, "Should fail for nonexistent type"
+        assert "not found" in result.stdout.lower(), f"Wrong error: {result.stdout}"
+
 
 class TestConfigCommandInvocation:
     """Test config command can be invoked via subprocess."""

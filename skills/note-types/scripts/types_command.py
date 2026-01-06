@@ -30,6 +30,7 @@ from pathlib import Path
 
 # Import from note_types in same directory
 sys.path.insert(0, str(Path(__file__).parent))
+from note_type_wizard import handle_add, handle_edit, handle_remove, handle_wizard
 from note_types import NoteTypesManager, display_type_details, display_type_list
 
 # ANSI colors
@@ -120,7 +121,7 @@ def cmd_add(
     manager: NoteTypesManager,
     name: str,
     config_json: str | None = None,
-    interactive: bool = True,
+    non_interactive: bool = False,
 ) -> int:
     """Add a new note type.
 
@@ -128,7 +129,7 @@ def cmd_add(
         manager: NoteTypesManager instance
         name: Note type name
         config_json: JSON configuration string
-        interactive: Use interactive prompts
+        non_interactive: Skip interactive prompts
 
     Returns:
         Exit code
@@ -138,16 +139,8 @@ def cmd_add(
         print(f"Use {COLOR_CYAN}obsidian:types edit {name}{COLOR_RESET} to modify it.")
         return 1
 
-    config = None
-    if config_json:
-        try:
-            config = json.loads(config_json)
-        except json.JSONDecodeError as e:
-            print(f"{COLOR_RED}Invalid JSON: {e}{COLOR_RESET}")
-            return 1
-
     try:
-        manager.add_type(name, interactive=interactive and not config, config=config)
+        handle_add(manager, name, config_json, non_interactive)
         return 0
     except SystemExit as e:
         return e.code if isinstance(e.code, int) else 1
@@ -157,7 +150,7 @@ def cmd_edit(
     manager: NoteTypesManager,
     name: str,
     config_json: str | None = None,
-    interactive: bool = True,
+    non_interactive: bool = False,
 ) -> int:
     """Edit an existing note type.
 
@@ -165,7 +158,7 @@ def cmd_edit(
         manager: NoteTypesManager instance
         name: Note type name
         config_json: JSON configuration string
-        interactive: Use interactive prompts
+        non_interactive: Skip interactive prompts
 
     Returns:
         Exit code
@@ -175,16 +168,12 @@ def cmd_edit(
         print(f"Available: {', '.join(manager.note_types.keys())}")
         return 1
 
-    config = None
-    if config_json:
-        try:
-            config = json.loads(config_json)
-        except json.JSONDecodeError as e:
-            print(f"{COLOR_RED}Invalid JSON: {e}{COLOR_RESET}")
-            return 1
-
     try:
-        manager.edit_type(name, interactive=interactive and not config, config=config)
+        # Create minimal args namespace for handle_edit compatibility
+        args = argparse.Namespace(
+            description=None, folder=None, required_props=None, optional_props=None, icon=None
+        )
+        handle_edit(manager, name, config_json, non_interactive, args)
         return 0
     except SystemExit as e:
         return e.code if isinstance(e.code, int) else 1
@@ -206,7 +195,7 @@ def cmd_remove(manager: NoteTypesManager, name: str, yes: bool = False) -> int:
         return 1
 
     try:
-        manager.remove_type(name, skip_confirm=yes)
+        handle_remove(manager, name, skip_confirm=yes)
         return 0
     except SystemExit as e:
         return e.code if isinstance(e.code, int) else 1
@@ -222,7 +211,7 @@ def cmd_wizard(manager: NoteTypesManager) -> int:
         Exit code
     """
     try:
-        manager.wizard()
+        handle_wizard(manager)
         return 0
     except SystemExit as e:
         return e.code if isinstance(e.code, int) else 1
@@ -329,14 +318,14 @@ Examples:
             manager,
             args.name,
             args.config,
-            not getattr(args, "non_interactive", False),
+            getattr(args, "non_interactive", False),
         )
     elif args.command == "edit":
         return cmd_edit(
             manager,
             args.name,
             args.config,
-            not getattr(args, "non_interactive", False),
+            getattr(args, "non_interactive", False),
         )
     elif args.command == "remove":
         return cmd_remove(manager, args.name, args.yes)
