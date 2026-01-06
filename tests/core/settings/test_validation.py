@@ -155,7 +155,7 @@ class TestValidatePropertyName:
         assert is_valid is True
         assert error is None
 
-    def test_valid_camelCase_name(self):
+    def test_valid_camel_case_name(self):
         """Test that camelCase names pass."""
         is_valid, error = validate_property_name("myOwnProp")
         assert is_valid is True
