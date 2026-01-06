@@ -1,6 +1,6 @@
 ---
 name: templates
-version: "1.1.0"
+version: "1.2.0"
 license: MIT
 description: "Template management system for Obsidian vaults. Use when the user wants to (1) list available note templates, (2) create new templates, (3) apply templates to notes, (4) manage template variables, or (5) work with Templater plugin syntax. Triggers on keywords like template, create note from template, list templates, apply template, template variables."
 ---

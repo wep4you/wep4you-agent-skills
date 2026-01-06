@@ -1,6 +1,6 @@
 ---
 name: frontmatter
-version: "1.0.0"
+version: "1.1.0"
 license: MIT
 description: "Frontmatter property management for Obsidian vaults. Use when the user wants to (1) manage core frontmatter properties, (2) configure type-specific properties, (3) list property definitions, (4) add or remove properties, (5) get required properties for validation. Triggers on keywords like frontmatter properties, manage properties, configure frontmatter, list properties, add property."
 ---

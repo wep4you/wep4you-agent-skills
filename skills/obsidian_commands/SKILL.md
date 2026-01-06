@@ -1,7 +1,7 @@
 ---
 name: obsidian-commands
 description: Unified command router and deprecation system for Obsidian CLI commands
-version: "1.0.0"
+version: "1.1.0"
 author: Peter Weiss
 license: MIT
 ---

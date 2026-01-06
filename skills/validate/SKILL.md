@@ -1,7 +1,7 @@
 ---
 name: validate
 license: MIT
-version: "1.7.0"
+version: "1.8.0"
 description: "Obsidian vault validation and auto-fix tool using settings.yaml as single source of truth. Detects missing frontmatter, validates required properties, and auto-fixes common issues. Use when the user wants to (1) validate vault frontmatter against standards, (2) check for missing required properties, (3) fix common issues like unquoted wikilinks or wrong date formats, (4) audit vault compliance with type-specific rules, (5) run maintenance checks on their Obsidian vault, or (6) log validation results for audit trails. Triggers on keywords like validate vault, check frontmatter, fix vault issues, vault audit, maintenance check, note-type validation, audit log."
 ---
 
