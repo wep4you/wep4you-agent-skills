@@ -201,6 +201,11 @@ def cmd_remove(manager: NoteTypesManager, name: str, yes: bool = False) -> int:
         return e.code if isinstance(e.code, int) else 1
 
 
+def is_interactive() -> bool:
+    """Check if running in an interactive terminal."""
+    return sys.stdin.isatty()
+
+
 def cmd_wizard(manager: NoteTypesManager) -> int:
     """Run interactive wizard.
 
@@ -210,6 +215,35 @@ def cmd_wizard(manager: NoteTypesManager) -> int:
     Returns:
         Exit code
     """
+    # If not running interactively, return JSON for Claude Code to handle
+    if not is_interactive():
+        existing_types = list(manager.note_types.keys())
+        result = {
+            "interactive_required": True,
+            "message": "Use 'add' subcommand with --config to create a note type non-interactively",
+            "existing_types": existing_types,
+            "fields": {
+                "name": "Note type name (lowercase, no spaces)",
+                "description": "Brief description of the note type",
+                "folder": "Folder path for notes (e.g., 'Meetings/')",
+                "required_props": "Additional required properties (optional, comma-separated)",
+                "optional_props": "Optional properties (optional, comma-separated)",
+                "icon": "Lucide icon name (optional, e.g., 'calendar', 'users')",
+            },
+            "example": {
+                "command": "obsidian:types add meeting --config '{...}'",
+                "config": {
+                    "description": "Meeting notes",
+                    "folder": "Meetings",
+                    "required_props": ["attendees", "date"],
+                    "optional_props": ["action_items"],
+                    "icon": "users",
+                },
+            },
+        }
+        print(json.dumps(result, indent=2))
+        return 0
+
     try:
         handle_wizard(manager)
         return 0

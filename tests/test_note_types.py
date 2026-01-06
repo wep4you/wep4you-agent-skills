@@ -112,7 +112,8 @@ class TestNoteTypesManager:
 
         manager = NoteTypesManager(str(empty_dir))
         captured = capsys.readouterr()
-        assert "No note types found" in captured.out
+        # Status messages go to stderr to keep stdout clean for JSON output
+        assert "No note types found" in captured.err
         assert manager.note_types == {}
 
     def test_save_settings(self, temp_vault):

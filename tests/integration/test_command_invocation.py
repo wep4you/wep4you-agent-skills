@@ -739,6 +739,56 @@ note_types:
         assert result.returncode == 1, "Should fail for nonexistent type"
         assert "not found" in result.stdout.lower(), f"Wrong error: {result.stdout}"
 
+    def test_types_wizard_returns_json_when_noninteractive(self, tmp_path: Path) -> None:
+        """Test wizard returns JSON with interactive_required when not in a TTY.
+
+        When invoked through subprocess (non-interactive), the wizard should
+        return JSON describing how to use the add command instead of crashing
+        with EOFError.
+        """
+        vault = tmp_path / "test-vault"
+        vault.mkdir()
+        claude_dir = vault / ".claude"
+        claude_dir.mkdir()
+
+        settings_content = """
+version: '1.0'
+methodology: minimal
+core_properties:
+  all: [type, created]
+note_types:
+  note:
+    description: Notes
+    folder_hints: [Notes/]
+"""
+        (claude_dir / "settings.yaml").write_text(settings_content)
+
+        script = PROJECT_ROOT / "skills" / "note-types" / "scripts" / "types_command.py"
+        result = subprocess.run(
+            [
+                "uv", "run", str(script),
+                "--vault", str(vault),
+                "wizard",
+            ],
+            cwd=PROJECT_ROOT,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+
+        # Should succeed (not crash with EOFError)
+        assert result.returncode == 0, f"Failed: {result.stderr}"
+        assert "EOFError" not in result.stderr, f"Crashed on input: {result.stderr}"
+
+        # Should return JSON with interactive_required
+        output = json.loads(result.stdout)
+        assert output.get("interactive_required") is True
+        assert "existing_types" in output
+        assert "note" in output["existing_types"]
+        assert "fields" in output
+        assert "name" in output["fields"]
+
 
 class TestConfigCommandInvocation:
     """Test config command can be invoked via subprocess."""

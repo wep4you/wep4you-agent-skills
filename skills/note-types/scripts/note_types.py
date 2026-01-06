@@ -89,11 +89,11 @@ class NoteTypesManager:
 
         self.note_types = self.settings.get("note_types", {})
         if not self.note_types:
-            print("No note types found in settings.yaml")
-            print("The vault may not be properly initialized.")
+            print("No note types found in settings.yaml", file=sys.stderr)
+            print("The vault may not be properly initialized.", file=sys.stderr)
         else:
             methodology = self.settings.get("methodology", "unknown")
-            print(f"Loaded {len(self.note_types)} note types ({methodology} methodology)\n")
+            print(f"Loaded {len(self.note_types)} note types ({methodology} methodology)\n", file=sys.stderr)
 
     def _save_settings(self) -> None:
         """Save settings back to .claude/settings.yaml."""
