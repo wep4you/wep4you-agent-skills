@@ -310,6 +310,23 @@ If Templater is installed (`.obsidian/plugins/templater-obsidian/`):
 
 Other Templater functions will be passed through as-is.
 
+## Interactive Mode
+
+### Terminal
+Im Terminal werden Sie interaktiv durch die Optionen geführt.
+
+### Claude Code / Non-Interactive
+Bei Aufruf ohne Terminal (z.B. in Claude Code) wird JSON zurückgegeben:
+```json
+{
+  "interactive_required": true,
+  "action": "create",
+  "config_schema": {...}
+}
+```
+
+Verwenden Sie `--config='...'` oder `--yes` um direkt Werte zu übergeben.
+
 ## Exit Codes
 
 - `0`: Success

@@ -385,6 +385,23 @@ When user requests configuration management:
 - Python 3.10+
 - PyYAML >= 6.0 (via PEP 723 inline dependencies)
 
+## Interactive Mode
+
+### Terminal
+Im Terminal werden Sie interaktiv durch die Optionen geführt.
+
+### Claude Code / Non-Interactive
+Bei Aufruf ohne Terminal (z.B. in Claude Code) wird JSON zurückgegeben:
+```json
+{
+  "interactive_required": true,
+  "action": "edit",
+  "config_schema": {...}
+}
+```
+
+Verwenden Sie `--config='...'` oder `--yes` um direkt Werte zu übergeben.
+
 ## Quality Standards
 
 - Type hints on all functions (MyPy strict)

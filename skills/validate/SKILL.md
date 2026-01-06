@@ -190,3 +190,20 @@ Claude: Found 2 issues. Fixing automatically...
 Claude: [runs validator in auto mode]
 Claude: ✅ Fixed 2 issues. Vault is now compliant.
 ```
+
+## Interactive Mode
+
+### Terminal
+Im Terminal werden Sie interaktiv durch die Optionen geführt.
+
+### Claude Code / Non-Interactive
+Bei Aufruf ohne Terminal (z.B. in Claude Code) wird JSON zurückgegeben:
+```json
+{
+  "interactive_required": true,
+  "action": "fix",
+  "config_schema": {...}
+}
+```
+
+Verwenden Sie `--config='...'` oder `--yes` um direkt Werte zu übergeben.

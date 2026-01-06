@@ -140,11 +140,11 @@ This directory contains configuration files for different Personal Knowledge Man
 
 ```bash
 # List all available methodologies
-obsidian:config-methodologies
+obsidian:config methodologies
 
 # Show details for a specific methodology
-obsidian:config-methodologies para
-obsidian:config-methodologies lyt-ace
+obsidian:config methodologies para
+obsidian:config methodologies lyt-ace
 ```
 
 ### Python API - Methodology Loader

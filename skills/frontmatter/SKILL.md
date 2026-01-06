@@ -212,6 +212,23 @@ uv run scripts/frontmatter.py list-type --format yaml > type-properties.yaml
 3. **Validate**: Validator uses definitions to check notes
 4. **Iterate**: Adjust properties based on vault needs
 
+## Interactive Mode
+
+### Terminal
+Im Terminal werden Sie interaktiv durch die Optionen geführt.
+
+### Claude Code / Non-Interactive
+Bei Aufruf ohne Terminal (z.B. in Claude Code) wird JSON zurückgegeben:
+```json
+{
+  "interactive_required": true,
+  "action": "add",
+  "config_schema": {...}
+}
+```
+
+Verwenden Sie `--config='...'` oder `--yes` um direkt Werte zu übergeben.
+
 ## Best Practices
 
 - Keep core properties minimal and universal

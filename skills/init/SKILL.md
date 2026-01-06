@@ -228,7 +228,7 @@ The wrapper automatically executes when all parameters are provided.
 Show what was created and suggest:
 1. Open the vault in Obsidian
 2. Run `/obsidian:validate` to check frontmatter
-3. Run `/obsidian:config-show` to view settings
+3. Run `/obsidian:config show` to view settings
 
 ---
 
@@ -258,6 +258,23 @@ Show what was created and suggest:
 5. **all_bases.base** - Obsidian Bases views in `x/bases/` for folder navigation
 6. **Home.md** - Vault home page with navigation
 7. **README.md** - Vault documentation
+
+## Interactive Mode
+
+### Terminal
+Im Terminal werden Sie interaktiv durch die Optionen geführt.
+
+### Claude Code / Non-Interactive
+Bei Aufruf ohne Terminal (z.B. in Claude Code) wird JSON zurückgegeben:
+```json
+{
+  "interactive_required": true,
+  "action": "init",
+  "config_schema": {...}
+}
+```
+
+Verwenden Sie `--config='...'` oder `--yes` um direkt Werte zu übergeben.
 
 ## Exit Codes
 

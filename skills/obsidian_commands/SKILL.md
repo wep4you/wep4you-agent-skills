@@ -55,6 +55,23 @@ exit_code = route_command("obsidian:config", ["show", "--vault", "/path"])
 uv run skills/obsidian_commands/router.py --list
 ```
 
+## Interactive Mode
+
+### Terminal
+Im Terminal werden Sie interaktiv durch die Optionen geführt.
+
+### Claude Code / Non-Interactive
+Bei Aufruf ohne Terminal (z.B. in Claude Code) wird JSON zurückgegeben:
+```json
+{
+  "interactive_required": true,
+  "action": "route",
+  "config_schema": {...}
+}
+```
+
+Verwenden Sie `--config='...'` oder `--yes` um direkt Werte zu übergeben.
+
 ## Integration
 
 This module provides a unified entry point for command discovery and routing.
