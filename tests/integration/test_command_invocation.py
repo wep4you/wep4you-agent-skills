@@ -894,7 +894,7 @@ class TestAllSkillScriptsImportCorrectly:
             if "ModuleNotFoundError" in result.stderr:
                 failures.append(f"{script.name}: ModuleNotFoundError in imports")
 
-        assert not failures, f"Script failures:\n" + "\n".join(failures)
+        assert not failures, "Script failures:\n" + "\n".join(failures)
 
     def test_all_command_scripts_work_from_tmp_dir(self, tmp_path: Path) -> None:
         """Test all *_command.py scripts work from different working directory.
@@ -918,4 +918,4 @@ class TestAllSkillScriptsImportCorrectly:
             if "ModuleNotFoundError" in result.stderr:
                 failures.append(f"{script.name}: ModuleNotFoundError")
 
-        assert not failures, f"Script failures from tmp_dir:\n" + "\n".join(failures)
+        assert not failures, "Script failures from tmp_dir:\n" + "\n".join(failures)

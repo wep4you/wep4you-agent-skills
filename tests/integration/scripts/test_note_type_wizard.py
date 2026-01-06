@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 # Add the scripts path for imports
-_SCRIPTS_DIR = Path(__file__).parent.parent / "skills" / "note-types" / "scripts"
+_SCRIPTS_DIR = Path(__file__).parent.parent.parent.parent / "skills" / "note-types" / "scripts"
 if str(_SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS_DIR))
 

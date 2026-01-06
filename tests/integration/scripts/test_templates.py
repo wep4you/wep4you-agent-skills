@@ -12,9 +12,10 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 # Add skills path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent / "skills" / "templates" / "scripts"))
+_repo_root = Path(__file__).parent.parent.parent.parent
+sys.path.insert(0, str(_repo_root / "skills" / "templates" / "scripts"))
 
-from templates import TemplateManager  # type: ignore
+from templates import TemplateManager  # type: ignore  # noqa: E402
 
 
 @pytest.fixture

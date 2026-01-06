@@ -12,7 +12,8 @@ import pytest
 import yaml
 
 # Add repo root to path for imports
-_REPO_ROOT = Path(__file__).parent.parent
+# File is now in tests/integration/scripts/, so need 4 levels up
+_REPO_ROOT = Path(__file__).parent.parent.parent.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 

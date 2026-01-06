@@ -12,7 +12,8 @@ import pytest
 import yaml
 
 # Add skills directory to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent / "skills" / "frontmatter" / "scripts"))
+_repo_root = Path(__file__).parent.parent.parent.parent
+sys.path.insert(0, str(_repo_root / "skills" / "frontmatter" / "scripts"))
 
 
 class TestFrontmatterManagerInit:

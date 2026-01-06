@@ -14,8 +14,9 @@ import pytest
 import yaml
 
 # Import the config_loader module
-sys.path.insert(0, str(Path(__file__).parent.parent / "skills" / "config" / "scripts"))
-from config_loader import (
+_repo_root = Path(__file__).parent.parent.parent.parent
+sys.path.insert(0, str(_repo_root / "skills" / "config" / "scripts"))
+from config_loader import (  # noqa: E402
     DEFAULT_CONFIG,
     get_note_type_config,
     infer_note_type,

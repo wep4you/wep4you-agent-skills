@@ -119,6 +119,11 @@ def cmd_show(vault_path: Path, output_format: str = "text", verbose: bool = Fals
     return 0
 
 
+def is_interactive() -> bool:
+    """Check if running in an interactive terminal."""
+    return sys.stdin.isatty()
+
+
 def cmd_edit(vault_path: Path) -> int:
     """Open settings in editor.
 
@@ -128,6 +133,26 @@ def cmd_edit(vault_path: Path) -> int:
     Returns:
         Exit code
     """
+    # If not interactive, return JSON guidance
+    if not is_interactive():
+        try:
+            settings = load_settings(vault_path)
+            current_config = settings.raw
+        except FileNotFoundError:
+            current_config = None
+
+        result = {
+            "interactive_required": True,
+            "action": "edit",
+            "message": "Use 'obsidian:config show --format yaml' to view current settings, "
+            "then modify .claude/settings.yaml directly",
+            "settings_path": str(vault_path / ".claude" / "settings.yaml"),
+            "current_config": current_config,
+            "hint": "In Claude Code mode, edit the file directly instead of using the editor",
+        }
+        print(json.dumps(result, indent=2))
+        return 0
+
     success = edit_settings(vault_path)
     return 0 if success else 1
 

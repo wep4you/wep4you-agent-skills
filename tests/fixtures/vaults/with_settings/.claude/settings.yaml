@@ -1,0 +1,28 @@
+version: 1
+methodology: lyt-ace
+core_properties:
+  - type
+  - up
+  - created
+  - daily
+  - tags
+note_types:
+  dot:
+    description: Atomic knowledge notes
+    folder_hints:
+      - Atlas/Dots
+    icon: dot
+    properties:
+      additional_required: []
+      optional:
+        - collection
+        - related
+  map:
+    description: Maps of Content
+    folder_hints:
+      - Atlas/Maps
+    icon: map
+    properties:
+      additional_required: []
+      optional:
+        - related

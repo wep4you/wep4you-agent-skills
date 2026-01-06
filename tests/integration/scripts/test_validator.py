@@ -10,7 +10,8 @@ from pathlib import Path
 import pytest
 
 # Add skills directory to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent / "skills" / "validate" / "scripts"))
+_repo_root = Path(__file__).parent.parent.parent.parent
+sys.path.insert(0, str(_repo_root / "skills" / "validate" / "scripts"))
 
 # Import after path modification - these will be available when run via uv
 # Note: Import is done inside test functions to handle PEP 723 script dependencies
@@ -65,7 +66,8 @@ class TestValidation:
     @pytest.fixture
     def fixtures_path(self):
         """Return path to test fixtures"""
-        return Path(__file__).parent / "fixtures"
+        # Fixtures are in tests/fixtures/, file is in tests/integration/scripts/
+        return Path(__file__).parent.parent.parent / "fixtures"
 
     def test_valid_note_passes(self, fixtures_path):
         """Valid notes should not produce issues"""

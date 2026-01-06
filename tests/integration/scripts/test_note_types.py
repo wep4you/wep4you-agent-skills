@@ -13,9 +13,10 @@ from unittest.mock import patch
 import pytest
 import yaml
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "skills" / "note-types" / "scripts"))
+_repo_root = Path(__file__).parent.parent.parent.parent
+sys.path.insert(0, str(_repo_root / "skills" / "note-types" / "scripts"))
 
-from note_types import NoteTypesManager, display_type_details, display_type_list
+from note_types import NoteTypesManager, display_type_details, display_type_list  # noqa: E402
 
 
 @pytest.fixture

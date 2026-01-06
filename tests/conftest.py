@@ -12,10 +12,12 @@ def pytest_configure(config):
     """Add skills scripts and scripts to Python path for imports"""
     base = Path(__file__).parent.parent
 
-    # Add validate scripts
-    skills_path = base / "skills" / "validate" / "scripts"
-    if str(skills_path) not in sys.path:
-        sys.path.insert(0, str(skills_path))
+    # Add all skill script directories
+    skill_dirs = ["validate", "config", "frontmatter", "init", "note-types", "templates"]
+    for skill in skill_dirs:
+        skills_path = base / "skills" / skill / "scripts"
+        if skills_path.exists() and str(skills_path) not in sys.path:
+            sys.path.insert(0, str(skills_path))
 
     # Add main scripts directory
     scripts_path = base / "scripts"
