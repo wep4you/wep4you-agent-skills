@@ -89,6 +89,11 @@ class CommandRouter:
             self._handler_validate,
             "Vault validation",
         )
+        self.register(
+            "obsidian:help",
+            self._handler_help,
+            "Help for all commands",
+        )
 
     def register(
         self,
@@ -212,6 +217,52 @@ class CommandRouter:
                 transformed_args.append(arg)
 
         return self._run_skill_script("validate", "validator.py", transformed_args)
+
+    def _handler_help(self, args: list[str]) -> int:
+        """Handle obsidian:help command."""
+        return self._run_obsidian_commands_script("help_command.py", args)
+
+    def _run_obsidian_commands_script(
+        self,
+        script_name: str,
+        args: list[str],
+    ) -> int:
+        """Run a script from the obsidian_commands directory.
+
+        Args:
+            script_name: Script filename
+            args: Arguments to pass
+
+        Returns:
+            Exit code from script
+        """
+        import subprocess
+
+        # Find script path
+        script_path = Path(__file__).parent / script_name
+
+        if not script_path.exists():
+            print(f"Script not found: {script_path}", file=sys.stderr)
+            return 1
+
+        try:
+            # Using uv run to execute skill scripts (trusted internal paths)
+            result = subprocess.run(  # noqa: S603
+                ["/usr/bin/env", "uv", "run", str(script_path), *args],
+                check=False,
+            )
+            return result.returncode
+        except FileNotFoundError:
+            # Fallback if uv not available
+            try:
+                result = subprocess.run(  # noqa: S603
+                    [sys.executable, str(script_path), *args],
+                    check=False,
+                )
+                return result.returncode
+            except Exception as e:
+                print(f"Error running script: {e}", file=sys.stderr)
+                return 1
 
     def _run_skill_script(
         self,
