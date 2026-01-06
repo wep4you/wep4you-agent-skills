@@ -1400,6 +1400,188 @@ class TestBuildSettingsYamlWithConfig:
         assert "priority" in settings["core_properties"]["all"]
 
 
+class TestBuildSettingsYamlPerTypeProperties:
+    """Tests for build_settings_yaml with per_type_properties parameter.
+
+    These tests ensure that when users configure per-type properties through
+    the interactive prompt, the settings.yaml correctly reflects their choices.
+
+    Key scenarios:
+    - User selects "none" for all optional properties
+    - User selects specific properties for some types
+    - User provides partial type list (other types should have empty optional)
+    - Mixed selections across different note types
+    """
+
+    def test_per_type_props_none_clears_all_optional(self) -> None:
+        """When user selects 'none' for a type, optional should be empty."""
+        # Simulate: user went through prompt, selected nothing for project
+        per_type = {"project": []}
+
+        settings = build_settings_yaml("para", per_type_properties=per_type)
+
+        # Project should have empty optional (user explicitly chose none)
+        assert settings["note_types"]["project"]["properties"]["optional"] == []
+        # Required properties should remain unchanged
+        assert "status" in settings["note_types"]["project"]["properties"]["additional_required"]
+
+    def test_per_type_props_clears_unspecified_types(self) -> None:
+        """Types not in per_type_properties should also have empty optional.
+
+        Bug fix: Previously, types not in the dict kept methodology defaults.
+        Now: when per_type_properties is provided, ALL types get cleared first.
+        """
+        # Simulate: user only specified project, left others at default (which means empty)
+        per_type = {"project": ["deadline"]}
+
+        settings = build_settings_yaml("para", per_type_properties=per_type)
+
+        # Project has user's selection
+        assert settings["note_types"]["project"]["properties"]["optional"] == ["deadline"]
+        # Area, Resource, Archive should have EMPTY optional (not methodology defaults!)
+        assert settings["note_types"]["area"]["properties"]["optional"] == []
+        assert settings["note_types"]["resource"]["properties"]["optional"] == []
+        assert settings["note_types"]["archive"]["properties"]["optional"] == []
+
+    def test_per_type_props_all_types_none_clears_all(self) -> None:
+        """When user selects 'none' for ALL types, all optional should be empty."""
+        # Simulate: user explicitly said "none" for all types
+        per_type = {
+            "project": [],
+            "area": [],
+            "resource": [],
+            "archive": [],
+        }
+
+        settings = build_settings_yaml("para", per_type_properties=per_type)
+
+        # All types should have empty optional
+        for type_name in ["project", "area", "resource", "archive"]:
+            assert settings["note_types"][type_name]["properties"]["optional"] == []
+            # But required properties should remain
+            required = settings["note_types"][type_name]["properties"]["additional_required"]
+            # project and area have required props, resource and archive don't
+            if type_name in ("project", "area"):
+                assert len(required) > 0
+
+    def test_per_type_props_mixed_selections(self) -> None:
+        """Test mixed selections: some with optional, some without."""
+        # Simulate: user selected deadline for project, nothing for others
+        per_type = {
+            "project": ["deadline"],
+            "area": [],
+            "resource": [],
+            "archive": [],
+        }
+
+        settings = build_settings_yaml("para", per_type_properties=per_type)
+
+        # Project has deadline as optional
+        assert settings["note_types"]["project"]["properties"]["optional"] == ["deadline"]
+        # Others are empty
+        assert settings["note_types"]["area"]["properties"]["optional"] == []
+        assert settings["note_types"]["resource"]["properties"]["optional"] == []
+        assert settings["note_types"]["archive"]["properties"]["optional"] == []
+
+    def test_per_type_props_custom_properties(self) -> None:
+        """Test adding custom properties via per_type_properties."""
+        # Simulate: user added custom property 'priority' to project
+        per_type = {"project": ["deadline", "priority"]}
+
+        settings = build_settings_yaml("para", per_type_properties=per_type)
+
+        # Both should be in optional
+        assert "deadline" in settings["note_types"]["project"]["properties"]["optional"]
+        assert "priority" in settings["note_types"]["project"]["properties"]["optional"]
+
+    def test_per_type_props_preserves_required(self) -> None:
+        """Test that required properties are never affected by per_type_properties."""
+        # Simulate: user provided selections
+        per_type = {"project": ["deadline"]}
+
+        settings = build_settings_yaml("para", per_type_properties=per_type)
+
+        # Required properties from methodology should still be there
+        required = settings["note_types"]["project"]["properties"]["additional_required"]
+        assert "status" in required
+        assert "rank" in required  # Added by default ranking_system
+
+    def test_per_type_props_empty_dict_uses_defaults(self) -> None:
+        """When per_type_properties is empty dict, methodology defaults should be used."""
+        # Simulate: user didn't go through the per-type prompt at all
+        per_type: dict[str, list[str]] = {}
+
+        settings = build_settings_yaml("para", per_type_properties=per_type)
+
+        # Should use methodology defaults (which include optional properties)
+        assert settings["note_types"]["project"]["properties"]["optional"] == ["deadline"]
+        assert settings["note_types"]["area"]["properties"]["optional"] == ["review_frequency"]
+        assert settings["note_types"]["resource"]["properties"]["optional"] == ["source"]
+        assert settings["note_types"]["archive"]["properties"]["optional"] == ["archived_date"]
+
+    def test_per_type_props_none_vs_empty_dict(self) -> None:
+        """Test difference between None and empty dict for per_type_properties.
+
+        None = parameter not provided, use methodology defaults
+        Empty dict = user went through prompt but dict is empty (shouldn't happen in practice)
+        Non-empty dict = user made selections, clear all then apply
+        """
+        # None - uses methodology defaults
+        settings_none = build_settings_yaml("para", per_type_properties=None)
+        assert settings_none["note_types"]["project"]["properties"]["optional"] == ["deadline"]
+
+        # Empty dict - also uses methodology defaults (no types to process)
+        settings_empty = build_settings_yaml("para", per_type_properties={})
+        assert settings_empty["note_types"]["project"]["properties"]["optional"] == ["deadline"]
+
+        # Non-empty dict - clears all, applies selections
+        settings_with = build_settings_yaml("para", per_type_properties={"project": []})
+        assert settings_with["note_types"]["project"]["properties"]["optional"] == []
+
+    def test_per_type_props_lyt_ace_methodology(self) -> None:
+        """Test per_type_properties with LYT-ACE methodology."""
+        per_type = {"map": [], "source": []}
+
+        settings = build_settings_yaml("lyt-ace", per_type_properties=per_type)
+
+        # All types should have empty optional when dict is non-empty
+        for type_name in settings["note_types"]:
+            assert settings["note_types"][type_name]["properties"]["optional"] == []
+
+    def test_per_type_props_zettelkasten_methodology(self) -> None:
+        """Test per_type_properties with Zettelkasten methodology."""
+        per_type = {"zettel": [], "hub": []}
+
+        settings = build_settings_yaml("zettelkasten", per_type_properties=per_type)
+
+        # All types should have empty optional
+        for type_name in settings["note_types"]:
+            assert settings["note_types"][type_name]["properties"]["optional"] == []
+
+    def test_per_type_props_invalid_property_name_filtered(self) -> None:
+        """Test that invalid property names are filtered out with warning."""
+        import io
+        import sys
+
+        # Capture stdout to check for warning
+        captured = io.StringIO()
+        sys.stdout = captured
+
+        try:
+            # '123invalid' starts with number, should be filtered
+            per_type = {"project": ["deadline", "123invalid"]}
+            settings = build_settings_yaml("para", per_type_properties=per_type)
+        finally:
+            sys.stdout = sys.__stdout__
+
+        # Valid property should be included
+        assert "deadline" in settings["note_types"]["project"]["properties"]["optional"]
+        # Invalid property should be filtered (starts with number)
+        assert "123invalid" not in settings["note_types"]["project"]["properties"]["optional"]
+        # Warning should have been printed
+        assert "Warning" in captured.getvalue()
+
+
 class TestManualTestingBugfixesIntegration:
     """Integration tests for bugs found during manual testing.
 

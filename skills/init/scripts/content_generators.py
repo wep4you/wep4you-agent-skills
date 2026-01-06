@@ -546,6 +546,18 @@ def build_settings_yaml(
     # Required properties from methodology stay required
     # User selections become the new optional list (replaces methodology defaults)
     if per_type_properties:
+        # First: clear optional properties for ALL types (user went through the prompt)
+        # Types not explicitly in per_type_properties implicitly have no optional props
+        for type_name in note_types:
+            note_types[type_name] = dict(note_types[type_name])
+            existing_props = note_types[type_name].get("properties", {})
+            existing_required = existing_props.get("additional_required", [])
+            note_types[type_name]["properties"] = {
+                "additional_required": existing_required,
+                "optional": [],  # Clear methodology defaults
+            }
+
+        # Then: apply user's explicit selections
         for type_name, props_list in per_type_properties.items():
             if type_name in note_types:
                 # Validate each property name
@@ -557,14 +569,13 @@ def build_settings_yaml(
                     else:
                         valid_props.append(prop)
 
-                note_types[type_name] = dict(note_types[type_name])
-                existing_props = note_types[type_name].get("properties", {})
-                existing_required = existing_props.get("additional_required", [])
                 # Keep methodology's required properties unchanged
                 # User's selections become the new optional list
+                existing_props = note_types[type_name].get("properties", {})
+                existing_required = existing_props.get("additional_required", [])
                 note_types[type_name]["properties"] = {
-                    "additional_required": existing_required,  # Unchanged from methodology
-                    "optional": valid_props,  # User's selection replaces methodology defaults
+                    "additional_required": existing_required,
+                    "optional": valid_props,
                 }
 
     if config and config.per_type_properties:
