@@ -30,7 +30,7 @@ from pathlib import Path
 
 # Import from note_types in same directory
 sys.path.insert(0, str(Path(__file__).parent))
-from note_types import NoteTypesManager
+from note_types import NoteTypesManager, display_type_details, display_type_list
 
 # ANSI colors
 COLOR_GREEN = "\033[92m"
@@ -65,7 +65,7 @@ def cmd_list(manager: NoteTypesManager, output_format: str = "text") -> int:
     if output_format == "json":
         data = {
             "methodology": manager.settings.get("methodology", "unknown"),
-            "core_properties": manager._get_core_properties(),
+            "core_properties": manager.get_core_properties(),
             "note_types": {},
         }
         for name, config in manager.note_types.items():
@@ -78,7 +78,7 @@ def cmd_list(manager: NoteTypesManager, output_format: str = "text") -> int:
         print(json.dumps(data, indent=2))
         return 0
 
-    manager.list_types()
+    display_type_list(manager)
     return 0
 
 
@@ -112,7 +112,7 @@ def cmd_show(manager: NoteTypesManager, name: str, output_format: str = "text") 
         print(json.dumps(data, indent=2))
         return 0
 
-    manager.show_type(name)
+    display_type_details(manager, name)
     return 0
 
 
