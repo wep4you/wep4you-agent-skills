@@ -27,7 +27,12 @@ from typing import Any
 
 import yaml
 
-from skills.core.settings import settings_exist
+# Add project root to path for imports
+_REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
+from skills.core.settings import settings_exist  # noqa: E402
 
 # Settings file path (relative to vault root)
 SETTINGS_FILE = ".claude/settings.yaml"

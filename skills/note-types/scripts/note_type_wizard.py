@@ -22,10 +22,15 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+# Add project root to path for imports
+_REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
 if TYPE_CHECKING:
     from note_types import NoteTypesManager
 
-from skills.core.utils.paths import get_moc_filename, get_moc_link
+from skills.core.utils.paths import get_moc_filename, get_moc_link  # noqa: E402
 
 
 def interactive_type_definition(

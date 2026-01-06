@@ -22,9 +22,14 @@ import sys
 from pathlib import Path
 from typing import Any
 
+# Add project root to path for imports
+_REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
 # Import local modules (must be before conditional imports per E402)
-from skills.validate.scripts.auto_fix import AutoFixer
-from skills.validate.scripts.reporter import ValidationReporter
+from skills.validate.scripts.auto_fix import AutoFixer  # noqa: E402
+from skills.validate.scripts.reporter import ValidationReporter  # noqa: E402
 
 # Try to import from skills.core (preferred)
 CORE_AVAILABLE = False
