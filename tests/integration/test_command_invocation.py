@@ -215,3 +215,260 @@ class TestInitCommandFromDifferentWorkingDir:
         # Should output JSON
         output = json.loads(result.stdout)
         assert output is not None
+
+
+class TestValidateCommandInvocation:
+    """Test validate command can be invoked via subprocess.
+
+    These tests catch ModuleNotFoundError for skills.* imports
+    that occur when sys.path is not properly configured.
+    """
+
+    def test_validate_help_via_uv_run(self) -> None:
+        """Test uv run validate_command.py --help works."""
+        script = PROJECT_ROOT / "skills" / "validate" / "scripts" / "validate_command.py"
+        result = subprocess.run(
+            ["uv", "run", str(script), "--help"],
+            cwd=PROJECT_ROOT,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+        assert result.returncode == 0, f"Failed with stderr: {result.stderr}"
+        assert "vault" in result.stdout.lower()
+        assert "fix" in result.stdout.lower()
+
+    def test_validate_help_from_tmp_dir(self, tmp_path: Path) -> None:
+        """Test validate --help from different directory (catches sys.path issues)."""
+        script = PROJECT_ROOT / "skills" / "validate" / "scripts" / "validate_command.py"
+        result = subprocess.run(
+            ["uv", "run", str(script), "--help"],
+            cwd=tmp_path,  # Different working directory
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+        assert result.returncode == 0, f"Failed with stderr: {result.stderr}"
+        assert "vault" in result.stdout.lower()
+
+    def test_validate_imports_skills_modules(self) -> None:
+        """Test that validator.py can import skills.* modules.
+
+        This is the key regression test - previously failed with:
+        ModuleNotFoundError: No module named 'skills'
+        """
+        script = PROJECT_ROOT / "skills" / "validate" / "scripts" / "validator.py"
+        result = subprocess.run(
+            ["uv", "run", str(script), "--help"],
+            cwd=PROJECT_ROOT,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+        # Should not fail with ModuleNotFoundError
+        assert "ModuleNotFoundError" not in result.stderr, (
+            f"Import failed: {result.stderr}"
+        )
+        assert result.returncode == 0, f"Failed with stderr: {result.stderr}"
+
+
+class TestNoteTypesCommandInvocation:
+    """Test note-types command can be invoked via subprocess.
+
+    Catches sys.path configuration issues for skills.* imports.
+    """
+
+    def test_types_command_help_via_uv_run(self) -> None:
+        """Test uv run types_command.py --help works."""
+        script = PROJECT_ROOT / "skills" / "note-types" / "scripts" / "types_command.py"
+        result = subprocess.run(
+            ["uv", "run", str(script), "--help"],
+            cwd=PROJECT_ROOT,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+        assert result.returncode == 0, f"Failed with stderr: {result.stderr}"
+        assert "vault" in result.stdout.lower() or "list" in result.stdout.lower()
+
+    def test_types_command_help_from_tmp_dir(self, tmp_path: Path) -> None:
+        """Test types_command --help from different directory."""
+        script = PROJECT_ROOT / "skills" / "note-types" / "scripts" / "types_command.py"
+        result = subprocess.run(
+            ["uv", "run", str(script), "--help"],
+            cwd=tmp_path,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+        assert result.returncode == 0, f"Failed with stderr: {result.stderr}"
+
+    def test_note_types_script_imports_work(self) -> None:
+        """Test that note_types.py can be imported without ModuleNotFoundError.
+
+        Regression test for: ModuleNotFoundError: No module named 'skills'
+        """
+        # Test by running Python with an import statement
+        result = subprocess.run(
+            [
+                "uv", "run", "python", "-c",
+                "from skills.note_types.scripts import note_types; print('OK')"
+            ],
+            cwd=PROJECT_ROOT,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+        # The import path with hyphen won't work, but the script itself should
+        # So we test via the command instead
+        script = PROJECT_ROOT / "skills" / "note-types" / "scripts" / "types_command.py"
+        result = subprocess.run(
+            ["uv", "run", str(script), "--help"],
+            cwd=PROJECT_ROOT,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+        assert "ModuleNotFoundError" not in result.stderr, (
+            f"Import failed: {result.stderr}"
+        )
+
+
+class TestConfigCommandInvocation:
+    """Test config command can be invoked via subprocess."""
+
+    def test_config_command_help_via_uv_run(self) -> None:
+        """Test uv run config_command.py --help works."""
+        script = PROJECT_ROOT / "skills" / "config" / "scripts" / "config_command.py"
+        result = subprocess.run(
+            ["uv", "run", str(script), "--help"],
+            cwd=PROJECT_ROOT,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+        assert result.returncode == 0, f"Failed with stderr: {result.stderr}"
+
+    def test_config_command_help_from_tmp_dir(self, tmp_path: Path) -> None:
+        """Test config_command --help from different directory."""
+        script = PROJECT_ROOT / "skills" / "config" / "scripts" / "config_command.py"
+        result = subprocess.run(
+            ["uv", "run", str(script), "--help"],
+            cwd=tmp_path,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+        assert result.returncode == 0, f"Failed with stderr: {result.stderr}"
+
+    def test_settings_loader_imports_skills_modules(self) -> None:
+        """Test that settings_loader.py can import skills.* modules.
+
+        Regression test for ModuleNotFoundError: No module named 'skills'
+        """
+        script = PROJECT_ROOT / "skills" / "config" / "scripts" / "settings_loader.py"
+        result = subprocess.run(
+            ["uv", "run", str(script), "--help"],
+            cwd=PROJECT_ROOT,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+        assert "ModuleNotFoundError" not in result.stderr, (
+            f"Import failed: {result.stderr}"
+        )
+        assert result.returncode == 0, f"Failed with stderr: {result.stderr}"
+
+
+class TestTemplatesCommandInvocation:
+    """Test templates command can be invoked via subprocess."""
+
+    def test_templates_command_help_via_uv_run(self) -> None:
+        """Test uv run templates_command.py --help works."""
+        script = PROJECT_ROOT / "skills" / "templates" / "scripts" / "templates_command.py"
+        result = subprocess.run(
+            ["uv", "run", str(script), "--help"],
+            cwd=PROJECT_ROOT,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+        assert result.returncode == 0, f"Failed with stderr: {result.stderr}"
+
+    def test_templates_command_help_from_tmp_dir(self, tmp_path: Path) -> None:
+        """Test templates_command --help from different directory."""
+        script = PROJECT_ROOT / "skills" / "templates" / "scripts" / "templates_command.py"
+        result = subprocess.run(
+            ["uv", "run", str(script), "--help"],
+            cwd=tmp_path,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+        assert result.returncode == 0, f"Failed with stderr: {result.stderr}"
+
+
+class TestAllSkillScriptsImportCorrectly:
+    """Meta-test: verify all skill scripts can be invoked without import errors.
+
+    This is the key regression test class that would catch the
+    'ModuleNotFoundError: No module named skills' bug across ALL scripts.
+    """
+
+    def test_all_command_scripts_have_working_help(self) -> None:
+        """Test that all *_command.py scripts respond to --help."""
+        command_scripts = list(PROJECT_ROOT.glob("skills/*/scripts/*_command.py"))
+        assert len(command_scripts) >= 3, "Expected at least 3 command scripts"
+
+        failures = []
+        for script in command_scripts:
+            result = subprocess.run(
+                ["uv", "run", str(script), "--help"],
+                cwd=PROJECT_ROOT,
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=False,
+            )
+            if result.returncode != 0:
+                failures.append(f"{script.name}: {result.stderr[:200]}")
+            if "ModuleNotFoundError" in result.stderr:
+                failures.append(f"{script.name}: ModuleNotFoundError in imports")
+
+        assert not failures, f"Script failures:\n" + "\n".join(failures)
+
+    def test_all_command_scripts_work_from_tmp_dir(self, tmp_path: Path) -> None:
+        """Test all *_command.py scripts work from different working directory.
+
+        This catches sys.path issues that only manifest when cwd != project root.
+        """
+        command_scripts = list(PROJECT_ROOT.glob("skills/*/scripts/*_command.py"))
+
+        failures = []
+        for script in command_scripts:
+            result = subprocess.run(
+                ["uv", "run", str(script), "--help"],
+                cwd=tmp_path,  # Different working directory!
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=False,
+            )
+            if result.returncode != 0:
+                failures.append(f"{script.name}: exit {result.returncode}")
+            if "ModuleNotFoundError" in result.stderr:
+                failures.append(f"{script.name}: ModuleNotFoundError")
+
+        assert not failures, f"Script failures from tmp_dir:\n" + "\n".join(failures)
