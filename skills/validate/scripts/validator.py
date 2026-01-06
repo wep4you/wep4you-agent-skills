@@ -186,7 +186,7 @@ class VaultValidator:
         """Check if file should be excluded from validation"""
         # Use settings.yaml if available
         if self.settings and CORE_AVAILABLE:
-            return should_exclude(self.settings, file_path)
+            return should_exclude(self.settings, file_path, self.vault_path)
 
         # Fall back to default exclusions
         relative_path = str(file_path.relative_to(self.vault_path))
@@ -287,7 +287,8 @@ class VaultValidator:
                     break
 
             # Check 4: Invalid created date format (only in frontmatter)
-            if re.search(r"^created: \[\[", frontmatter, re.MULTILINE):
+            # Matches both unquoted and quoted wikilinks: [[date]] or "[[date]]"
+            if re.search(r'^created: "?\[\[', frontmatter, re.MULTILINE):
                 self.issues["invalid_created"].append(relative_path)
 
             # Check 5: Title properties in frontmatter (not in code blocks)

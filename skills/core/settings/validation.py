@@ -123,17 +123,28 @@ def get_up_link_for_path(settings: Settings, file_path: Path) -> str | None:
     return None
 
 
-def should_exclude(settings: Settings, file_path: Path) -> bool:
+def should_exclude(settings: Settings, file_path: Path, vault_path: Path | None = None) -> bool:
     """Check if a file should be excluded from validation.
 
     Args:
         settings: Settings object with exclusion rules
         file_path: Path to check for exclusion
+        vault_path: Optional vault root path for relative path calculation.
+                   If provided, exclusion checks use vault-relative paths.
 
     Returns:
         True if the file should be excluded
     """
-    file_path_str = str(file_path)
+    # Use relative path for exclusion checks if vault_path provided
+    if vault_path:
+        try:
+            relative_path = file_path.relative_to(vault_path)
+            file_path_str = str(relative_path)
+        except ValueError:
+            # file_path is not relative to vault_path, use full path
+            file_path_str = str(file_path)
+    else:
+        file_path_str = str(file_path)
 
     # Check excluded paths
     for excluded_path in settings.exclude_paths:

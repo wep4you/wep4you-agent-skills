@@ -27,7 +27,6 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
-
 # Type alias for command handlers
 CommandHandler = Callable[[list[str]], int]
 
@@ -339,7 +338,11 @@ def main() -> int:
 
     parser = argparse.ArgumentParser(description="Obsidian Command Router")
     parser.add_argument("command", nargs="?", help="Command to run")
-    parser.add_argument("args", nargs="*", help="Command arguments")
+    parser.add_argument(
+        "args",
+        nargs=argparse.REMAINDER,
+        help="Command arguments (including --flags)",
+    )
     parser.add_argument("--list", action="store_true", help="List available commands")
 
     args = parser.parse_args()

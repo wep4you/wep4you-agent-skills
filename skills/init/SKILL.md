@@ -102,12 +102,19 @@ uv run "${CLAUDE_PLUGIN_ROOT}/commands/init.py" <vault_path> --action=continue -
 }
 ```
 
+#### Step 4c: `prompt_type: "ranking_system_required"`
+→ Use AskUserQuestion with ranking options from JSON
+→ Options: "rank" (numeric 1-5) or "priority" (text-based high/medium/low)
+```bash
+uv run "${CLAUDE_PLUGIN_ROOT}/commands/init.py" <vault_path> --action=continue -m para --note-types=all --ranking-system=rank
+```
+
 #### Step 5: `prompt_type: "properties_required"`
 → Use AskUserQuestion with "All (Recommended)" or "Custom" options
 → If user chooses "all": `--core-properties=all`
 → If user chooses "custom": `--core-properties=custom` (triggers Step 5b)
 ```bash
-uv run "${CLAUDE_PLUGIN_ROOT}/commands/init.py" <vault_path> --action=continue -m para --note-types=all --core-properties=all
+uv run "${CLAUDE_PLUGIN_ROOT}/commands/init.py" <vault_path> --action=continue -m para --note-types=all --ranking-system=rank --core-properties=all
 ```
 
 #### Step 5b: `prompt_type: "properties_select"` (only if custom)
@@ -169,10 +176,17 @@ Result for project: "deadline"
 **CRITICAL:** If user types "motto", pass "motto" - do NOT change it to "mood" because it looks similar!
 
 ```bash
-uv run "${CLAUDE_PLUGIN_ROOT}/commands/init.py" <vault_path> --action=continue -m para --note-types=all --core-properties=all --custom-properties=priority --per-type-props=project:deadline,budget;daily:motto;area:none
+uv run "${CLAUDE_PLUGIN_ROOT}/commands/init.py" <vault_path> --action=continue -m para --note-types=all --ranking-system=rank --core-properties=all --custom-properties=priority --per-type-props=project:deadline,budget;daily:motto;area:none
 ```
 
-#### Step 8: Execution
+#### Step 8: `prompt_type: "git_init_required"`
+→ Use AskUserQuestion with git options from JSON
+→ Options: "yes" (initialize git repo) or "no" (skip)
+```bash
+uv run "${CLAUDE_PLUGIN_ROOT}/commands/init.py" <vault_path> --action=continue -m para --note-types=all --ranking-system=rank --core-properties=all --custom-properties=none --per-type-props=project:none;area:none --git=yes
+```
+
+#### Step 9: Execution
 The wrapper automatically executes when all parameters are provided.
 
 ### Complete Example (with Custom selection)
@@ -190,21 +204,33 @@ The wrapper automatically executes when all parameters are provided.
 
 4. Run: uv run "${CLAUDE_PLUGIN_ROOT}/commands/init.py" /vault --action=continue -m para
    → JSON: {"prompt_type": "note_types_required", ...}
-   → AskUserQuestion (All/Custom) → User: "custom"
+   → AskUserQuestion (All/Custom) → User: "all"
 
-5. Run: uv run "${CLAUDE_PLUGIN_ROOT}/commands/init.py" /vault --action=continue -m para --note-types=custom
-   → JSON: {"prompt_type": "note_types_select", ...}
-   → AskUserQuestion (multi-select) → User: "project,area"
+5. Run: uv run "${CLAUDE_PLUGIN_ROOT}/commands/init.py" /vault --action=continue -m para --note-types=all
+   → JSON: {"prompt_type": "ranking_system_required", ...}
+   → AskUserQuestion (Rank/Priority) → User: "rank"
 
-6. Run: uv run "${CLAUDE_PLUGIN_ROOT}/commands/init.py" /vault --action=continue -m para --note-types=project,area
+6. Run: uv run "${CLAUDE_PLUGIN_ROOT}/commands/init.py" /vault --action=continue -m para --note-types=all --ranking-system=rank
    → JSON: {"prompt_type": "properties_required", ...}
    → AskUserQuestion (All/Custom) → User: "all"
 
-7. Run: uv run "${CLAUDE_PLUGIN_ROOT}/commands/init.py" /vault --action=continue -m para --note-types=project,area --core-properties=all
+7. Run: uv run "${CLAUDE_PLUGIN_ROOT}/commands/init.py" /vault --action=continue -m para --note-types=all --ranking-system=rank --core-properties=all
+   → JSON: {"prompt_type": "custom_properties_input", ...}
+   → User types: "none"
+
+8. Run: uv run "${CLAUDE_PLUGIN_ROOT}/commands/init.py" /vault --action=continue -m para --note-types=all --ranking-system=rank --core-properties=all --custom-properties=none
+   → JSON: {"prompt_type": "per_type_properties_combined", ...}
+   → AskUserQuestion (per type) → User: "project:none;area:none;..."
+
+9. Run: uv run "${CLAUDE_PLUGIN_ROOT}/commands/init.py" /vault --action=continue -m para --note-types=all --ranking-system=rank --core-properties=all --custom-properties=none --per-type-props=project:none;area:none;resource:none;archive:none
+   → JSON: {"prompt_type": "git_init_required", ...}
+   → AskUserQuestion (Yes/No) → User: "yes"
+
+10. Run: uv run "${CLAUDE_PLUGIN_ROOT}/commands/init.py" /vault --action=continue -m para --note-types=all --ranking-system=rank --core-properties=all --custom-properties=none --per-type-props=project:none;area:none;resource:none;archive:none --git=yes
    → Initialization runs! Show results.
 ```
 
-### Quick Example (All defaults)
+### Quick Example (All defaults with --defaults flag)
 
 ```
 1. User: /obsidian:init
@@ -216,11 +242,16 @@ The wrapper automatically executes when all parameters are provided.
    → AskUserQuestion → User: "all"
 
 6. Run: uv run "${CLAUDE_PLUGIN_ROOT}/commands/init.py" /vault --action=continue -m para --note-types=all
+   → JSON: {"prompt_type": "ranking_system_required", ...}
+   → AskUserQuestion → User: "rank"
+
+7. Run: uv run "${CLAUDE_PLUGIN_ROOT}/commands/init.py" /vault --action=continue -m para --note-types=all --ranking-system=rank
    → JSON: {"prompt_type": "properties_required", ...}
    → AskUserQuestion → User: "all"
 
-7. Run: uv run "${CLAUDE_PLUGIN_ROOT}/commands/init.py" /vault --action=continue -m para --note-types=all --core-properties=all
-   → Initialization runs! Show results.
+8-10. (custom_properties, per_type_props, git_init as above with defaults/none)
+
+Final: Initialization runs! Show results.
 ```
 
 ### After Initialization
@@ -240,9 +271,11 @@ Show what was created and suggest:
 | `--action` | Action for existing vault: abort, continue, reset, migrate |
 | `-m, --methodology` | Methodology: lyt-ace, para, zettelkasten, minimal |
 | `--note-types` | Comma-separated list of note types to include |
+| `--ranking-system` | Ranking system: rank (numeric 1-5) or priority (text) |
 | `--core-properties` | Comma-separated list of core properties to include |
 | `--custom-properties` | Comma-separated list of custom global properties |
 | `--per-type-props` | Per-type properties: `type1:prop1,prop2;type2:prop3` |
+| `--git` | Initialize git repository: yes or no |
 | `--defaults` | Skip note type and property selection (use all) |
 | `--check` | Output vault status as JSON (no changes) |
 | `--list` | List methodologies and exit |

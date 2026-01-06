@@ -229,6 +229,10 @@ class AutoFixer:
     def fix_invalid_created(self, issues: list[str]) -> int:
         """Fix invalid created date format (wikilinks to plain dates).
 
+        Handles both unquoted and quoted wikilinks:
+        - created: [[2025-01-06]] -> created: 2025-01-06
+        - created: "[[2025-01-06]]" -> created: 2025-01-06
+
         Args:
             issues: List of relative file paths with invalid created dates
 
@@ -239,7 +243,8 @@ class AutoFixer:
             return 0
 
         fixed = 0
-        pattern = r"^created: \[\[(\d{4}-\d{2}-\d{2})\]\].*$"
+        # Pattern handles both quoted and unquoted wikilinks
+        pattern = r'^created: "?\[\[(\d{4}-\d{2}-\d{2})\]\]"?.*$'
         replacement = r"created: \1"
 
         for file_rel_path in issues:
