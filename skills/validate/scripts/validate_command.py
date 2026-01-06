@@ -27,22 +27,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 from validator import VaultValidator
 
-# ANSI colors
-COLOR_YELLOW = "\033[93m"
-COLOR_CYAN = "\033[96m"
-COLOR_BOLD = "\033[1m"
-COLOR_RESET = "\033[0m"
-
-
-def show_mode_deprecation() -> None:
-    """Show deprecation warning for --mode flag."""
-    warning = f"""
-{COLOR_YELLOW}{COLOR_BOLD}DEPRECATION WARNING{COLOR_RESET}
-{COLOR_YELLOW}The '--mode auto' flag is deprecated and will be removed in v2.0.0.{COLOR_RESET}
-{COLOR_CYAN}Use '--fix' instead.{COLOR_RESET}
-"""
-    print(warning, file=sys.stderr)
-
 
 def main() -> int:
     """CLI entry point."""
@@ -51,7 +35,7 @@ def main() -> int:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Options:
-  --fix              Auto-fix issues (replaces --mode auto)
+  --fix              Auto-fix issues
   --type <type>      Validate only a specific note type
   --path <path>      Validate only a specific path
   --report <file>    Save report to file
@@ -74,12 +58,7 @@ Examples:
     parser.add_argument(
         "--fix",
         action="store_true",
-        help="Auto-fix issues (replaces --mode auto)",
-    )
-    parser.add_argument(
-        "--mode",
-        choices=["report", "auto", "interactive"],
-        help=argparse.SUPPRESS,  # Hidden - deprecated
+        help="Auto-fix issues",
     )
     parser.add_argument(
         "--type",
@@ -108,14 +87,8 @@ Examples:
 
     args = parser.parse_args()
 
-    # Handle --mode deprecation
-    mode = "report"
-    if args.fix:
-        mode = "auto"
-    elif args.mode:
-        if args.mode == "auto":
-            show_mode_deprecation()
-        mode = args.mode
+    # Determine mode
+    mode = "auto" if args.fix else "report"
 
     # Create validator
     validator = VaultValidator(args.vault, mode)

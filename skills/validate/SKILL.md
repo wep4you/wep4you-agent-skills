@@ -25,13 +25,6 @@ uv run validate_command.py --vault /path/to/vault --type project --fix
 uv run validate_command.py --vault /path/to/vault --no-jsonl
 ```
 
-## Deprecated Flags
-
-| Deprecated | Replacement |
-|------------|-------------|
-| `--mode auto` | `--fix` |
-| `--mode report` | (default, no flag needed) |
-
 ## CRITICAL: Claude Code Behavior
 
 **NEVER output commands for the user to copy.** When issues are found:

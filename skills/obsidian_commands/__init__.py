@@ -7,36 +7,26 @@
 Obsidian Commands - Unified Command Router
 
 Provides a unified entry point for all obsidian: namespace commands.
-Handles command routing, deprecation warnings, and backward compatibility.
+Handles command routing and backward compatibility.
 
 Usage:
-    from obsidian_commands import route_command, show_deprecation_warning
+    from obsidian_commands import route_command
 
 Commands:
     obsidian:init       - Initialize vault
     obsidian:config     - Configuration management
     obsidian:types      - Note type management
-    obsidian:props      - Property management (replaces frontmatter)
+    obsidian:props      - Property management
     obsidian:templates  - Template management
     obsidian:validate   - Vault validation
 """
 
 from __future__ import annotations
 
-from .deprecation import (
-    DEPRECATED_COMMANDS,
-    check_deprecation,
-    format_deprecation_warning,
-    get_replacement_command,
-)
 from .router import CommandRouter, route_command
 
 __all__ = [
-    "DEPRECATED_COMMANDS",
     "CommandRouter",
-    "check_deprecation",
-    "format_deprecation_warning",
-    "get_replacement_command",
     "route_command",
 ]
 

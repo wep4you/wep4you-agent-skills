@@ -6,7 +6,7 @@
 """
 Obsidian Props Command - Property management for Obsidian notes
 
-Replaces the deprecated /frontmatter command with obsidian:props:
+Commands:
 - obsidian:props              List core properties
 - obsidian:props core         List core properties (explicit)
 - obsidian:props core add     Add core property
@@ -421,16 +421,6 @@ def cmd_types_list(manager: PropsManager, output_format: str = "text") -> int:
     return 0
 
 
-def show_deprecation_warning() -> None:
-    """Show deprecation warning for old command."""
-    warning = f"""
-{COLOR_YELLOW}{COLOR_BOLD}DEPRECATION WARNING{COLOR_RESET}
-{COLOR_YELLOW}The '/frontmatter' command is deprecated and will be removed in v2.0.0.{COLOR_RESET}
-{COLOR_CYAN}Use 'obsidian:props' instead.{COLOR_RESET}
-"""
-    print(warning, file=sys.stderr)
-
-
 def main() -> int:
     """CLI entry point."""
     parser = argparse.ArgumentParser(
@@ -466,11 +456,6 @@ Examples:
         choices=["text", "json"],
         default="text",
         help="Output format (default: text)",
-    )
-    parser.add_argument(
-        "--deprecated-warning",
-        action="store_true",
-        help=argparse.SUPPRESS,
     )
 
     subparsers = parser.add_subparsers(dest="command", help="Subcommand")
@@ -508,10 +493,6 @@ Examples:
     subparsers.add_parser("types", help="List all types with properties")
 
     args = parser.parse_args()
-
-    # Show deprecation warning if triggered
-    if args.deprecated_warning:
-        show_deprecation_warning()
 
     # Initialize manager
     manager = PropsManager(args.vault)

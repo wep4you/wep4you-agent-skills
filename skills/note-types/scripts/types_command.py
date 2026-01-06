@@ -6,7 +6,7 @@
 """
 Obsidian Types Command - Unified note type management
 
-Replaces the deprecated /note-types command with obsidian:types:
+Commands:
 - obsidian:types              List all note types
 - obsidian:types list         List all note types (explicit)
 - obsidian:types show <name>  Show details for specific type
@@ -41,16 +41,6 @@ COLOR_RED = "\033[91m"
 COLOR_BOLD = "\033[1m"
 COLOR_DIM = "\033[2m"
 COLOR_RESET = "\033[0m"
-
-
-def show_deprecation_warning() -> None:
-    """Show deprecation warning for old command."""
-    warning = f"""
-{COLOR_YELLOW}{COLOR_BOLD}DEPRECATION WARNING{COLOR_RESET}
-{COLOR_YELLOW}The '/note-types' command is deprecated and will be removed in v2.0.0.{COLOR_RESET}
-{COLOR_CYAN}Use 'obsidian:types' instead.{COLOR_RESET}
-"""
-    print(warning, file=sys.stderr)
 
 
 def cmd_list(manager: NoteTypesManager, output_format: str = "text") -> int:
@@ -379,11 +369,6 @@ Examples:
         default="text",
         help="Output format (default: text)",
     )
-    parser.add_argument(
-        "--deprecated-warning",
-        action="store_true",
-        help=argparse.SUPPRESS,  # Hidden flag to show deprecation warning
-    )
 
     subparsers = parser.add_subparsers(dest="command", help="Subcommand")
 
@@ -433,10 +418,6 @@ Examples:
     subparsers.add_parser("wizard", help="Interactive wizard for creating note types")
 
     args = parser.parse_args()
-
-    # Show deprecation warning if triggered from old command
-    if args.deprecated_warning:
-        show_deprecation_warning()
 
     # Initialize manager
     try:

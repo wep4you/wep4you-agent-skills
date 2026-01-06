@@ -6,8 +6,7 @@
 """
 Command Router for Obsidian Commands
 
-Routes commands to their appropriate handlers while maintaining
-backward compatibility with deprecated command names.
+Routes commands to their appropriate handlers and normalizes command names.
 
 Usage:
     from router import CommandRouter, route_command
@@ -28,7 +27,6 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .deprecation import check_deprecation, get_replacement_command, show_deprecation_warning
 
 # Type alias for command handlers
 CommandHandler = Callable[[list[str]], int]
@@ -118,7 +116,7 @@ class CommandRouter:
         )
 
     def get_handler(self, command: str) -> CommandHandler | None:
-        """Get handler for a command, checking deprecation.
+        """Get handler for a command.
 
         Args:
             command: Command name (with or without obsidian: prefix)
@@ -126,13 +124,6 @@ class CommandRouter:
         Returns:
             Command handler function or None
         """
-        # Check for deprecation and show warning
-        if check_deprecation(command):
-            show_deprecation_warning(command)
-            replacement = get_replacement_command(command)
-            if replacement:
-                command = replacement
-
         # Normalize command name
         normalized = self._normalize_command(command)
         info = self._commands.get(normalized)

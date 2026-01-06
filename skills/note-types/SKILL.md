@@ -19,10 +19,6 @@ description: "Manage Obsidian note type definitions including folders, propertie
 | `obsidian:types remove <name> --yes` | Remove a note type |
 | `obsidian:types wizard` | Interactive wizard |
 
-## Deprecated Command
-
-The `/note-types` and `obsidian:note-types` commands are deprecated. Use `obsidian:types` instead.
-
 ## ⚠️ MANDATORY: Pass --config DIRECTLY to the Script
 
 **When user provides `--config '{...}'`, pass it EXACTLY as-is to the script!**

@@ -21,10 +21,6 @@ Manages core and type-specific frontmatter properties for Obsidian vault notes.
 | `obsidian:props required` | List required properties |
 | `obsidian:props types` | List all types with properties |
 
-## Deprecated Command
-
-The `/frontmatter` command is deprecated. Use `obsidian:props` instead.
-
 ## Quick Start
 
 ```bash

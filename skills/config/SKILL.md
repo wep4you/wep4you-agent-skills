@@ -21,14 +21,6 @@ Loads, manages, and merges YAML configuration files for Obsidian vault managemen
 | `obsidian:config create --methodology para` | Create default settings |
 | `obsidian:config diff` | Show difference from defaults |
 
-## Deprecated Commands
-
-The following commands are deprecated and will be removed in v2.0.0:
-- `/config-show` → `obsidian:config show`
-- `/config-create` → `obsidian:config create`
-- `/config-validate` → `obsidian:config validate`
-- `/config-methodologies` → `obsidian:config methodologies`
-
 ## Architecture
 
 This skill provides three complementary modules:
