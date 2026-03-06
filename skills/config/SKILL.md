@@ -385,13 +385,28 @@ When user requests configuration management:
 - Python 3.10+
 - PyYAML >= 6.0 (via PEP 723 inline dependencies)
 
+## When to Use Each Module
+
+```
+Need validation rules, note types, UP links?
+  → settings_loader.py (PRIMARY)
+
+Need to merge YAML config files?
+  → config_loader.py (UTILITY)
+
+Need methodology definitions for vault init?
+  → methodology loader (config/methodologies/loader.py)
+```
+
+**Recommended entry point**: Always start with `settings_loader.py` unless you specifically need YAML file merging.
+
 ## Interactive Mode
 
 ### Terminal
-Im Terminal werden Sie interaktiv durch die Optionen geführt.
+In terminal mode, the interactive wizard guides you through configuration options.
 
 ### Claude Code / Non-Interactive
-Bei Aufruf ohne Terminal (z.B. in Claude Code) wird JSON zurückgegeben:
+When called without a terminal (e.g., in Claude Code), JSON is returned:
 ```json
 {
   "interactive_required": true,
@@ -400,11 +415,4 @@ Bei Aufruf ohne Terminal (z.B. in Claude Code) wird JSON zurückgegeben:
 }
 ```
 
-Verwenden Sie `--config='...'` oder `--yes` um direkt Werte zu übergeben.
-
-## Quality Standards
-
-- Type hints on all functions (MyPy strict)
-- Ruff-compliant (100 char line length)
-- Full docstrings with examples
-- Error handling with descriptive messages
+Use `--config='...'` or `--yes` to pass values directly.

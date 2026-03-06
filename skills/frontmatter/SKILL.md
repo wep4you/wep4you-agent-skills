@@ -212,13 +212,35 @@ uv run scripts/frontmatter.py list-type --format yaml > type-properties.yaml
 3. **Validate**: Validator uses definitions to check notes
 4. **Iterate**: Adjust properties based on vault needs
 
+## Relationship with Other Skills
+
+| Skill | Relationship |
+|-------|-------------|
+| **config** | Reads property definitions from `settings.yaml` |
+| **validate** | Uses property rules for frontmatter validation |
+| **note-types** | Defines which properties each note type requires |
+| **templates** | Templates include frontmatter with these properties |
+| **init** | Sets up initial property definitions per methodology |
+
+**Boundary**: This skill manages property *definitions* (schema). The `validate` skill checks property *values* in actual notes.
+
+## Property Type Examples
+
+| Type | Example Value | YAML Format |
+|------|--------------|-------------|
+| `string` | `"active"` | `status: active` |
+| `date` | `2025-01-15` | `created: 2025-01-15` |
+| `wikilink` | `[[Parent]]` | `up: "[[Parent]]"` |
+| `list[string]` | `["tag1", "tag2"]` | `tags: [tag1, tag2]` |
+| `list[wikilink]` | `["[[A]]", "[[B]]"]` | `related: ["[[A]]", "[[B]]"]` |
+
 ## Interactive Mode
 
 ### Terminal
-Im Terminal werden Sie interaktiv durch die Optionen geführt.
+In terminal mode, the interactive wizard guides you through property management.
 
 ### Claude Code / Non-Interactive
-Bei Aufruf ohne Terminal (z.B. in Claude Code) wird JSON zurückgegeben:
+When called without a terminal (e.g., in Claude Code), JSON is returned:
 ```json
 {
   "interactive_required": true,
@@ -227,7 +249,7 @@ Bei Aufruf ohne Terminal (z.B. in Claude Code) wird JSON zurückgegeben:
 }
 ```
 
-Verwenden Sie `--config='...'` oder `--yes` um direkt Werte zu übergeben.
+Use `--config='...'` or `--yes` to pass values directly.
 
 ## Best Practices
 

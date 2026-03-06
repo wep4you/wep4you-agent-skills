@@ -12,18 +12,18 @@ A Claude Code skills marketplace following the open [Agent Skills](https://agent
 
 ## Available Skills
 
-### Obsidian Plugin (v1.0.14)
+### Obsidian Plugin (v2.0.0)
 
 Complete PKM (Personal Knowledge Management) toolkit for Obsidian vaults.
 
 | Skill | Description | Version |
 |-------|-------------|---------|
-| [init](skills/init/) | Initialize vault with methodology wizard (PARA, LYT-ACE, Zettelkasten, Minimal) | 0.34.14 |
-| [config](skills/config/) | Configuration loader and settings management with backup | 1.0.1 |
-| [validate](skills/validate/) | Validate and auto-fix frontmatter with JSONL audit logging | 1.0.0 |
-| [note-types](skills/note-types/) | Manage note type definitions (folders, properties, templates) | 1.0.2 |
-| [frontmatter](skills/frontmatter/) | Manage frontmatter properties for note types | 1.0.0 |
-| [templates](skills/templates/) | Create, view, and manage note templates with source filtering | 1.1.0 |
+| [init](skills/init/) | Initialize vault with methodology wizard (PARA, LYT-ACE, Zettelkasten, Minimal) | 0.37.0 |
+| [config](skills/config/) | Configuration loader and settings management with backup | 1.1.0 |
+| [validate](skills/validate/) | Validate and auto-fix frontmatter with JSONL audit logging | 1.8.0 |
+| [note-types](skills/note-types/) | Manage note type definitions (folders, properties, templates) | 1.1.0 |
+| [frontmatter](skills/frontmatter/) | Manage frontmatter properties for note types | 1.1.0 |
+| [templates](skills/templates/) | Create, view, and manage note templates with source filtering | 1.2.0 |
 
 ## Complete Slash Command Reference
 

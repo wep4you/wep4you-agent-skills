@@ -310,13 +310,35 @@ If Templater is installed (`.obsidian/plugins/templater-obsidian/`):
 
 Other Templater functions will be passed through as-is.
 
+## Templater vs Fallback: When to Use Which
+
+```
+Is Templater plugin installed? (.obsidian/plugins/templater-obsidian/)
+  ├── Yes → Use Templater syntax (dynamic dates, file info)
+  │         <% tp.date.now("YYYY-MM-DD") %>
+  │         <% tp.file.title %>
+  └── No  → Use fallback syntax (static substitution)
+            {{date}}, {{title}}, {{up}}
+```
+
+### Side-by-Side Syntax Comparison
+
+| Feature | Templater | Fallback |
+|---------|-----------|----------|
+| Current date | `<% tp.date.now("YYYY-MM-DD") %>` | `{{date}}` |
+| Tomorrow | `<% tp.date.tomorrow() %>` | *(not available)* |
+| File title | `<% tp.file.title %>` | `{{title}}` |
+| Custom var | *(use Templater user scripts)* | `{{varname}}` + `--var varname=value` |
+
+**Recommendation**: Use fallback syntax for portability. Use Templater only when you need dynamic features (date calculations, file system access).
+
 ## Interactive Mode
 
 ### Terminal
-Im Terminal werden Sie interaktiv durch die Optionen geführt.
+In terminal mode, the interactive wizard guides you through template creation and management.
 
 ### Claude Code / Non-Interactive
-Bei Aufruf ohne Terminal (z.B. in Claude Code) wird JSON zurückgegeben:
+When called without a terminal (e.g., in Claude Code), JSON is returned:
 ```json
 {
   "interactive_required": true,
@@ -325,7 +347,7 @@ Bei Aufruf ohne Terminal (z.B. in Claude Code) wird JSON zurückgegeben:
 }
 ```
 
-Verwenden Sie `--config='...'` oder `--yes` um direkt Werte zu übergeben.
+Use `--config='...'` or `--yes` to pass values directly.
 
 ## Exit Codes
 

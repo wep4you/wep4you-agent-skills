@@ -2,7 +2,7 @@
 name: note-types
 version: "1.1.0"
 license: MIT
-description: "Manage Obsidian note type definitions including folders, properties, and templates. Use when the user wants to (1) define new note types, (2) manage note type configurations, (3) set up folder and property mappings, (4) create note type templates, or (5) view existing note types. Triggers on keywords like note types, note type config, manage note types, define note type, note type wizard."
+description: "Manage Obsidian note type definitions including folders, properties, and templates. MANDATORY: When user provides --config JSON, pass it EXACTLY as-is to the script - do NOT manually edit settings.yaml. Use when the user wants to (1) define new note types, (2) manage note type configurations, (3) set up folder and property mappings, (4) create note type templates, or (5) view existing note types. Triggers on keywords like note types, note type config, manage note types, define note type, note type wizard."
 ---
 
 # Obsidian Note Types Manager
@@ -390,13 +390,22 @@ client:
   template: templates/client-intake.md
 ```
 
+## Execution Paths
+
+There are two ways to manage note types:
+
+1. **Wizard Mode** (interactive terminal): `--wizard` guides through all options step by step
+2. **Direct Mode** (Claude Code / CI): Use `--config '{...}'` with JSON for non-interactive operation
+
+For Claude Code, always prefer Direct Mode with `--config`.
+
 ## Interactive Mode
 
 ### Terminal
-Im Terminal werden Sie interaktiv durch die Optionen geführt.
+In terminal mode, the interactive wizard guides you through note type creation and editing.
 
 ### Claude Code / Non-Interactive
-Bei Aufruf ohne Terminal (z.B. in Claude Code) wird JSON zurückgegeben:
+When called without a terminal (e.g., in Claude Code), JSON is returned:
 ```json
 {
   "interactive_required": true,
@@ -405,25 +414,9 @@ Bei Aufruf ohne Terminal (z.B. in Claude Code) wird JSON zurückgegeben:
 }
 ```
 
-Verwenden Sie `--config='...'` oder `--yes` um direkt Werte zu übergeben.
+Use `--config='...'` or `--yes` to pass values directly.
 
 ## Exit Codes
 
 - `0`: Success
 - `1`: Error (note type not found, validation failed, etc.)
-
-## Integration with Claude Code
-
-When user requests note type management:
-
-1. Determine the action (list, add, edit, remove)
-2. Run the appropriate command
-3. For complex setups, use wizard mode
-4. Report results and next steps
-
-Example workflow:
-```
-User: "I want to add a note type for meeting notes"
-Claude: Uses wizard mode to interactively create the type
-Result: New note type defined with proper folder and properties
-```

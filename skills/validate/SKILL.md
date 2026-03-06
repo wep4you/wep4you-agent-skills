@@ -191,13 +191,25 @@ Claude: [runs validator in auto mode]
 Claude: ✅ Fixed 2 issues. Vault is now compliant.
 ```
 
+## Remaining Issues After Auto-Fix
+
+Some issues cannot be auto-fixed and require manual intervention:
+
+| Issue | Why No Auto-Fix | Suggested Action |
+|-------|----------------|------------------|
+| Type Property Violations | Type-specific rules vary | Review and update manually |
+| Type Format Violations | Ambiguous correction | Check property format docs |
+| Unknown note types | Cannot infer correct type | Assign type manually |
+
+When `--fix` leaves remaining issues, report them to the user with specific file paths and suggested corrections.
+
 ## Interactive Mode
 
 ### Terminal
-Im Terminal werden Sie interaktiv durch die Optionen geführt.
+In terminal mode, the interactive wizard guides you through validation options.
 
 ### Claude Code / Non-Interactive
-Bei Aufruf ohne Terminal (z.B. in Claude Code) wird JSON zurückgegeben:
+When called without a terminal (e.g., in Claude Code), JSON is returned:
 ```json
 {
   "interactive_required": true,
@@ -206,4 +218,4 @@ Bei Aufruf ohne Terminal (z.B. in Claude Code) wird JSON zurückgegeben:
 }
 ```
 
-Verwenden Sie `--config='...'` oder `--yes` um direkt Werte zu übergeben.
+Use `--config='...'` or `--yes` to pass values directly.

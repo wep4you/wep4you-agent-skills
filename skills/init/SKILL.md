@@ -9,6 +9,32 @@ description: "Initialize a new Obsidian vault with a chosen PKM methodology (LYT
 
 Initialize a new Obsidian vault with a chosen Personal Knowledge Management (PKM) methodology.
 
+## Quick Start
+
+```bash
+# Check vault status
+uv run "${CLAUDE_PLUGIN_ROOT}/commands/init.py" /path/to/vault --check
+
+# List available methodologies
+uv run "${CLAUDE_PLUGIN_ROOT}/commands/init.py" --list
+
+# Initialize with interactive wizard (follow JSON prompt_type responses)
+uv run "${CLAUDE_PLUGIN_ROOT}/commands/init.py" /path/to/vault
+```
+
+### Prompt Types Overview
+
+| prompt_type | User Choice | Flag |
+|-------------|-------------|------|
+| `action_required` | continue/abort/reset | `--action=` |
+| `methodology_required` | lyt-ace/para/zettelkasten/minimal | `-m` |
+| `note_types_required` | all/custom | `--note-types=` |
+| `ranking_system_required` | rank/priority | `--ranking-system=` |
+| `properties_required` | all/custom | `--core-properties=` |
+| `custom_properties_input` | free text / none | `--custom-properties=` |
+| `per_type_properties_combined` | per-type selection | `--per-type-props=` |
+| `git_init_required` | yes/no | `--git=` |
+
 ## ⛔ FORBIDDEN - READ THIS FIRST ⛔
 
 **NEVER call these scripts directly:**
@@ -295,10 +321,10 @@ Show what was created and suggest:
 ## Interactive Mode
 
 ### Terminal
-Im Terminal werden Sie interaktiv durch die Optionen geführt.
+In terminal mode, the interactive wizard guides you through vault initialization step by step.
 
 ### Claude Code / Non-Interactive
-Bei Aufruf ohne Terminal (z.B. in Claude Code) wird JSON zurückgegeben:
+When called without a terminal (e.g., in Claude Code), JSON is returned:
 ```json
 {
   "interactive_required": true,
@@ -307,7 +333,7 @@ Bei Aufruf ohne Terminal (z.B. in Claude Code) wird JSON zurückgegeben:
 }
 ```
 
-Verwenden Sie `--config='...'` oder `--yes` um direkt Werte zu übergeben.
+Use `--config='...'` or `--yes` to pass values directly.
 
 ## Exit Codes
 

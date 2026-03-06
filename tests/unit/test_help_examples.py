@@ -14,9 +14,7 @@ import sys
 from pathlib import Path
 
 # Add skills directory to path
-sys.path.insert(
-    0, str(Path(__file__).parent.parent.parent / "skills" / "obsidian_commands")
-)
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "skills" / "obsidian_commands"))
 
 from help_command import find_command, find_subcommand
 
@@ -73,14 +71,11 @@ class TestBug78bPropsNOWizard:
         add_subcmd = find_subcommand(cmd, "add")
 
         # Description or examples should mention --yes
-        mentions_yes = (
-            "--yes" in add_subcmd.description.lower()
-            or any("--yes" in ex for ex in add_subcmd.examples)
+        mentions_yes = "--yes" in add_subcmd.description.lower() or any(
+            "--yes" in ex for ex in add_subcmd.examples
         )
 
-        assert mentions_yes, (
-            f"props add should document --yes flag. Desc: {add_subcmd.description}"
-        )
+        assert mentions_yes, f"props add should document --yes flag. Desc: {add_subcmd.description}"
 
     def test_props_remove_does_not_claim_wizard(self):
         """props remove should NOT claim to have a wizard (none exists)."""
@@ -97,9 +92,8 @@ class TestBug78bPropsNOWizard:
         cmd = find_command("props")
         remove_subcmd = find_subcommand(cmd, "remove")
 
-        mentions_yes = (
-            "--yes" in remove_subcmd.description.lower()
-            or any("--yes" in ex for ex in remove_subcmd.examples)
+        mentions_yes = "--yes" in remove_subcmd.description.lower() or any(
+            "--yes" in ex for ex in remove_subcmd.examples
         )
 
         assert mentions_yes, (
@@ -127,9 +121,8 @@ class TestBugEswTemplatesNOWizard:
         cmd = find_command("templates")
         create_subcmd = find_subcommand(cmd, "create")
 
-        mentions_content = (
-            "--content" in create_subcmd.description.lower()
-            or any("--content" in ex for ex in create_subcmd.examples)
+        mentions_content = "--content" in create_subcmd.description.lower() or any(
+            "--content" in ex for ex in create_subcmd.examples
         )
 
         assert mentions_content, (
@@ -165,9 +158,8 @@ class TestBugEswTemplatesNOWizard:
         cmd = find_command("templates")
         delete_subcmd = find_subcommand(cmd, "delete")
 
-        mentions_yes = (
-            "--yes" in delete_subcmd.description.lower()
-            or any("--yes" in ex for ex in delete_subcmd.examples)
+        mentions_yes = "--yes" in delete_subcmd.description.lower() or any(
+            "--yes" in ex for ex in delete_subcmd.examples
         )
 
         assert mentions_yes, (
@@ -216,9 +208,7 @@ class TestBugOuoConfigNOWizard:
         cmd = find_command("config")
         create_subcmd = find_subcommand(cmd, "create")
 
-        mentions_methodology = any(
-            "--methodology" in ex for ex in create_subcmd.examples
-        )
+        mentions_methodology = any("--methodology" in ex for ex in create_subcmd.examples)
 
         assert mentions_methodology, (
             f"config create should show --methodology. Examples: {create_subcmd.examples}"
