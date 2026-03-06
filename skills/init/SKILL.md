@@ -2,7 +2,7 @@
 name: init
 version: "0.37.0"
 license: MIT
-description: "Initialize a new Obsidian vault with a chosen PKM methodology (LYT-ACE, PARA, Zettelkasten, or Minimal). Creates folder structure, configuration files, and frontmatter standards. Use when the user wants to (1) create a new Obsidian vault, (2) set up a vault with a specific methodology, (3) initialize vault configuration, or (4) scaffold a new PKM system. Triggers on keywords like init vault, create vault, new obsidian vault, setup vault, scaffold vault."
+description: "Initializes a new Obsidian vault with a PKM methodology (LYT-ACE, PARA, Zettelkasten, or Minimal) via the obsidian:init command and init.py wrapper. Creates folder structure, settings.yaml configuration, sample notes, templates, Bases views, and Home.md. Use this skill whenever the user wants to create or initialize a new vault, set up a vault with a specific methodology, scaffold a PKM system, check vault initialization status (--check), list available methodologies (--list), reset or migrate an existing vault, or run obsidian:init. This is a multi-step interactive wizard — the skill contains the exact prompt_type flow and CLI flags needed. Always consult for vault initialization, vault setup, or methodology selection. This skill only handles initial setup — not ongoing config changes (use config), not validation (use validate), not template management (use templates), not note type changes after init (use note-types)."
 ---
 
 # Obsidian Vault Initializer

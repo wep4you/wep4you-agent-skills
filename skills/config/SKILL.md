@@ -2,7 +2,7 @@
 name: config
 version: "1.1.0"
 license: MIT
-description: "Configuration loader and manager for Obsidian vault settings. Use when the user wants to (1) load vault configuration, (2) customize note type definitions, (3) manage frontmatter defaults, (4) merge configuration files, (5) validate configuration structure, or (6) save custom vault settings. Triggers on keywords like load config, vault settings, note type config, frontmatter defaults, merge configs, validate configuration."
+description: "Manages YAML configuration files (settings.yaml, default.yaml) for Obsidian vaults via obsidian:config commands, settings_loader.py, and config_loader.py. Use this skill to inspect current vault config (obsidian:config show), validate config structure (obsidian:config validate), view config diffs from defaults (obsidian:config diff), edit settings (obsidian:config edit), create missing settings.yaml (obsidian:config create), list available methodologies, merge YAML overrides, check the config hierarchy (defaults vs vault-specific overrides), debug YAML parsing errors, or understand how settings_loader.py and config_loader.py work programmatically. Always consult for obsidian:config commands, settings.yaml questions, config file management, or methodology listings. This skill manages configuration files only — not frontmatter property schemas (use frontmatter), not note validation (use validate), not note type definitions (use note-types), not templates (use templates), not vault initialization (use init)."
 ---
 
 # Config Loader

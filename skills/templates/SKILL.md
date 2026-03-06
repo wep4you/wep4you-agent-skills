@@ -2,7 +2,7 @@
 name: templates
 version: "1.2.0"
 license: MIT
-description: "Template management system for Obsidian vaults. Use when the user wants to (1) list available note templates, (2) create new templates, (3) apply templates to notes, (4) manage template variables, or (5) work with Templater plugin syntax. Triggers on keywords like template, create note from template, list templates, apply template, template variables."
+description: "Manages note templates for Obsidian vaults via obsidian:templates commands and templates.py CLI — listing, creating, applying, editing, and deleting templates with variable substitution ({{date}}, {{title}}, {{up}}, custom --var key=value) and Templater plugin support. Use this skill to list available templates (plugin + vault), show template content, create or delete custom templates, apply a template to a new note with variable substitution, check Templater plugin status, or understand template syntax (Templater vs fallback). Always consult for obsidian:templates commands, template creation/application, or when creating new notes from templates. This skill manages templates only — not frontmatter property definitions (use frontmatter), not note-type configurations (use note-types), not vault config files (use config), not note validation (use validate)."
 ---
 
 # Obsidian Templates

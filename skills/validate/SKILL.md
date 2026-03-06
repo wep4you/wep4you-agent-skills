@@ -2,7 +2,7 @@
 name: validate
 license: MIT
 version: "1.8.0"
-description: "Obsidian vault validation and auto-fix tool using settings.yaml as single source of truth. Detects missing frontmatter, validates required properties, and auto-fixes common issues. Use when the user wants to (1) validate vault frontmatter against standards, (2) check for missing required properties, (3) fix common issues like unquoted wikilinks or wrong date formats, (4) audit vault compliance with type-specific rules, (5) run maintenance checks on their Obsidian vault, or (6) log validation results for audit trails. Triggers on keywords like validate vault, check frontmatter, fix vault issues, vault audit, maintenance check, note-type validation, audit log."
+description: "Scans and auto-fixes Obsidian vault markdown files against frontmatter standards defined in settings.yaml via the obsidian:validate command and validator scripts. Use this skill to validate notes for missing required properties (type, up, created, daily, tags), fix unquoted wikilinks or incorrect date formats, check note-type compliance per folder, run bulk validation with --fix or --dry-run, generate JSONL audit logs, do periodic vault maintenance, or validate specific folders or files. Always consult for obsidian:validate commands, vault auditing, frontmatter fixing, bulk note scanning, or compliance checking. This skill validates and fixes actual note contents — not config/settings files (use config), not note type definitions (use note-types), not templates (use templates), not property schema definitions (use frontmatter)."
 ---
 
 # Obsidian Validator

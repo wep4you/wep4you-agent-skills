@@ -2,7 +2,7 @@
 name: frontmatter
 version: "1.1.0"
 license: MIT
-description: "Frontmatter property management for Obsidian vaults. Use when the user wants to (1) manage core frontmatter properties, (2) configure type-specific properties, (3) list property definitions, (4) add or remove properties, (5) get required properties for validation. Triggers on keywords like frontmatter properties, manage properties, configure frontmatter, list properties, add property."
+description: "Manages frontmatter property definitions (schemas) for Obsidian vaults via obsidian:props commands and frontmatter.py CLI. Use this skill to add, remove, or list core properties (type, up, created, daily, collection, related) and type-specific properties (e.g. status for projects, author for sources, mood for dailies, tags for dots/maps), check which properties are required vs optional for a note type, change a property between required/optional, export property schemas as YAML or JSON, or understand the property type system (string, date, wikilink, list[string], list[wikilink]). Always consult this skill for obsidian:props commands, frontmatter property definitions, property schema questions, or when adding/removing fields from note types. This skill manages property definitions only — not note validation (use validate), not note-type creation (use note-types), not settings.yaml editing (use config), not templates (use templates)."
 ---
 
 # Frontmatter Property Management
