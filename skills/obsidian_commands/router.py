@@ -6,8 +6,7 @@
 """
 Command Router for Obsidian Commands
 
-Routes commands to their appropriate handlers while maintaining
-backward compatibility with deprecated command names.
+Routes commands to their appropriate handlers and normalizes command names.
 
 Usage:
     from router import CommandRouter, route_command
@@ -27,8 +26,6 @@ import sys
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-
-from .deprecation import check_deprecation, get_replacement_command, show_deprecation_warning
 
 # Type alias for command handlers
 CommandHandler = Callable[[list[str]], int]
@@ -89,6 +86,11 @@ class CommandRouter:
             self._handler_validate,
             "Vault validation",
         )
+        self.register(
+            "obsidian:help",
+            self._handler_help,
+            "Help for all commands",
+        )
 
     def register(
         self,
@@ -113,7 +115,7 @@ class CommandRouter:
         )
 
     def get_handler(self, command: str) -> CommandHandler | None:
-        """Get handler for a command, checking deprecation.
+        """Get handler for a command.
 
         Args:
             command: Command name (with or without obsidian: prefix)
@@ -121,13 +123,6 @@ class CommandRouter:
         Returns:
             Command handler function or None
         """
-        # Check for deprecation and show warning
-        if check_deprecation(command):
-            show_deprecation_warning(command)
-            replacement = get_replacement_command(command)
-            if replacement:
-                command = replacement
-
         # Normalize command name
         normalized = self._normalize_command(command)
         info = self._commands.get(normalized)
@@ -213,6 +208,52 @@ class CommandRouter:
 
         return self._run_skill_script("validate", "validator.py", transformed_args)
 
+    def _handler_help(self, args: list[str]) -> int:
+        """Handle obsidian:help command."""
+        return self._run_obsidian_commands_script("help_command.py", args)
+
+    def _run_obsidian_commands_script(
+        self,
+        script_name: str,
+        args: list[str],
+    ) -> int:
+        """Run a script from the obsidian_commands directory.
+
+        Args:
+            script_name: Script filename
+            args: Arguments to pass
+
+        Returns:
+            Exit code from script
+        """
+        import subprocess
+
+        # Find script path
+        script_path = Path(__file__).parent / script_name
+
+        if not script_path.exists():
+            print(f"Script not found: {script_path}", file=sys.stderr)
+            return 1
+
+        try:
+            # Using uv run to execute skill scripts (trusted internal paths)
+            result = subprocess.run(  # noqa: S603
+                ["/usr/bin/env", "uv", "run", str(script_path), *args],
+                check=False,
+            )
+            return result.returncode
+        except FileNotFoundError:
+            # Fallback if uv not available
+            try:
+                result = subprocess.run(  # noqa: S603
+                    [sys.executable, str(script_path), *args],
+                    check=False,
+                )
+                return result.returncode
+            except Exception as e:
+                print(f"Error running script: {e}", file=sys.stderr)
+                return 1
+
     def _run_skill_script(
         self,
         skill_name: str,
@@ -297,7 +338,11 @@ def main() -> int:
 
     parser = argparse.ArgumentParser(description="Obsidian Command Router")
     parser.add_argument("command", nargs="?", help="Command to run")
-    parser.add_argument("args", nargs="*", help="Command arguments")
+    parser.add_argument(
+        "args",
+        nargs=argparse.REMAINDER,
+        help="Command arguments (including --flags)",
+    )
     parser.add_argument("--list", action="store_true", help="List available commands")
 
     args = parser.parse_args()

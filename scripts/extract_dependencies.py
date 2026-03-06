@@ -178,11 +178,21 @@ def extract_script_dependencies(script_path: Path) -> ScriptDependencies:
 
 
 def find_skill_scripts(skills_dir: Path) -> list[Path]:
-    """Find all Python scripts in skills directory."""
+    """Find all Python scripts in skills directory.
+
+    This function specifically looks for executable scripts (with PEP 723 blocks),
+    not library modules. Library modules in `core/` are excluded.
+    """
     scripts: list[Path] = []
     for script in skills_dir.rglob("*.py"):
         # Skip __pycache__ and test files
         if "__pycache__" in str(script) or "test_" in script.name:
+            continue
+        # Skip __init__.py files (library modules, not scripts)
+        if script.name == "__init__.py":
+            continue
+        # Skip core library modules (shared code, not standalone scripts)
+        if "/core/" in str(script):
             continue
         scripts.append(script)
     return sorted(scripts)

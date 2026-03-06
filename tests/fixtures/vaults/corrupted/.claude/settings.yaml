@@ -1,0 +1,6 @@
+version: 1
+methodology: invalid-methodology
+core_properties: not-a-list
+note_types:
+  broken:
+    missing_description: true

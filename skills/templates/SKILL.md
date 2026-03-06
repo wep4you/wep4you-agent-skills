@@ -1,8 +1,8 @@
 ---
 name: templates
-version: "1.1.0"
+version: "1.2.0"
 license: MIT
-description: "Template management system for Obsidian vaults. Use when the user wants to (1) list available note templates, (2) create new templates, (3) apply templates to notes, (4) manage template variables, or (5) work with Templater plugin syntax. Triggers on keywords like template, create note from template, list templates, apply template, template variables."
+description: "Manages note templates for Obsidian vaults via obsidian:templates commands and templates.py CLI — listing, creating, applying, editing, and deleting templates with variable substitution ({{date}}, {{title}}, {{up}}, custom --var key=value) and Templater plugin support. Use this skill to list available templates (plugin + vault), show template content, create or delete custom templates, apply a template to a new note with variable substitution, check Templater plugin status, or understand template syntax (Templater vs fallback). Always consult for obsidian:templates commands, template creation/application, or when creating new notes from templates. This skill manages templates only — not frontmatter property definitions (use frontmatter), not note-type configurations (use note-types), not vault config files (use config), not note validation (use validate)."
 ---
 
 # Obsidian Templates
@@ -309,6 +309,45 @@ If Templater is installed (`.obsidian/plugins/templater-obsidian/`):
 - `tp.file.title` - File name
 
 Other Templater functions will be passed through as-is.
+
+## Templater vs Fallback: When to Use Which
+
+```
+Is Templater plugin installed? (.obsidian/plugins/templater-obsidian/)
+  ├── Yes → Use Templater syntax (dynamic dates, file info)
+  │         <% tp.date.now("YYYY-MM-DD") %>
+  │         <% tp.file.title %>
+  └── No  → Use fallback syntax (static substitution)
+            {{date}}, {{title}}, {{up}}
+```
+
+### Side-by-Side Syntax Comparison
+
+| Feature | Templater | Fallback |
+|---------|-----------|----------|
+| Current date | `<% tp.date.now("YYYY-MM-DD") %>` | `{{date}}` |
+| Tomorrow | `<% tp.date.tomorrow() %>` | *(not available)* |
+| File title | `<% tp.file.title %>` | `{{title}}` |
+| Custom var | *(use Templater user scripts)* | `{{varname}}` + `--var varname=value` |
+
+**Recommendation**: Use fallback syntax for portability. Use Templater only when you need dynamic features (date calculations, file system access).
+
+## Interactive Mode
+
+### Terminal
+In terminal mode, the interactive wizard guides you through template creation and management.
+
+### Claude Code / Non-Interactive
+When called without a terminal (e.g., in Claude Code), JSON is returned:
+```json
+{
+  "interactive_required": true,
+  "action": "create",
+  "config_schema": {...}
+}
+```
+
+Use `--config='...'` or `--yes` to pass values directly.
 
 ## Exit Codes
 

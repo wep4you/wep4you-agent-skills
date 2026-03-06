@@ -6,7 +6,7 @@
 """
 Obsidian Props Command - Property management for Obsidian notes
 
-Replaces the deprecated /frontmatter command with obsidian:props:
+Commands:
 - obsidian:props              List core properties
 - obsidian:props core         List core properties (explicit)
 - obsidian:props core add     Add core property
@@ -154,13 +154,21 @@ def cmd_core_list(manager: PropsManager, output_format: str = "text") -> int:
     return 0
 
 
-def cmd_core_add(manager: PropsManager, name: str, prop_type: str = "string") -> int:
+def is_interactive() -> bool:
+    """Check if running in an interactive terminal."""
+    return sys.stdin.isatty()
+
+
+def cmd_core_add(
+    manager: PropsManager, name: str, prop_type: str = "string", yes: bool = False
+) -> int:
     """Add a core property.
 
     Args:
         manager: PropsManager instance
         name: Property name
         prop_type: Property type
+        yes: Skip confirmation (--yes flag)
 
     Returns:
         Exit code
@@ -171,6 +179,23 @@ def cmd_core_add(manager: PropsManager, name: str, prop_type: str = "string") ->
         print(f"{COLOR_YELLOW}Property '{name}' already exists.{COLOR_RESET}")
         return 0
 
+    # If not interactive and no --yes flag, return JSON guidance
+    if not yes and not is_interactive():
+        result = {
+            "interactive_required": True,
+            "action": "add",
+            "name": name,
+            "message": f"Add --yes flag to confirm adding property '{name}'",
+            "property_to_add": {
+                "name": name,
+                "type": prop_type,
+            },
+            "current_properties": props,
+            "confirm_command": f"obsidian:props core add {name} --yes",
+        }
+        print(json.dumps(result, indent=2))
+        return 0
+
     props.append(name)
     manager.settings["core_properties"] = props
     manager._save_settings()
@@ -179,12 +204,13 @@ def cmd_core_add(manager: PropsManager, name: str, prop_type: str = "string") ->
     return 0
 
 
-def cmd_core_remove(manager: PropsManager, name: str) -> int:
+def cmd_core_remove(manager: PropsManager, name: str, yes: bool = False) -> int:
     """Remove a core property.
 
     Args:
         manager: PropsManager instance
         name: Property name
+        yes: Skip confirmation (--yes flag)
 
     Returns:
         Exit code
@@ -200,6 +226,22 @@ def cmd_core_remove(manager: PropsManager, name: str) -> int:
     if name in essential:
         print(f"{COLOR_RED}Cannot remove essential property: {name}{COLOR_RESET}")
         return 1
+
+    # If not interactive and no --yes flag, return JSON guidance
+    if not yes and not is_interactive():
+        result = {
+            "interactive_required": True,
+            "action": "remove",
+            "name": name,
+            "message": f"Add --yes flag to confirm removal of property '{name}'",
+            "property_to_remove": name,
+            "current_properties": props,
+            "warning": "This will remove the property from core_properties. "
+            "Existing notes will not be affected.",
+            "confirm_command": f"obsidian:props core remove {name} --yes",
+        }
+        print(json.dumps(result, indent=2))
+        return 0
 
     props.remove(name)
     manager.settings["core_properties"] = props
@@ -379,16 +421,6 @@ def cmd_types_list(manager: PropsManager, output_format: str = "text") -> int:
     return 0
 
 
-def show_deprecation_warning() -> None:
-    """Show deprecation warning for old command."""
-    warning = f"""
-{COLOR_YELLOW}{COLOR_BOLD}DEPRECATION WARNING{COLOR_RESET}
-{COLOR_YELLOW}The '/frontmatter' command is deprecated and will be removed in v2.0.0.{COLOR_RESET}
-{COLOR_CYAN}Use 'obsidian:props' instead.{COLOR_RESET}
-"""
-    print(warning, file=sys.stderr)
-
-
 def main() -> int:
     """CLI entry point."""
     parser = argparse.ArgumentParser(
@@ -425,11 +457,6 @@ Examples:
         default="text",
         help="Output format (default: text)",
     )
-    parser.add_argument(
-        "--deprecated-warning",
-        action="store_true",
-        help=argparse.SUPPRESS,
-    )
 
     subparsers = parser.add_subparsers(dest="command", help="Subcommand")
 
@@ -440,9 +467,21 @@ Examples:
     add_parser = core_sub.add_parser("add", help="Add core property")
     add_parser.add_argument("name", help="Property name")
     add_parser.add_argument("--type", default="string", help="Property type")
+    add_parser.add_argument(
+        "--yes",
+        "-y",
+        action="store_true",
+        help="Skip confirmation prompt (required for non-interactive)",
+    )
 
     remove_parser = core_sub.add_parser("remove", help="Remove core property")
     remove_parser.add_argument("name", help="Property name")
+    remove_parser.add_argument(
+        "--yes",
+        "-y",
+        action="store_true",
+        help="Skip confirmation prompt (required for non-interactive)",
+    )
 
     # type
     type_parser = subparsers.add_parser("type", help="Type-specific properties")
@@ -457,19 +496,15 @@ Examples:
 
     args = parser.parse_args()
 
-    # Show deprecation warning if triggered
-    if args.deprecated_warning:
-        show_deprecation_warning()
-
     # Initialize manager
     manager = PropsManager(args.vault)
 
     # Route to handler
     if args.command is None or args.command == "core":
         if hasattr(args, "core_action") and args.core_action == "add":
-            return cmd_core_add(manager, args.name, args.type)
+            return cmd_core_add(manager, args.name, args.type, getattr(args, "yes", False))
         elif hasattr(args, "core_action") and args.core_action == "remove":
-            return cmd_core_remove(manager, args.name)
+            return cmd_core_remove(manager, args.name, getattr(args, "yes", False))
         else:
             return cmd_core_list(manager, args.format)
     elif args.command == "type":

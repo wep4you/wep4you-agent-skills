@@ -12,6 +12,8 @@ Manages core and type-specific frontmatter properties:
 - Configure validation rules and defaults
 """
 
+from __future__ import annotations
+
 import argparse
 import json
 import sys

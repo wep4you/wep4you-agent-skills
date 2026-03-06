@@ -1,8 +1,8 @@
 ---
 name: config
-version: "1.0.1"
+version: "1.1.0"
 license: MIT
-description: "Configuration loader and manager for Obsidian vault settings. Use when the user wants to (1) load vault configuration, (2) customize note type definitions, (3) manage frontmatter defaults, (4) merge configuration files, (5) validate configuration structure, or (6) save custom vault settings. Triggers on keywords like load config, vault settings, note type config, frontmatter defaults, merge configs, validate configuration."
+description: "Manages YAML configuration files (settings.yaml, default.yaml) for Obsidian vaults via obsidian:config commands, settings_loader.py, and config_loader.py. Use this skill to inspect current vault config (obsidian:config show), validate config structure (obsidian:config validate), view config diffs from defaults (obsidian:config diff), edit settings (obsidian:config edit), create missing settings.yaml (obsidian:config create), list available methodologies, merge YAML overrides, check the config hierarchy (defaults vs vault-specific overrides), debug YAML parsing errors, or understand how settings_loader.py and config_loader.py work programmatically. Always consult for obsidian:config commands, settings.yaml questions, config file management, or methodology listings. This skill manages configuration files only — not frontmatter property schemas (use frontmatter), not note validation (use validate), not note type definitions (use note-types), not templates (use templates), not vault initialization (use init)."
 ---
 
 # Config Loader
@@ -20,14 +20,6 @@ Loads, manages, and merges YAML configuration files for Obsidian vault managemen
 | `obsidian:config methodologies` | List available methodologies |
 | `obsidian:config create --methodology para` | Create default settings |
 | `obsidian:config diff` | Show difference from defaults |
-
-## Deprecated Commands
-
-The following commands are deprecated and will be removed in v2.0.0:
-- `/config-show` → `obsidian:config show`
-- `/config-create` → `obsidian:config create`
-- `/config-validate` → `obsidian:config validate`
-- `/config-methodologies` → `obsidian:config methodologies`
 
 ## Architecture
 
@@ -393,9 +385,34 @@ When user requests configuration management:
 - Python 3.10+
 - PyYAML >= 6.0 (via PEP 723 inline dependencies)
 
-## Quality Standards
+## When to Use Each Module
 
-- Type hints on all functions (MyPy strict)
-- Ruff-compliant (100 char line length)
-- Full docstrings with examples
-- Error handling with descriptive messages
+```
+Need validation rules, note types, UP links?
+  → settings_loader.py (PRIMARY)
+
+Need to merge YAML config files?
+  → config_loader.py (UTILITY)
+
+Need methodology definitions for vault init?
+  → methodology loader (config/methodologies/loader.py)
+```
+
+**Recommended entry point**: Always start with `settings_loader.py` unless you specifically need YAML file merging.
+
+## Interactive Mode
+
+### Terminal
+In terminal mode, the interactive wizard guides you through configuration options.
+
+### Claude Code / Non-Interactive
+When called without a terminal (e.g., in Claude Code), JSON is returned:
+```json
+{
+  "interactive_required": true,
+  "action": "edit",
+  "config_schema": {...}
+}
+```
+
+Use `--config='...'` or `--yes` to pass values directly.

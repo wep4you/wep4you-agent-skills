@@ -1,8 +1,8 @@
 ---
 name: frontmatter
-version: "1.0.0"
+version: "1.1.0"
 license: MIT
-description: "Frontmatter property management for Obsidian vaults. Use when the user wants to (1) manage core frontmatter properties, (2) configure type-specific properties, (3) list property definitions, (4) add or remove properties, (5) get required properties for validation. Triggers on keywords like frontmatter properties, manage properties, configure frontmatter, list properties, add property."
+description: "Manages frontmatter property definitions (schemas) for Obsidian vaults via obsidian:props commands and frontmatter.py CLI. Use this skill to add, remove, or list core properties (type, up, created, daily, collection, related) and type-specific properties (e.g. status for projects, author for sources, mood for dailies, tags for dots/maps), check which properties are required vs optional for a note type, change a property between required/optional, export property schemas as YAML or JSON, or understand the property type system (string, date, wikilink, list[string], list[wikilink]). Always consult this skill for obsidian:props commands, frontmatter property definitions, property schema questions, or when adding/removing fields from note types. This skill manages property definitions only — not note validation (use validate), not note-type creation (use note-types), not settings.yaml editing (use config), not templates (use templates)."
 ---
 
 # Frontmatter Property Management
@@ -20,10 +20,6 @@ Manages core and type-specific frontmatter properties for Obsidian vault notes.
 | `obsidian:props type <name>` | List properties for a note type |
 | `obsidian:props required` | List required properties |
 | `obsidian:props types` | List all types with properties |
-
-## Deprecated Command
-
-The `/frontmatter` command is deprecated. Use `obsidian:props` instead.
 
 ## Quick Start
 
@@ -215,6 +211,45 @@ uv run scripts/frontmatter.py list-type --format yaml > type-properties.yaml
 2. **Configure Types**: Add type-specific properties for different note types
 3. **Validate**: Validator uses definitions to check notes
 4. **Iterate**: Adjust properties based on vault needs
+
+## Relationship with Other Skills
+
+| Skill | Relationship |
+|-------|-------------|
+| **config** | Reads property definitions from `settings.yaml` |
+| **validate** | Uses property rules for frontmatter validation |
+| **note-types** | Defines which properties each note type requires |
+| **templates** | Templates include frontmatter with these properties |
+| **init** | Sets up initial property definitions per methodology |
+
+**Boundary**: This skill manages property *definitions* (schema). The `validate` skill checks property *values* in actual notes.
+
+## Property Type Examples
+
+| Type | Example Value | YAML Format |
+|------|--------------|-------------|
+| `string` | `"active"` | `status: active` |
+| `date` | `2025-01-15` | `created: 2025-01-15` |
+| `wikilink` | `[[Parent]]` | `up: "[[Parent]]"` |
+| `list[string]` | `["tag1", "tag2"]` | `tags: [tag1, tag2]` |
+| `list[wikilink]` | `["[[A]]", "[[B]]"]` | `related: ["[[A]]", "[[B]]"]` |
+
+## Interactive Mode
+
+### Terminal
+In terminal mode, the interactive wizard guides you through property management.
+
+### Claude Code / Non-Interactive
+When called without a terminal (e.g., in Claude Code), JSON is returned:
+```json
+{
+  "interactive_required": true,
+  "action": "add",
+  "config_schema": {...}
+}
+```
+
+Use `--config='...'` or `--yes` to pass values directly.
 
 ## Best Practices
 

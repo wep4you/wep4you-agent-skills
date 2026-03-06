@@ -1,8 +1,8 @@
 ---
 name: validate
 license: MIT
-version: "1.7.0"
-description: "Obsidian vault validation and auto-fix tool using settings.yaml as single source of truth. Detects missing frontmatter, validates required properties, and auto-fixes common issues. Use when the user wants to (1) validate vault frontmatter against standards, (2) check for missing required properties, (3) fix common issues like unquoted wikilinks or wrong date formats, (4) audit vault compliance with type-specific rules, (5) run maintenance checks on their Obsidian vault, or (6) log validation results for audit trails. Triggers on keywords like validate vault, check frontmatter, fix vault issues, vault audit, maintenance check, note-type validation, audit log."
+version: "1.8.0"
+description: "Scans and auto-fixes Obsidian vault markdown files against frontmatter standards defined in settings.yaml via the obsidian:validate command and validator scripts. Use this skill to validate notes for missing required properties (type, up, created, daily, tags), fix unquoted wikilinks or incorrect date formats, check note-type compliance per folder, run bulk validation with --fix or --dry-run, generate JSONL audit logs, do periodic vault maintenance, or validate specific folders or files. Always consult for obsidian:validate commands, vault auditing, frontmatter fixing, bulk note scanning, or compliance checking. This skill validates and fixes actual note contents — not config/settings files (use config), not note type definitions (use note-types), not templates (use templates), not property schema definitions (use frontmatter)."
 ---
 
 # Obsidian Validator
@@ -24,13 +24,6 @@ uv run validate_command.py --vault /path/to/vault --type project --fix
 # Disable JSONL audit logging
 uv run validate_command.py --vault /path/to/vault --no-jsonl
 ```
-
-## Deprecated Flags
-
-| Deprecated | Replacement |
-|------------|-------------|
-| `--mode auto` | `--fix` |
-| `--mode report` | (default, no flag needed) |
 
 ## CRITICAL: Claude Code Behavior
 
@@ -197,3 +190,32 @@ Claude: Found 2 issues. Fixing automatically...
 Claude: [runs validator in auto mode]
 Claude: ✅ Fixed 2 issues. Vault is now compliant.
 ```
+
+## Remaining Issues After Auto-Fix
+
+Some issues cannot be auto-fixed and require manual intervention:
+
+| Issue | Why No Auto-Fix | Suggested Action |
+|-------|----------------|------------------|
+| Type Property Violations | Type-specific rules vary | Review and update manually |
+| Type Format Violations | Ambiguous correction | Check property format docs |
+| Unknown note types | Cannot infer correct type | Assign type manually |
+
+When `--fix` leaves remaining issues, report them to the user with specific file paths and suggested corrections.
+
+## Interactive Mode
+
+### Terminal
+In terminal mode, the interactive wizard guides you through validation options.
+
+### Claude Code / Non-Interactive
+When called without a terminal (e.g., in Claude Code), JSON is returned:
+```json
+{
+  "interactive_required": true,
+  "action": "fix",
+  "config_schema": {...}
+}
+```
+
+Use `--config='...'` or `--yes` to pass values directly.

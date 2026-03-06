@@ -107,6 +107,11 @@ def cmd_show(manager: TemplateManager, name: str) -> int:
     return 0
 
 
+def is_interactive() -> bool:
+    """Check if running in an interactive terminal."""
+    return sys.stdin.isatty()
+
+
 def cmd_create(manager: TemplateManager, name: str, content: str | None = None) -> int:
     """Create a new template.
 
@@ -118,6 +123,24 @@ def cmd_create(manager: TemplateManager, name: str, content: str | None = None) 
     Returns:
         Exit code
     """
+    # If no content and not interactive, return JSON guidance
+    if not content and not is_interactive():
+        result = {
+            "interactive_required": True,
+            "action": "create",
+            "name": name,
+            "message": f"Provide --content to create template '{name}'",
+            "config_schema": {
+                "content": "Template content (Markdown with optional Templater syntax)",
+            },
+            "example": {
+                "command": f"obsidian:templates create {name} --content '...'",
+                "content_example": "---\ntype: {{type}}\ncreated: {{date}}\n---\n\n# {{title}}",
+            },
+        }
+        print(json.dumps(result, indent=2))
+        return 0
+
     if manager.create_template(name, content or ""):
         return 0
     return 1
@@ -133,21 +156,57 @@ def cmd_edit(manager: TemplateManager, name: str) -> int:
     Returns:
         Exit code
     """
+    # If not interactive, return JSON guidance
+    if not is_interactive():
+        content = manager.show_template(name)
+        result = {
+            "interactive_required": True,
+            "action": "edit",
+            "name": name,
+            "message": f"Cannot edit template '{name}' interactively. "
+            "Use 'obsidian:templates show' to view, then create a new version.",
+            "current_content": content,
+            "hint": "In Claude Code mode, read the template file directly and edit it",
+        }
+        print(json.dumps(result, indent=2))
+        return 0
+
     if manager.edit_template(name):
         return 0
     return 1
 
 
-def cmd_delete(manager: TemplateManager, name: str) -> int:
+def cmd_delete(manager: TemplateManager, name: str, yes: bool = False) -> int:
     """Delete a template.
 
     Args:
         manager: TemplateManager instance
         name: Template name
+        yes: Skip confirmation (--yes flag)
 
     Returns:
         Exit code
     """
+    # If not interactive and no --yes flag, return JSON guidance
+    if not yes and not is_interactive():
+        content = manager.show_template(name)
+        result = {
+            "interactive_required": True,
+            "action": "delete",
+            "name": name,
+            "message": f"Add --yes flag to confirm deletion of template '{name}'",
+            "template_to_delete": {
+                "name": name,
+                "content_preview": (
+                    content[:200] + "..." if content and len(content) > 200 else content
+                ),
+            },
+            "warning": "This will permanently delete the template file.",
+            "confirm_command": f"obsidian:templates delete {name} --yes",
+        }
+        print(json.dumps(result, indent=2))
+        return 0
+
     if manager.delete_template(name):
         return 0
     return 1
@@ -254,6 +313,12 @@ Examples:
     # delete
     delete_parser = subparsers.add_parser("delete", help="Delete template")
     delete_parser.add_argument("name", help="Template name")
+    delete_parser.add_argument(
+        "--yes",
+        "-y",
+        action="store_true",
+        help="Skip confirmation prompt (required for non-interactive)",
+    )
 
     # apply
     apply_parser = subparsers.add_parser("apply", help="Apply template to file")
@@ -282,7 +347,7 @@ Examples:
     elif args.command == "edit":
         return cmd_edit(manager, args.name)
     elif args.command == "delete":
-        return cmd_delete(manager, args.name)
+        return cmd_delete(manager, args.name, getattr(args, "yes", False))
     elif args.command == "apply":
         return cmd_apply(manager, args.template, args.target, args.var)
     else:

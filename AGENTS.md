@@ -335,11 +335,36 @@ uv run scripts/install_skills.py --platform copilot --category obsidian
 
 ---
 
-## Issue Tracking (Beads)
+## Development Workflow: TDD + Beads + SubAgents
+
+### 1. TDD - Test Driven Development (MANDATORY)
+
+**EVERY task MUST follow this cycle:**
+
+```
++-------------------------------------------------------------+
+|  1. RED:   Write tests FIRST -> Tests MUST FAIL             |
+|  2. GREEN: Implement code -> ONLY until tests pass          |
+|  3. REFACTOR: Improve code -> Tests stay green              |
++-------------------------------------------------------------+
+```
+
+**Rules:**
+- Tests FIRST - no code without prior tests
+- Tests MUST initially fail - green tests at creation = wrong tests
+- Terminal AND Claude Code modes must be tested
+- No shortcuts - TDD is NOT skipped
+
+### 2. Beads - Task Planning & Tracking
 
 This project uses **beads** (`bd`) for issue tracking. Issues are stored in `.beads/` and tracked in git.
 
-### Quick Reference
+**Use Beads for:**
+- Multi-session tasks
+- Tasks with dependencies
+- Discovered work during implementation
+
+#### Quick Reference
 
 ```bash
 bd ready              # Find available work (no blockers)
@@ -352,7 +377,26 @@ bd close <id1> <id2>  # Close multiple at once
 bd sync               # Sync with git remote
 ```
 
-### Workflow Pattern
+#### Bead Structure for Autonomous SubAgents
+
+```markdown
+## Goal
+[Clear, measurable goal]
+
+## TDD - Tests FIRST
+[Concrete test cases to create]
+
+## To Create / To Change
+[Table with files and changes]
+
+## Success Criteria
+[Checkboxes with verifiable criteria]
+
+## Ralph-Wiggum Start
+[Complete command with --max-iterations 20]
+```
+
+#### Workflow Pattern
 
 1. **Start**: Run `bd ready` to find actionable work
 2. **Claim**: Use `bd update <id> --status=in_progress`
@@ -360,11 +404,52 @@ bd sync               # Sync with git remote
 4. **Complete**: Use `bd close <id>`
 5. **Sync**: Always run `bd sync` at session end
 
-### Key Concepts
+#### Key Concepts
 
 - **Dependencies**: Issues can block other issues. `bd ready` shows only unblocked work.
 - **Priority**: P0=critical, P1=high, P2=medium, P3=low, P4=backlog (use numbers, not words)
 - **Types**: task, bug, feature, epic, question, docs
+
+### 3. SubAgent Control (Ralph-Wiggum)
+
+**Principle:** Main-Agent controls only, SubAgents work.
+
+```
+Main Agent (Orchestration)
+├── bd ready -> Get next Bead
+├── bd show <id> -> Check details
+├── /ralph-wiggum:ralph-loop "..." -> Start SubAgent
+│   └── SubAgent works autonomously (max 20 iterations)
+│       └── Output: <promise>BEAD X DONE</promise>
+├── bd close <id> -> Close Bead
+└── Continue to next Bead
+```
+
+**Rules for Main-Agent:**
+1. NO code changes in Main-Agent - only orchestration
+2. Beads must contain ALL info for autonomous SubAgent
+3. After each Bead: `bd close <id>` + brief summary
+
+#### Ralph-Wiggum Usage
+
+When using Ralph-Wiggum loops, **both** the `--completion-promise` flag AND the `<promise>` tag in the prompt are required:
+
+```bash
+# CORRECT - Promise flag matches promise tag text
+/ralph-wiggum:ralph-loop "Do task X. When done, output <promise>TASK DONE</promise>" --completion-promise "TASK DONE" --max-iterations 20
+
+# WRONG - Missing --completion-promise flag (runs infinitely!)
+/ralph-wiggum:ralph-loop "Do task X. Output <promise>TASK DONE</promise> when done."
+
+# WRONG - Promise text doesn't match flag
+/ralph-wiggum:ralph-loop "Output <promise>COMPLETE</promise>" --completion-promise "DONE"
+```
+
+**Key rules:**
+1. Always set `--completion-promise "TEXT"` flag
+2. The TEXT must exactly match what's between `<promise>TEXT</promise>` in prompt
+3. Always set `--max-iterations 20` (standard for feature tasks)
+4. Use short, unique promise texts (e.g., "BEAD 1 DONE", "TESTS PASS")
 
 ---
 
