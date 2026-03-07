@@ -27,10 +27,15 @@ import argparse
 import json
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-# Import from templates in same directory
+# Import from templates.py in same directory (not the parent package)
 sys.path.insert(0, str(Path(__file__).parent))
-from templates import TemplateManager
+
+if TYPE_CHECKING:
+    from skills.templates.scripts.templates import TemplateManager
+else:
+    from templates import TemplateManager
 
 # ANSI colors
 COLOR_GREEN = "\033[92m"

@@ -290,7 +290,7 @@ def get_property_default(prop_name: str, note_type: str | None = None) -> Any:  
     if note_type and note_type in DEFAULT_TYPE_PROPERTIES:
         type_props = DEFAULT_TYPE_PROPERTIES[note_type]
         if prop_name in type_props:
-            spec = type_props[prop_name]
+            spec: dict[str, Any] = type_props[prop_name]
             if "values" in spec:
                 return spec["values"][0]  # Return first allowed value
             prop_type = spec.get("type", "string")

@@ -617,8 +617,8 @@ def build_settings_yaml(
 
     # Collect all methodology-defined properties (core + note type specific)
     methodology_properties = set(method_config["core_properties"])
-    for type_config in note_types.values():
-        props = type_config.get("properties", {})
+    for nt_config in note_types.values():
+        props = nt_config.get("properties", {})
         methodology_properties.update(props.get("additional_required", []))
         methodology_properties.update(props.get("optional", []))
 

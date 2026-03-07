@@ -221,7 +221,7 @@ class TestValidatePropertyName:
         name = "a" * MIN_PROPERTY_NAME_LENGTH
         # Ensure it starts with a letter
         name = "ab" if MIN_PROPERTY_NAME_LENGTH == 2 else name
-        is_valid, error = validate_property_name(name)
+        is_valid, _error = validate_property_name(name)
         assert is_valid is True
 
     def test_truncated_property_name_warning(self):
@@ -229,7 +229,7 @@ class TestValidatePropertyName:
         # If someone enters 'myOwnPro' instead of 'myOwnProp', it still passes
         # but we can't detect truncation at this level
         # This test documents the limitation
-        is_valid, error = validate_property_name("myOwnPro")
+        is_valid, _error = validate_property_name("myOwnPro")
         assert is_valid is True  # We can't detect intended name
 
 

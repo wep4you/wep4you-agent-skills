@@ -296,7 +296,7 @@ class TestPropsInteractiveMode:
             "daily",
             "--yes",
         ]
-        exit_code, stdout, stderr = run_command(cmd, test_vault)
+        exit_code, _stdout, stderr = run_command(cmd, test_vault)
 
         # Should succeed without returning interactive_required
         assert exit_code == 0, f"Command failed: {stderr}"
@@ -423,7 +423,7 @@ class TestTemplatesInteractiveMode:
             "to_delete",
             "--yes",
         ]
-        exit_code, stdout, stderr = run_command(cmd, test_vault)
+        exit_code, _stdout, stderr = run_command(cmd, test_vault)
 
         # Should succeed without returning interactive_required
         # This test should FAIL initially - --yes flag doesn't exist yet
