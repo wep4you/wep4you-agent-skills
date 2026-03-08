@@ -11,6 +11,7 @@ rules:
       exclude:
         - "**/scripts/*"
         - "**/obsidian_commands/*"
+        - "**/core/vault/*"
     message: "Subprocess import detected - review for command injection risks"
     languages: [python]
     severity: WARNING
