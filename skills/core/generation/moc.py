@@ -149,9 +149,7 @@ def update_moc(
         # Add new links before end of Contents section
         if in_contents and new_links:
             remaining = lines[i + 1 :]
-            is_trailing = line.strip() == "" and not any(
-                ln.strip() for ln in remaining
-            )
+            is_trailing = line.strip() == "" and not any(ln.strip() for ln in remaining)
             if line.startswith("##") or is_trailing:
                 # Add links before next section or end
                 for link in new_links:
