@@ -166,7 +166,7 @@ class TestInitWorkflow:
             "--per-type-props=project:none;area:none;resource:none;archive:none",
             "--git=no",
         ]
-        exit_code, stdout, stderr = run_command(cmd, project_root)
+        exit_code, _stdout, stderr = run_command(cmd, project_root)
 
         assert exit_code == 0, f"Command failed: {stderr}"
 
@@ -362,7 +362,7 @@ tags: []
             str(initialized_vault),
             "--no-jsonl",
         ]
-        exit_code, stdout, stderr = run_command(cmd, project_root)
+        exit_code, stdout, _stderr = run_command(cmd, project_root)
 
         assert exit_code == 1, "Should fail with issues"
         assert "Empty Types" in stdout
@@ -494,7 +494,7 @@ class TestTypesWorkflow:
             "--config",
             config,
         ]
-        exit_code, stdout, stderr = run_command(cmd, project_root)
+        exit_code, _stdout, stderr = run_command(cmd, project_root)
 
         assert exit_code == 0, f"Command failed: {stderr}"
         assert (initialized_vault / "Meetings").is_dir()
@@ -739,7 +739,7 @@ class TestTemplatesWorkflow:
             "--content",
             "# {{title}}\n\nTest template content.",
         ]
-        exit_code, stdout, stderr = run_command(cmd, project_root)
+        exit_code, _stdout, stderr = run_command(cmd, project_root)
 
         assert exit_code == 0, f"Command failed: {stderr}"
         assert (initialized_vault / "x" / "templates" / "test-template.md").exists()

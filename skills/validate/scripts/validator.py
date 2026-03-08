@@ -50,16 +50,23 @@ except ImportError:
         _config_scripts = Path(__file__).parent.parent.parent / "config" / "scripts"
         if str(_config_scripts) not in sys.path:
             sys.path.insert(0, str(_config_scripts))
-        from settings_loader import (
+        from settings_loader import (  # type: ignore[no-redef]
             Settings,
             infer_note_type_from_path,
             load_settings,
         )
-        from settings_loader import should_exclude as settings_should_exclude
+        from settings_loader import (
+            should_exclude as _settings_should_exclude,
+        )
 
-        # Wrap for consistent interface
-        def should_exclude(settings: Settings, file_path: Path) -> bool:  # type: ignore[misc]
-            return settings_should_exclude(settings, file_path)
+        # Wrap for consistent interface — signature must match core version
+        def should_exclude(
+            settings: Settings,
+            file_path: Path,
+            vault_path: Path | None = None,
+        ) -> bool:
+            result: bool = _settings_should_exclude(settings, file_path)
+            return result
 
         CORE_AVAILABLE = True
     except ImportError:

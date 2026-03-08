@@ -18,6 +18,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -113,7 +114,7 @@ def interactive_type_definition(
 
 def run_wizard(
     note_types: dict[str, dict[str, Any]],
-    on_create: callable,
+    on_create: Callable[..., Any],
 ) -> None:
     """Interactive wizard to create a new note type.
 
