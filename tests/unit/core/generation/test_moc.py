@@ -7,8 +7,6 @@ Run with: uv run pytest tests/core/generation/test_moc.py -v
 from datetime import date
 from pathlib import Path
 
-import pytest
-
 from skills.core.generation.moc import (
     FOLDER_DESCRIPTIONS,
     create_folder_mocs,
@@ -273,13 +271,8 @@ class TestUpdateMoc:
         assert "## Contents" in updated_content
         assert 'type: "map"' in updated_content
 
-    @pytest.mark.skip(reason="Bug in update_moc: any(lines).strip() - any() returns bool")
     def test_add_new_links(self, tmp_path):
-        """Test adding new links to Contents section.
-
-        Note: This test is skipped due to a bug in the source code at line 162:
-        `any(lines[i + 1 :]).strip()` - any() returns a bool which has no .strip()
-        """
+        """Test adding new links to Contents section."""
         moc_path = tmp_path / "_Projects_MOC.md"
         moc_content = """---
 type: "map"
@@ -341,13 +334,8 @@ Old description that should be replaced.
         updated_content = moc_path.read_text()
         assert "New and improved description." in updated_content
 
-    @pytest.mark.skip(reason="Bug in update_moc: any(lines).strip() - any() returns bool")
     def test_multiple_updates_at_once(self, tmp_path):
-        """Test applying multiple updates simultaneously.
-
-        Note: This test is skipped due to a bug in the source code at line 162:
-        `any(lines[i + 1 :]).strip()` - any() returns a bool which has no .strip()
-        """
+        """Test applying multiple updates simultaneously."""
         moc_path = tmp_path / "_Projects_MOC.md"
         moc_content = """---
 type: "map"

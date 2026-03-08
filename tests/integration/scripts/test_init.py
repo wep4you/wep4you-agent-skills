@@ -38,7 +38,9 @@ from skills.init.scripts.content_generators import (  # noqa: E402
 )
 from skills.init.scripts.init_vault import (  # noqa: E402
     choose_methodology_interactive,
+    git_commit_changes,
     init_vault,
+    is_interactive,
     main,
     print_methodologies,
     show_migration_hint,
@@ -1580,6 +1582,218 @@ class TestBuildSettingsYamlPerTypeProperties:
         assert "123invalid" not in settings["note_types"]["project"]["properties"]["optional"]
         # Warning should have been printed
         assert "Warning" in captured.getvalue()
+
+
+class TestGitCommitChanges:
+    """Tests for git_commit_changes function."""
+
+    def test_git_not_found(self, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+        """Test behavior when git is not in PATH."""
+        with patch("skills.init.scripts.init_vault.shutil.which", return_value=None):
+            result = git_commit_changes(tmp_path, "test commit")
+
+        assert result is False
+        assert "Git not found" in capsys.readouterr().out
+
+    def test_not_a_git_repo(self, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+        """Test behavior when directory has no .git."""
+        with patch("skills.init.scripts.init_vault.shutil.which", return_value="/usr/bin/git"):
+            result = git_commit_changes(tmp_path, "test commit")
+
+        assert result is False
+        assert "Not a git repository" in capsys.readouterr().out
+
+    def test_dry_run(self, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+        """Test dry-run mode skips actual git operations."""
+        (tmp_path / ".git").mkdir()
+
+        with patch("skills.init.scripts.init_vault.shutil.which", return_value="/usr/bin/git"):
+            result = git_commit_changes(tmp_path, "test commit", dry_run=True)
+
+        assert result is True
+        assert "DRY RUN" in capsys.readouterr().out
+
+    def test_no_changes_to_commit(self, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+        """Test when git status returns no changes."""
+        import subprocess
+
+        (tmp_path / ".git").mkdir()
+
+        mock_add = patch(
+            "skills.init.scripts.init_vault.subprocess.run",
+            side_effect=[
+                subprocess.CompletedProcess([], 0),  # git add .
+                subprocess.CompletedProcess([], 0, stdout=""),  # git status --porcelain (empty)
+            ],
+        )
+
+        with patch("skills.init.scripts.init_vault.shutil.which", return_value="/usr/bin/git"):
+            with mock_add:
+                result = git_commit_changes(tmp_path, "test commit")
+
+        assert result is True
+        assert "No changes to commit" in capsys.readouterr().out
+
+    def test_successful_commit(self, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+        """Test successful git commit flow."""
+        import subprocess
+
+        (tmp_path / ".git").mkdir()
+
+        mock_run = patch(
+            "skills.init.scripts.init_vault.subprocess.run",
+            side_effect=[
+                subprocess.CompletedProcess([], 0),  # git add .
+                subprocess.CompletedProcess([], 0, stdout="M file.md\n"),  # git status
+                subprocess.CompletedProcess([], 0),  # git commit
+            ],
+        )
+
+        with patch("skills.init.scripts.init_vault.shutil.which", return_value="/usr/bin/git"):
+            with mock_run:
+                result = git_commit_changes(tmp_path, "test commit")
+
+        assert result is True
+        assert 'Committed changes: "test commit"' in capsys.readouterr().out
+
+    def test_subprocess_error(self, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+        """Test CalledProcessError handling."""
+        import subprocess
+
+        (tmp_path / ".git").mkdir()
+
+        mock_run = patch(
+            "skills.init.scripts.init_vault.subprocess.run",
+            side_effect=subprocess.CalledProcessError(1, "git"),
+        )
+
+        with patch("skills.init.scripts.init_vault.shutil.which", return_value="/usr/bin/git"):
+            with mock_run:
+                result = git_commit_changes(tmp_path, "test commit")
+
+        assert result is False
+        assert "Git commit failed" in capsys.readouterr().out
+
+
+class TestIsInteractive:
+    """Tests for is_interactive function."""
+
+    def test_interactive_terminal(self) -> None:
+        """Test returns True when stdin is a TTY."""
+        with patch("sys.stdin") as mock_stdin:
+            mock_stdin.isatty.return_value = True
+            assert is_interactive() is True
+
+    def test_non_interactive(self) -> None:
+        """Test returns False when stdin is not a TTY."""
+        with patch("sys.stdin") as mock_stdin:
+            mock_stdin.isatty.return_value = False
+            assert is_interactive() is False
+
+
+class TestInitVaultEdgeCases:
+    """Tests for uncovered paths in init_vault function."""
+
+    def test_wizard_returns_none(self, tmp_path: Path) -> None:
+        """Test init_vault returns early when wizard returns None."""
+        vault_path = tmp_path / "wizard-none"
+
+        with patch("skills.init.scripts.init_vault.wizard_full_flow", return_value=None):
+            init_vault(vault_path, methodology=None, use_wizard=True)
+
+        # Vault should not be fully initialized (no settings.yaml)
+        assert not (vault_path / ".claude" / "settings.yaml").exists()
+
+    def test_wizard_with_custom_note_types(self, tmp_path: Path) -> None:
+        """Test wizard flow with custom note types from WizardConfig."""
+        from skills.core.models import NoteTypeConfig
+
+        vault_path = tmp_path / "wizard-custom"
+        config = WizardConfig(
+            methodology="minimal",
+            note_types={"note": METHODOLOGIES["minimal"]["note_types"]["note"]},
+            custom_note_types={
+                "recipe": NoteTypeConfig(
+                    name="recipe",
+                    description="Recipe note",
+                    folder_hints=["Recipes/"],
+                    required_properties=["ingredients"],
+                    optional_properties=["cuisine"],
+                    is_custom=True,
+                ),
+            },
+            core_properties=METHODOLOGIES["minimal"]["core_properties"],
+            ranking_system="rank",
+            create_samples=True,
+            init_git=False,
+        )
+
+        with patch("skills.init.scripts.init_vault.wizard_full_flow", return_value=config):
+            init_vault(vault_path, methodology=None, use_wizard=True)
+
+        assert (vault_path / ".claude" / "settings.yaml").exists()
+
+    def test_existing_vault_abort(self, tmp_path: Path) -> None:
+        """Test init_vault aborts when user chooses abort for existing vault."""
+        vault_path = tmp_path / "abort-vault"
+        vault_path.mkdir()
+        (vault_path / "existing.md").write_text("# Content")
+        (vault_path / ".obsidian").mkdir()
+
+        with patch(
+            "skills.init.scripts.init_vault.prompt_existing_vault_action",
+            return_value="abort",
+        ):
+            init_vault(vault_path, "minimal")
+
+        # Should not create settings.yaml since aborted
+        assert not (vault_path / ".claude" / "settings.yaml").exists()
+
+    def test_existing_vault_reset(self, tmp_path: Path) -> None:
+        """Test init_vault resets vault when user chooses reset."""
+        vault_path = tmp_path / "reset-vault"
+        vault_path.mkdir()
+        (vault_path / "old-note.md").write_text("# Old")
+        (vault_path / ".obsidian").mkdir()
+
+        with patch(
+            "skills.init.scripts.init_vault.prompt_existing_vault_action",
+            return_value="reset",
+        ):
+            init_vault(vault_path, "minimal")
+
+        # Should have initialized with new content
+        assert (vault_path / ".claude" / "settings.yaml").exists()
+
+    def test_note_types_filter(self, tmp_path: Path) -> None:
+        """Test init_vault with note_types_filter parameter."""
+        vault_path = tmp_path / "filter-vault"
+
+        init_vault(vault_path, "lyt-ace", note_types_filter=["map", "dot"])
+
+        settings = yaml.safe_load((vault_path / ".claude" / "settings.yaml").read_text())
+        # Only filtered types should be present
+        assert "map" in settings["note_types"]
+        assert "dot" in settings["note_types"]
+
+    def test_wizard_with_init_git(self, tmp_path: Path) -> None:
+        """Test wizard flow triggers git init when config.init_git is True."""
+        vault_path = tmp_path / "wizard-git"
+        config = WizardConfig(
+            methodology="minimal",
+            note_types={"note": METHODOLOGIES["minimal"]["note_types"]["note"]},
+            custom_note_types={},
+            core_properties=METHODOLOGIES["minimal"]["core_properties"],
+            ranking_system="rank",
+            create_samples=False,
+            init_git=True,
+        )
+
+        with patch("skills.init.scripts.init_vault.wizard_full_flow", return_value=config):
+            with patch("skills.init.scripts.init_vault.init_git_repo") as mock_git:
+                init_vault(vault_path, methodology=None, use_wizard=True)
+
+        mock_git.assert_called_once()
 
 
 class TestManualTestingBugfixesIntegration:

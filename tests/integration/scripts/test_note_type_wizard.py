@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -728,6 +729,396 @@ class TestHelperFunctions:
         req, opt = vsm._get_additional_properties(config3)
         assert req == []
         assert opt == []
+
+
+class TestVaultStructureManagerExtended:
+    """Extended tests for uncovered paths in VaultStructureManager."""
+
+    def _make_vsm(self, temp_vault: Path) -> Any:
+        """Helper to create a VaultStructureManager."""
+        from note_type_wizard import VaultStructureManager
+
+        return VaultStructureManager(
+            temp_vault,
+            temp_vault / "x" / "templates",
+            temp_vault / "x" / "bases",
+            "x",
+            ["type", "up", "created", "tags", "daily", "collection", "related"],
+        )
+
+    def test_create_structure_default_folder_hints(self, temp_vault: Path) -> None:
+        """Test create_structure generates default folder_hints if missing."""
+        vsm = self._make_vsm(temp_vault)
+        config: dict[str, Any] = {
+            "description": "Test notes",
+            "properties": {"additional_required": [], "optional": []},
+        }
+
+        vsm.create_structure("blog", config)
+
+        assert (temp_vault / "Blog").exists()
+        assert config["folder_hints"] == ["Blog/"]
+
+    def test_create_moc_already_exists(self, temp_vault: Path) -> None:
+        """Test _create_moc skips if MOC already exists."""
+        vsm = self._make_vsm(temp_vault)
+        folder = temp_vault / "Test"
+        folder.mkdir()
+        moc_path = folder / "_Test_MOC.md"
+        moc_path.write_text("# Existing MOC")
+
+        config = {"description": "Test", "folder_hints": ["Test/"]}
+        vsm._create_moc("test", config, folder)
+
+        assert moc_path.read_text() == "# Existing MOC"
+
+    def test_update_bases_view_already_exists(
+        self, temp_vault: Path, capsys: pytest.CaptureFixture
+    ) -> None:
+        """Test _update_bases_file skips if view already exists."""
+        vsm = self._make_vsm(temp_vault)
+
+        vsm._update_bases_file("test", "Test")
+        vsm._update_bases_file("test", "Test")
+
+        assert "already exists" in capsys.readouterr().out
+
+    def test_create_template_already_exists(
+        self, temp_vault: Path, capsys: pytest.CaptureFixture
+    ) -> None:
+        """Test _create_template skips if template exists."""
+        vsm = self._make_vsm(temp_vault)
+        template_path = temp_vault / "x" / "templates" / "test.md"
+        template_path.write_text("existing")
+
+        config = {"description": "Test", "properties": {}}
+        vsm._create_template("test", config)
+
+        assert "already exists" in capsys.readouterr().out
+
+    def test_create_template_with_all_property_types(self, temp_vault: Path) -> None:
+        """Test _create_template handles all core property types."""
+        vsm = self._make_vsm(temp_vault)
+
+        config = {
+            "description": "Test notes",
+            "properties": {
+                "additional_required": ["status", "custom_field"],
+                "optional": ["opt1"],
+            },
+        }
+
+        vsm._create_template("test", config)
+
+        content = (temp_vault / "x" / "templates" / "test.md").read_text()
+        assert 'up: "[[{{up}}]]"' in content
+        assert "created: {{date}}" in content
+        assert "tags: []" in content
+        assert "daily: " in content
+        assert "collection: " in content
+        assert "related: []" in content
+        assert 'status: "active"' in content
+        assert "custom_field: " in content
+        assert "opt1: " in content
+
+    def test_create_sample_note_already_exists(
+        self, temp_vault: Path, capsys: pytest.CaptureFixture
+    ) -> None:
+        """Test _create_sample_note skips if sample exists."""
+        vsm = self._make_vsm(temp_vault)
+        folder = temp_vault / "Test"
+        folder.mkdir()
+        sample = folder / "Sample Test.md"
+        sample.write_text("existing")
+
+        config = {"description": "Test", "properties": {}}
+        vsm._create_sample_note("test", config, folder)
+
+        assert "already exists" in capsys.readouterr().out
+
+    def test_create_sample_note_with_all_properties(self, temp_vault: Path) -> None:
+        """Test _create_sample_note handles all core property types and custom props."""
+        vsm = self._make_vsm(temp_vault)
+        folder = temp_vault / "Test"
+        folder.mkdir()
+
+        config = {
+            "description": "Test notes",
+            "properties": {
+                "additional_required": ["status", "source"],
+                "optional": ["rating"],
+            },
+        }
+
+        vsm._create_sample_note("test", config, folder)
+
+        content = (folder / "Sample Test.md").read_text()
+        assert 'type: "test"' in content
+        assert "daily:" in content
+        assert "collection:" in content
+        assert "related: []" in content
+        assert 'status: "active"' in content
+        assert "source: " in content
+        assert "rating: " in content
+
+    def test_remove_structure_removes_sample_and_moc(self, temp_vault: Path) -> None:
+        """Test remove_structure removes sample note and MOC file."""
+        vsm = self._make_vsm(temp_vault)
+        folder = temp_vault / "Blog"
+        folder.mkdir()
+
+        sample = folder / "Sample Blog.md"
+        sample.write_text("---\ntype: blog\n---")
+        moc = folder / "_Blog_MOC.md"
+        moc.write_text("---\ntype: map\n---")
+
+        config = {"folder_hints": ["Blog/"]}
+        vsm.remove_structure("blog", config, remove_folder=True)
+
+        assert not sample.exists()
+        assert not moc.exists()
+        assert not folder.exists()
+
+    def test_remove_from_bases_file_removes_view(self, temp_vault: Path) -> None:
+        """Test _remove_from_bases_file correctly removes a view entry."""
+        vsm = self._make_vsm(temp_vault)
+
+        vsm._update_bases_file("blog", "Blog")
+
+        bases = temp_vault / "x" / "bases" / "all_bases.base"
+        assert "name: Blog" in bases.read_text()
+
+        vsm._remove_from_bases_file("blog", "Blog")
+
+        assert "name: Blog" not in bases.read_text()
+
+    def test_remove_from_bases_file_no_folder(self, temp_vault: Path) -> None:
+        """Test _remove_from_bases_file uses capitalized name when no folder."""
+        vsm = self._make_vsm(temp_vault)
+
+        vsm._update_bases_file("blog", "Blog")
+        vsm._remove_from_bases_file("blog", None)
+
+        bases = temp_vault / "x" / "bases" / "all_bases.base"
+        assert "name: Blog" not in bases.read_text()
+
+    def test_rename_folder_os_error(self, temp_vault: Path, capsys: pytest.CaptureFixture) -> None:
+        """Test rename_folder handles OSError."""
+        vsm = self._make_vsm(temp_vault)
+        old_folder = temp_vault / "OldName"
+        old_folder.mkdir()
+
+        with patch.object(Path, "rename", side_effect=OSError("Permission denied")):
+            vsm.rename_folder("test", "OldName", "NewName")
+
+        assert "Failed to rename" in capsys.readouterr().out
+
+    def test_rename_folder_with_moc(self, temp_vault: Path) -> None:
+        """Test rename_folder updates MOC file during rename."""
+        vsm = self._make_vsm(temp_vault)
+        old_folder = temp_vault / "OldName"
+        old_folder.mkdir()
+        moc = old_folder / "_OldName_MOC.md"
+        moc.write_text("# OldName\n![[all_bases.base##OldName]]")
+
+        vsm.rename_folder("test", "OldName", "NewName")
+
+        new_moc = temp_vault / "NewName" / "_NewName_MOC.md"
+        assert new_moc.exists()
+        content = new_moc.read_text()
+        assert "# NewName" in content
+
+    def test_update_template_no_frontmatter(self, temp_vault: Path) -> None:
+        """Test update_template with no frontmatter in template."""
+        vsm = self._make_vsm(temp_vault)
+        template = temp_vault / "x" / "templates" / "test.md"
+        template.write_text("No frontmatter here")
+
+        vsm.update_template("test", {"properties": {}})
+
+        assert template.read_text() == "No frontmatter here"
+
+    def test_update_template_incomplete_frontmatter(self, temp_vault: Path) -> None:
+        """Test update_template with only one --- delimiter."""
+        vsm = self._make_vsm(temp_vault)
+        template = temp_vault / "x" / "templates" / "test.md"
+        template.write_text("---\nincomplete")
+
+        vsm.update_template("test", {"properties": {}})
+
+        assert template.read_text() == "---\nincomplete"
+
+    def test_update_template_full_rebuild(self, temp_vault: Path) -> None:
+        """Test update_template rebuilds frontmatter with all properties."""
+        vsm = self._make_vsm(temp_vault)
+        template = temp_vault / "x" / "templates" / "test.md"
+        template.write_text(
+            '---\ntype: "test"\n---\n\n# Test\n\n> Template for **Test** notes: Old desc\n'
+        )
+
+        config = {
+            "description": "New desc",
+            "properties": {
+                "additional_required": ["status", "custom"],
+                "optional": ["opt1"],
+            },
+        }
+        vsm.update_template("test", config)
+
+        content = template.read_text()
+        assert "daily:" in content
+        assert "collection:" in content
+        assert "related: []" in content
+        assert 'status: "active"' in content
+        assert "custom:" in content
+        assert "opt1:" in content
+        assert "New desc" in content
+
+    def test_update_notes_frontmatter_adds_missing_props(self, temp_vault: Path) -> None:
+        """Test update_notes_frontmatter adds properties to notes."""
+        vsm = self._make_vsm(temp_vault)
+        folder = temp_vault / "Notes"
+        folder.mkdir()
+
+        note = folder / "test.md"
+        note.write_text("---\ntype: test\n---\n\nContent")
+
+        config = {
+            "properties": {"additional_required": ["status"], "optional": ["rating"]},
+        }
+        vsm.update_notes_frontmatter("test", config, folder)
+
+        content = note.read_text()
+        assert "status:" in content
+        assert "rating:" in content
+
+    def test_update_notes_frontmatter_no_changes_needed(self, temp_vault: Path) -> None:
+        """Test update_notes_frontmatter skips notes with all properties present."""
+        vsm = self._make_vsm(temp_vault)
+        folder = temp_vault / "Notes"
+        folder.mkdir()
+
+        note = folder / "test.md"
+        note.write_text(
+            '---\ntype: test\nup: ""\ncreated: 2025-01-01\ntags: []\n'
+            "daily: \ncollection: \nrelated: []\n---\n\nContent"
+        )
+
+        config = {"properties": {"additional_required": [], "optional": []}}
+        vsm.update_notes_frontmatter("test", config, folder)
+
+        # Note should be unchanged (no missing props)
+
+    def test_update_notes_frontmatter_nonexistent_folder(self, temp_vault: Path) -> None:
+        """Test update_notes_frontmatter with nonexistent folder."""
+        vsm = self._make_vsm(temp_vault)
+        folder = temp_vault / "NonExistent"
+
+        vsm.update_notes_frontmatter("test", {"properties": {}}, folder)
+        # Should not raise
+
+
+class TestCliHandlersExtended:
+    """Extended tests for CLI handler coverage."""
+
+    def test_handle_add_interactive(self, manager: MagicMock) -> None:
+        """Test handle_add in interactive mode."""
+        from note_type_wizard import handle_add
+
+        inputs = ["Meeting notes", "Meetings/", "none", "none", "calendar"]
+        with patch("builtins.input", side_effect=inputs):
+            handle_add(manager, "meeting", None, non_interactive=False)
+
+        assert "meeting" in manager.note_types
+
+    def test_handle_edit_interactive(self, manager: MagicMock) -> None:
+        """Test handle_edit in interactive mode."""
+        from note_type_wizard import handle_edit
+
+        args = MagicMock()
+        inputs = ["Updated desc", "", "", "", ""]
+        with patch("builtins.input", side_effect=inputs):
+            handle_edit(manager, "project", None, non_interactive=False, args=args)
+
+    def test_handle_edit_non_interactive_all_args(self, manager: MagicMock) -> None:
+        """Test handle_edit with all CLI args set."""
+        from note_type_wizard import handle_edit
+
+        args = MagicMock()
+        args.description = "New desc"
+        args.folder = "NewFolder/"
+        args.required_props = "a,b"
+        args.optional_props = "c,d"
+        args.icon = "star"
+
+        handle_edit(manager, "project", None, non_interactive=True, args=args)
+
+        updated = manager.note_types["project"]
+        assert updated["description"] == "New desc"
+
+    def test_handle_remove_confirmed(self, manager: MagicMock) -> None:
+        """Test handle_remove with user confirmation."""
+        from note_type_wizard import handle_remove
+
+        with patch("builtins.input", return_value="y"):
+            handle_remove(manager, "project", skip_confirm=False)
+
+        assert "project" not in manager.note_types
+
+    def test_handle_wizard(self, manager: MagicMock) -> None:
+        """Test handle_wizard creates type via wizard."""
+        from note_type_wizard import handle_wizard
+
+        # name, desc, folders, required, optional, icon, confirm
+        inputs = ["newtype", "", "", "", "", "", "y"]
+        with patch("builtins.input", side_effect=inputs):
+            handle_wizard(manager)
+
+        assert "newtype" in manager.note_types
+
+
+class TestInteractiveTypeDefExtended:
+    """Extended tests for interactive_type_definition edge cases."""
+
+    def test_with_list_properties(self) -> None:
+        """Test interactive_type_definition when existing has list-style properties."""
+        from note_type_wizard import interactive_type_definition
+
+        existing = {
+            "description": "Test",
+            "folder_hints": ["Test/"],
+            "properties": ["prop1", "prop2"],
+            "icon": "file",
+        }
+
+        inputs = ["", "", "", "", ""]
+        with patch("builtins.input", side_effect=inputs):
+            result = interactive_type_definition("test", existing)
+
+        assert result["properties"]["additional_required"] == ["prop1", "prop2"]
+        assert result["properties"]["optional"] == []
+
+
+class TestRunWizardExtended:
+    """Extended tests for run_wizard."""
+
+    def test_run_wizard_with_required_properties(self) -> None:
+        """Test run_wizard prints required and optional in summary."""
+        from note_type_wizard import run_wizard
+
+        created = []
+
+        def on_create(name: str, config: dict) -> None:
+            created.append((name, config))
+
+        # name, desc, folders, required, optional, icon, confirm
+        inputs = ["blog", "Blog posts", "Blogs/", "author, category", "rating", "pen", "y"]
+        with patch("builtins.input", side_effect=inputs):
+            run_wizard({}, on_create)
+
+        assert len(created) == 1
+        assert created[0][1]["properties"]["additional_required"] == ["author", "category"]
+        assert created[0][1]["properties"]["optional"] == ["rating"]
 
 
 class TestEdgeCases:
