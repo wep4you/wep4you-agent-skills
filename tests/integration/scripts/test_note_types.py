@@ -874,5 +874,3 @@ class TestEdgeCases:
         with patch("pathlib.Path.cwd", return_value=temp_vault):
             manager = NoteTypesManager()
             assert manager.vault_path == temp_vault
-
-

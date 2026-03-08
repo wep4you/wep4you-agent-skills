@@ -93,18 +93,14 @@ class TestPromptChoice:
             result = prompt_choice("Pick:", ["a", "b", "c"])
             assert result == "b"
 
-    def test_no_default_shows_in_prompt(
-        self, capsys: pytest.CaptureFixture
-    ) -> None:
+    def test_no_default_shows_in_prompt(self, capsys: pytest.CaptureFixture) -> None:
         with patch("builtins.input", return_value="1"):
             prompt_choice("Pick:", ["a", "b"])
             captured = capsys.readouterr()
             assert " 1. a" in captured.out
             assert " 2. b" in captured.out
 
-    def test_default_marked_with_asterisk(
-        self, capsys: pytest.CaptureFixture
-    ) -> None:
+    def test_default_marked_with_asterisk(self, capsys: pytest.CaptureFixture) -> None:
         with patch("builtins.input", return_value="1"):
             prompt_choice("Pick:", ["a", "b"], default="b")
             captured = capsys.readouterr()
@@ -175,8 +171,6 @@ class TestFormatNonInteractiveResponse:
         assert result["warning"] == "Warning!"
 
     def test_none_values_excluded(self) -> None:
-        result = format_non_interactive_response(
-            action="add", name=None, message=None
-        )
+        result = format_non_interactive_response(action="add", name=None, message=None)
         assert "name" not in result
         assert "message" not in result

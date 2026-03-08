@@ -902,9 +902,7 @@ class TestVaultStructureManagerExtended:
         bases = temp_vault / "x" / "bases" / "all_bases.base"
         assert "name: Blog" not in bases.read_text()
 
-    def test_rename_folder_os_error(
-        self, temp_vault: Path, capsys: pytest.CaptureFixture
-    ) -> None:
+    def test_rename_folder_os_error(self, temp_vault: Path, capsys: pytest.CaptureFixture) -> None:
         """Test rename_folder handles OSError."""
         vsm = self._make_vsm(temp_vault)
         old_folder = temp_vault / "OldName"
@@ -955,7 +953,7 @@ class TestVaultStructureManagerExtended:
         vsm = self._make_vsm(temp_vault)
         template = temp_vault / "x" / "templates" / "test.md"
         template.write_text(
-            "---\ntype: \"test\"\n---\n\n# Test\n\n> Template for **Test** notes: Old desc\n"
+            '---\ntype: "test"\n---\n\n# Test\n\n> Template for **Test** notes: Old desc\n'
         )
 
         config = {
@@ -1002,7 +1000,7 @@ class TestVaultStructureManagerExtended:
 
         note = folder / "test.md"
         note.write_text(
-            "---\ntype: test\nup: \"\"\ncreated: 2025-01-01\ntags: []\n"
+            '---\ntype: test\nup: ""\ncreated: 2025-01-01\ntags: []\n'
             "daily: \ncollection: \nrelated: []\n---\n\nContent"
         )
 
